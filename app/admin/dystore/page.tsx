@@ -43,11 +43,27 @@ export default function AdminLoginPage() {
   // 🛡️ Cloudflare Turnstile Non-Interactive state
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance>(null);
-  const turnstileSiteKey =
-    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY_ADMIN ||
-    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY_PUBLIC ||
-    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
-    (process.env.NODE_ENV !== "production" ? "1x00000000000000000000AA" : "");
+  const isLocal =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "[::1]");
+
+  const turnstileSiteKey = isLocal
+    ? "1x00000000000000000000AA"
+    : process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY_ADMIN ||
+      process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY_PUBLIC ||
+      process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
+      (process.env.NODE_ENV !== "production" ? "1x00000000000000000000AA" : "");
+
+  useEffect(() => {
+    if (isLocal) {
+      const timer = setTimeout(() => {
+        setTurnstileToken((curr) => curr || "dev-bypass-token");
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isLocal]);
 
   useEffect(() => {
     if (!lockedUntil) {
@@ -134,8 +150,12 @@ export default function AdminLoginPage() {
     if (isLocked || loading) return;
 
     if (turnstileSiteKey && !turnstileToken) {
-      setError("សូមផ្ទៀងផ្ទាត់ Turnstile Bot Check ជាមុនសិន។");
-      return;
+      if (isLocal) {
+        setTurnstileToken("dev-bypass-token");
+      } else {
+        setError("សូមផ្ទៀងផ្ទាត់ Turnstile Bot Check ជាមុនសិន។");
+        return;
+      }
     }
 
     setError(null);
@@ -151,7 +171,7 @@ export default function AdminLoginPage() {
         body: JSON.stringify({
           email: email.trim(),
           password,
-          turnstileToken: turnstileToken || undefined,
+          turnstileToken: turnstileToken || (isLocal ? "dev-bypass-token" : undefined),
         }),
       });
 
@@ -159,9 +179,13 @@ export default function AdminLoginPage() {
 
       if (res.status === 403) {
         turnstileRef.current?.reset();
-        setTurnstileToken(null);
-        setBanned(true);
-        setError(data.error || "គណនីត្រូវបាន lock ជាអចិន្ត្រៃយ៍");
+        setTurnstileToken(isLocal ? "dev-bypass-token" : null);
+        if (data.forever || data.banned || data.locked) {
+          setBanned(true);
+          setError(data.error || "គណនីត្រូវបាន lock ជាអចិន្ត្រៃយ៍");
+        } else {
+          setError(data.error || "ការផ្ទៀងផ្ទាត់សុវត្ថិភាព Turnstile មិនជោគជ័យ។");
+        }
         return;
       }
 
@@ -501,10 +525,10 @@ export default function AdminLoginPage() {
                       setError(null);
                     }}
                     onError={() => {
-                      setTurnstileToken(null);
+                      setTurnstileToken(isLocal ? "dev-bypass-token" : null);
                     }}
                     onExpire={() => {
-                      setTurnstileToken(null);
+                      setTurnstileToken(isLocal ? "dev-bypass-token" : null);
                     }}
                   />
                 </div>

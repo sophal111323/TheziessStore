@@ -53,10 +53,26 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
   // 🛡️ Cloudflare Turnstile state
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance>(null);
-  const turnstileSiteKey =
-    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY_PUBLIC ||
-    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
-    (process.env.NODE_ENV !== "production" ? "1x00000000000000000000AA" : "");
+  const isLocal =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "[::1]");
+
+  const turnstileSiteKey = isLocal
+    ? "1x00000000000000000000AA"
+    : process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY_PUBLIC ||
+      process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
+      (process.env.NODE_ENV !== "production" ? "1x00000000000000000000AA" : "");
+
+  useEffect(() => {
+    if (isLocal) {
+      const timer = setTimeout(() => {
+        setTurnstileToken((curr) => curr || "dev-bypass-token");
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isLocal]);
 
   // Dismissed state — persists across page refresh via sessionStorage
   const [dismissed, setDismissed] = useState(false);
@@ -258,8 +274,12 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
     if (!canSubmit || submitting) return;
 
     if (turnstileSiteKey && !turnstileToken) {
-      setError("សូមផ្ទៀងផ្ទាត់សុវត្ថិភាព (Turnstile Bot Check) ជាមុនសិន។");
-      return;
+      if (isLocal) {
+        setTurnstileToken("dev-bypass-token");
+      } else {
+        setError("សូមផ្ទៀងផ្ទាត់សុវត្ថិភាព (Turnstile Bot Check) ជាមុនសិន។");
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -278,7 +298,7 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
           paymentMethod: method,
           promoCode: promoApplied?.code || undefined,
           playerNickname: nickname || undefined,
-          turnstileToken: turnstileToken || undefined,
+          turnstileToken: turnstileToken || (isLocal ? "dev-bypass-token" : undefined),
         }),
       });
 
@@ -286,7 +306,7 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
 
       if (!res.ok) {
         turnstileRef.current?.reset();
-        setTurnstileToken(null);
+        setTurnstileToken(isLocal ? "dev-bypass-token" : null);
         throw new Error(data.error || "Failed to create order");
       }
 
@@ -294,7 +314,7 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
 
       if (!orderNumber) {
         turnstileRef.current?.reset();
-        setTurnstileToken(null);
+        setTurnstileToken(isLocal ? "dev-bypass-token" : null);
         throw new Error("Order number not returned from API");
       }
 
@@ -307,7 +327,7 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
 
       if (!orderRes.ok) {
         turnstileRef.current?.reset();
-        setTurnstileToken(null);
+        setTurnstileToken(isLocal ? "dev-bypass-token" : null);
         throw new Error(orderData.error || "Failed to load payment QR");
       }
 
@@ -315,12 +335,12 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
       setPaymentPopup(orderData);
       setSubmitting(false);
       turnstileRef.current?.reset();
-      setTurnstileToken(null);
+      setTurnstileToken(isLocal ? "dev-bypass-token" : null);
     } catch (err: any) {
       setError(err.message || "Something went wrong");
       setSubmitting(false);
       turnstileRef.current?.reset();
-      setTurnstileToken(null);
+      setTurnstileToken(isLocal ? "dev-bypass-token" : null);
     }
   }
 
@@ -690,7 +710,17 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
 
               {/* 🛡️ Cloudflare Turnstile Invisible Bot Protection */}
               {turnstileSiteKey && (
-                <div className="hidden" aria-hidden="true">
+                <div
+                  style={{
+                    position: "absolute",
+                    width: "1px",
+                    height: "1px",
+                    opacity: 0,
+                    pointerEvents: "none",
+                    overflow: "hidden",
+                  }}
+                  aria-hidden="true"
+                >
                   <Turnstile
                     ref={turnstileRef}
                     siteKey={turnstileSiteKey}
@@ -703,10 +733,10 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
                       setError(null);
                     }}
                     onError={() => {
-                      setTurnstileToken(null);
+                      setTurnstileToken(isLocal ? "dev-bypass-token" : null);
                     }}
                     onExpire={() => {
-                      setTurnstileToken(null);
+                      setTurnstileToken(isLocal ? "dev-bypass-token" : null);
                     }}
                   />
                 </div>

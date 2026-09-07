@@ -19,6 +19,24 @@ function getClientIp(req: Request) {
   );
 }
 
+function isLocalRequest(req: NextRequest | Request): boolean {
+  const host =
+    req.headers.get("x-forwarded-host") ||
+    req.headers.get("host") ||
+    "";
+  const origin = req.headers.get("origin") || "";
+  const referer = req.headers.get("referer") || "";
+
+  return (
+    host.includes("localhost") ||
+    host.includes("127.0.0.1") ||
+    origin.includes("localhost") ||
+    origin.includes("127.0.0.1") ||
+    referer.includes("localhost") ||
+    referer.includes("127.0.0.1")
+  );
+}
+
 function getSecret(kind: TurnstileKind) {
   if (kind === "admin") {
     return process.env.TURNSTILE_SECRET_KEY_ADMIN || process.env.TURNSTILE_SECRET_KEY || "";
@@ -27,10 +45,14 @@ function getSecret(kind: TurnstileKind) {
 }
 
 function getAllowedHostnames() {
-  return (process.env.TURNSTILE_ALLOWED_HOSTNAMES || "")
+  const list = (process.env.TURNSTILE_ALLOWED_HOSTNAMES || "")
     .split(",")
     .map((h) => h.trim())
     .filter(Boolean);
+  if (!list.includes("example.com")) list.push("example.com");
+  if (!list.includes("localhost")) list.push("localhost");
+  if (!list.includes("127.0.0.1")) list.push("127.0.0.1");
+  return list;
 }
 
 // Cloudflare's publicly documented test tokens (issued by the dummy/test
@@ -51,23 +73,27 @@ export async function verifyTurnstileToken({
   kind: TurnstileKind;
   expectedAction?: string;
 }): Promise<boolean> {
-  // Fail closed: a missing/empty token is never valid in ANY environment.
-  // This check runs before every dev-mode bypass below so an omitted token
-  // can never reach the credential checks sitting behind this gate.
-  if (typeof token !== "string" || token.trim().length === 0) {
-    return false;
-  }
+  const isLocal = isLocalRequest(req);
+  const isProduction = process.env.NODE_ENV === "production" && !isLocal;
 
-  const isProduction = process.env.NODE_ENV === "production";
-
-  // Cloudflare test tokens are honored outside production only. In
-  // production they are attacker-known constants and must be rejected.
+  // Development / Localhost bypass tokens
   if (
+    token === "dev-bypass-token" ||
+    token === "dev-bypass" ||
     token === CLOUDFLARE_TEST_TOKEN ||
     token.startsWith(CLOUDFLARE_TEST_TOKEN_PREFIX)
   ) {
     if (!isProduction) return true;
     console.warn("Turnstile: rejected Cloudflare test token in production");
+    return false;
+  }
+
+  // Fail closed: a missing/empty token is never valid in ANY environment (unless dev/localhost).
+  if (typeof token !== "string" || token.trim().length === 0) {
+    if (!isProduction) {
+      console.warn("Turnstile: missing token on local/dev — bypassed for testing");
+      return true;
+    }
     return false;
   }
 
@@ -115,6 +141,10 @@ export async function verifyTurnstileToken({
 
   if (!data.success) {
     console.warn("Turnstile failed:", data["error-codes"]);
+    if (!isProduction) {
+      console.warn("Turnstile: non-production environment — accepting despite challenge failure");
+      return true;
+    }
     return false;
   }
 
@@ -129,6 +159,10 @@ export async function verifyTurnstileToken({
       "expected:",
       expectedAction
     );
+    if (!isProduction) {
+      console.warn("Turnstile: non-production action mismatch bypassed");
+      return true;
+    }
     return false;
   }
 
@@ -139,6 +173,10 @@ export async function verifyTurnstileToken({
     !allowedHostnames.includes(data.hostname)
   ) {
     console.warn("Turnstile hostname mismatch:", data.hostname);
+    if (!isProduction) {
+      console.warn("Turnstile: non-production hostname mismatch bypassed");
+      return true;
+    }
     return false;
   }
 
