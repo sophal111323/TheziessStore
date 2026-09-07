@@ -3,36 +3,38 @@
 <br />
 
 ```
-  ██████╗  ██╗   ██╗ ████████╗  ██████╗  ██████╗  ██╗   ██╗ ██████╗ 
-  ██╔══██╗ ╚██╗ ██╔╝ ╚══██╔══╝ ██╔═══██╗ ██╔══██╗ ██║   ██║ ██╔══██╗
-  ██║  ██║  ╚████╔╝     ██║    ██║   ██║ ██████╔╝ ██║   ██║ ██████╔╝
-  ██║  ██║   ╚██╔╝      ██║    ██║   ██║ ██╔═══╝  ██║   ██║ ██╔═══╝ 
-  ██████╔╝    ██║       ██║    ╚██████╔╝ ██║      ╚██████╔╝ ██║     
-  ╚═════╝     ╚═╝       ╚═╝     ╚═════╝  ╚═╝       ╚═════╝  ╚═╝     
+████████╗██╗  ██╗███████╗███████╗██╗███████╗███████╗███████╗████████╗ ██████╗ ██████╗ ███████╗
+╚══██╔══╝██║  ██║██╔════╝╚══███╔╝██║██╔════╝██╔════╝██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗██╔════╝
+   ██║   ███████║█████╗    ███╔╝ ██║█████╗  ███████╗███████╗   ██║   ██║   ██║██████╔╝█████╗  
+   ██║   ██╔══██║██╔══╝   ███╔╝  ██║██╔══╝  ╚════██║╚════██║   ██║   ██║   ██║██╔══██╗██╔══╝  
+   ██║   ██║  ██║███████╗███████╗██║███████╗███████║███████║   ██║   ╚██████╔╝██║  ██║███████╗
+   ╚═╝   ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝╚══════╝╚══════╝╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚══════╝
 ```
 
-### ⚡ Premium Instant Game Top-Up Platform for Cambodia 🇰🇭
+### 🎮 Premium Instant Game Top-Up & Digital Goods Platform 🇰🇭
 
-*Fast, secure, automated game currency delivery powered by KHQR payments & Next.js 15.*
+*Next-Generation Automated Gaming Storefront with Dynamic KHQR, Multi-Supplier API Fulfillment & Military-Grade 3FA Admin Security.*
 
 <br />
 
-[![Next.js](https://img.shields.io/badge/Next.js-15.1-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
-[![React](https://img.shields.io/badge/React-19.0-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4.0-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15.1-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
+[![React 19](https://img.shields.io/badge/React-19.0-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Prisma](https://img.shields.io/badge/Prisma-5.22-2D3748?style=for-the-badge&logo=prisma&logoColor=white)](https://prisma.io)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://neon.tech)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS_v4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
+[![Prisma ORM](https://img.shields.io/badge/Prisma-5.22-2D3748?style=for-the-badge&logo=prisma&logoColor=white)](https://prisma.io)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon_Serverless-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://neon.tech)
 
 <br />
 
-[![Developer](https://img.shields.io/badge/Developer-SokPhal-e91e8c?style=flat-square&logo=visual-studio-code&logoColor=white)](https://sophal.vercel.app/)
-[![Telegram Support](https://img.shields.io/badge/Telegram-@dytopup-24A1DE?style=flat-square&logo=telegram&logoColor=white)](https://t.me/dytopup)
+[![Developer](https://img.shields.io/badge/Developer-SokPhal-9333EA?style=flat-square&logo=visual-studio-code&logoColor=white)](https://sophal.vercel.app/)
+[![Security](https://img.shields.io/badge/Security-3FA_Protected-emerald?style=flat-square&logo=auth0&logoColor=white)](#-3-factor-authentication-3fa-architecture)
+[![Payment](https://img.shields.io/badge/Payment-KHQR_Bakong-red?style=flat-square)](#-payments--financial-engine)
+[![Telegram Support](https://img.shields.io/badge/Telegram-@TheziessStore-24A1DE?style=flat-square&logo=telegram&logoColor=white)](#)
 [![License](https://img.shields.io/badge/License-Proprietary-pink?style=flat-square)](#-license--copyright)
 
 <br />
 
-[✨ Core Features](#-core-features) • [⚡ 5-Min Quickstart](#-5-minute-quickstart) • [🛠️ Admin Control](#️-admin-control-center) • [🔐 Security Architecture](#-security-architecture) • [🚀 Deployment](#-deployment-guide) • [📄 License](#-license--copyright)
+[✨ Core Features](#-core-features) • [🔐 3FA Security](#-3-factor-authentication-3fa-architecture) • [⚡ Quickstart](#-5-minute-quickstart) • [🛠️ Admin Control](#️-admin-control-center) • [🔌 Supplier APIs](#-automated-top-up-suppliers) • [📂 Architecture](#-project-structure)
 
 </div>
 
@@ -42,19 +44,26 @@
 
 ## 🎯 Overview
 
-**DyTopup** is a modern, high-concurrency top-up ecosystem tailored for Cambodian gamers and digital merchants. Customers purchase in-game currencies (Mobile Legends Diamonds, Free Fire Diamonds, PUBG Mobile UC, Roblox Robux, and more) using dynamic **KHQR (Bakong / ABA / ACLEDA)** with real-time automated delivery dispatched straight to upstream providers (**Khmer TopUp** & **Bay2Game**).
+**TheziessStore** is an enterprise-grade digital top-up platform engineered specifically for high-concurrency game currency purchases across Cambodia. Customers instantly recharge diamonds and credits for **Mobile Legends: Bang Bang, Free Fire, PUBG Mobile, Genshin Impact, Honor of Kings, Roblox, and more** using instant **KHQR (Bakong / ABA PAY / ACLEDA)** with real-time automated delivery dispatched to upstream fulfillment suppliers (**Bay2Game, Khmer TopUp, FrozenYuki**).
 
-```
-┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-│   Customer UI   │ ────► │  DyTopup Engine │ ────► │   KHQR Gateway  │
-│  (Next.js App)  │       │ (Prisma + Neon) │       │ (Tola Saint/ABA)│
-└─────────────────┘       └────────┬────────┘       └─────────────────┘
-                                   │
-                                   ▼
-┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-│  Telegram Alert │ ◄──── │ Top-up Supplier │ ◄──── │ Automated Order │
-│ (1-Msg Summary) │       │ (Khmer TopUp)   │       │   Fulfillment   │
-└─────────────────┘       └─────────────────┘       └─────────────────┘
+```mermaid
+graph LR
+    subgraph Client ["Customer Experience"]
+        A[Customer Browser] -->|Select Game & UID| B[TheziessStore Front]
+        B -->|Scan Dynamic KHQR| C[Bakong / ABA Bank App]
+    end
+
+    subgraph Core ["Platform Engine"]
+        C -->|Instant Webhook| D[Payment Verification Engine]
+        D -->|Order PAID State| E[Fulfillment Orchestrator]
+        E -->|One-Click / Auto Dispatch| F[Supplier API Adapter]
+    end
+
+    subgraph Fulfillment ["Automated Upstream"]
+        F -->|Top-Up Dispatch| G[Bay2Game / Khmer TopUp / FrozenYuki]
+        G -->|Deliver Diamonds| H[Customer Game Account]
+        E -->|Single Summary Receipt| I[Telegram Notification Bot]
+    end
 ```
 
 ---
@@ -65,46 +74,44 @@
 <tr>
 <td width="50%" valign="top">
 
-### 🛍️ Customer Experience
-- 🎮 **Game Catalog:** Dynamic grid with custom badges (Hot, Best, Pass).
-- 🆔 **Real-Time Validation:** Automatic Player UID & server verification.
-- 💱 **Currency Switcher:** Seamless live toggle between USD ($) and KHR (៛).
-- 🔍 **Live Order Tracking:** 3-second polling with animated status timelines.
-- 🧾 **PDF Invoices:** Server-rendered branded invoices generated with `pdfkit`.
-- 📱 **Mobile Spring Animations:** Fluid iOS-style drawer navigation.
+### 🛍️ Customer Storefront
+- 🎮 **Dynamic Game Directory:** Rich interactive grid with custom badges (`HOT`, `BEST VALUE`, `WEEKLY PASS`).
+- 🆔 **Real-Time UID Verification:** Live server & player nickname validation before checkout.
+- 💱 **Live Currency Switcher:** Real-time dual display for **USD ($)** and **KHR (៛)** with precise exchange calculation.
+- ⏱️ **Zero-Friction Checkout:** Dynamic KHQR generated in sub-seconds with 180s live countdown and instant receipt.
+- 📱 **Edge-to-Edge Responsive UI:** Full-bleed mobile banners with smooth touch navigation and transparent anime mascot logo.
+- 🔍 **Live Order Tracking:** 3-second polling timeline with animated fulfillment steps and PDF invoice download.
 
 </td>
 <td width="50%" valign="top">
 
-### 🛡️ Admin Command Center
-- 🔐 **Obfuscated Login:** Stealth access route with progressive lockout.
-- 📦 **Catalog Management:** Reorderable games, packages & banners.
-- 📊 **Revenue Analytics:** Daily charts, transaction volume & top games.
-- 🚫 **Security Banlist:** Instant IP, UID, Phone, and Email blacklist.
-- 📜 **Tamper-Proof Audit:** Structured log tracking every administrative action.
-- 📱 **Flutter Companion:** Native Android/iOS companion app (`dytopup_dashboard`).
+### 🛡️ 3FA Admin Command Center
+- 🔐 **3-Factor Authentication (3FA):** Email/Password + Google Authenticator (TOTP) + 264-character Telegram Bot Security Key.
+- ⚡ **One-Click & Bulk API Fulfillment:** Direct `⚡ Call API` button on each order row plus batch fulfillment for all paid orders.
+- 📊 **Real-Time Revenue Analytics:** Live charts, top-selling games, daily transaction volume & conversion rates.
+- 📦 **Full Catalog Management:** Add, edit, reorder games, products, banners, FAQs, and supplier package mappings.
+- 🚫 **Fraud Defense & Blacklist:** Instant blacklist rules blocking abusive IPs, player UIDs, phone numbers, and emails.
+- 📜 **Immutable Audit Trail:** Cryptographically structured event log recording every sensitive admin operation.
 
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top">
 
-### 💳 Payments & Automation
-- 🇰🇭 **Universal KHQR:** Scannable across all 30+ Cambodian banking apps.
-- ⏱️ **Dynamic QR Expiry:** Precise 180s countdown with auto-cancellation.
-- 🤖 **Auto-Delivery:** Instant dispatch via Khmer TopUp and Bay2Game APIs.
-- 🔒 **HMAC Verification:** Webhook signature authentication preventing replay.
-- 🧪 **Simulation Mode:** Built-in sandbox mode for zero-cost local testing.
+### 💳 Payments & Financial Engine
+- 🇰🇭 **Universal KHQR Integration:** Seamlessly scannable by all 30+ Cambodian financial institutions.
+- 🔒 **HMAC-SHA256 Webhook Auth:** Replay-resistant webhook verification with payload signature validation.
+- ⚡ **Idempotent State Machine:** Strict database transitions (`PENDING` $\rightarrow$ `PAID` $\rightarrow$ `PROCESSING` $\rightarrow$ `DELIVERED`) preventing double-topups.
+- 🧪 **Zero-Cost Simulation Mode:** Built-in development sandbox engine for instant end-to-end testing without real bank funds.
 
 </td>
 <td width="50%" valign="top">
 
-### ⚡ Infrastructure & Security
-- 🛡️ **Progressive Lockout:** 3 fails = 1 min, 4 fails = 5 min, 5+ = progressive lock.
-- 📩 **Unified Telegram Bot:** Clean 1-message alert for payment + topup status.
-- 🍪 **SameSite=Strict Cookies:** Bulletproof CSRF & session hijacking defense.
-- 🌐 **Content Security Policy:** Nonce-based CSP guarding against XSS.
-- 🚀 **Tailwind CSS v4:** Ultra-optimized styling engine with Turbopack.
+### 🤖 Multi-Supplier Automation
+- 🔌 **Dynamic Upstream Routing:** Routes each product dynamically to Bay2Game, Khmer TopUp, or FrozenYuki.
+- 🔄 **Autonomous Status Sync:** Background status refresher resolving pending provider outcomes without duplicate deliveries.
+- 📩 **Unified Telegram Alerts:** Consolidated single-message receipts for payment confirmations and supplier delivery status.
+- 🛡️ **Progressive Lockout System:** Escalating lockout tiers defending against brute-force attacks across all auth factors.
 
 </td>
 </tr>
@@ -112,45 +119,94 @@
 
 ---
 
+## 🔐 3-Factor Authentication (3FA) Architecture
+
+TheziessStore implements a state-of-the-art **3-Tier Authentication Cascade** protecting the administrative command center:
+
+```
+[ Step 1: Credentials ] ──► [ Step 2: TOTP 2FA ] ──► [ Step 3: Telegram Security Key ] ──► [ Admin Dashboard ]
+Email + Master Password      Google Authenticator       264-Char High-Entropy Token          Full Access
+(Rate limit: 10 / 15m)       (6-Digit Time-Based)       (Issued via Telegram Bot /getkey)    (Strict Session)
+```
+
+1. **Factor 1: Master Credentials** — Email and high-entropy Argon2/scrypt hashed password evaluated with progressive IP rate-limiting.
+2. **Factor 2: Time-Based OTP (TOTP)** — RFC 6238 compliant 6-digit verification code generated via Google Authenticator or 1Password.
+3. **Factor 3: High-Entropy Telegram Security Key** — Dynamic 264-character cryptographic token generated directly through the store's private Telegram bot webhook (`/getkey`). Single-use with a strict 5-minute expiration window.
+
+---
+
+## 🔌 Automated Top-Up Suppliers
+
+TheziessStore abstracts provider differences through a unified supplier adapter layer (`lib/topup/`):
+
+| Provider | Supported Games | Protocol | Capabilities |
+| :--- | :--- | :--- | :--- |
+| **Bay2Game** | MLBB, Free Fire, Genshin, PUBG | REST / JSON | Instant top-up, Balance check, Order status query, Product catalog sync |
+| **Khmer TopUp** | MLBB, Free Fire, Telegram Stars | REST / HTTPS | Async/Sync top-up, Player verification, Webhook callback |
+| **FrozenYuki** | Mobile Legends, Free Fire, Global | REST / JSON | High-volume game currency dispatch, Dynamic package mapping |
+
+### Order Fulfillment Controls (`/admin/orders`):
+- **⚡ Call API**: Fulfills individual paid orders on demand with real-time status toast feedback.
+- **⚡ Retry API**: Safely re-attempts supplier delivery on failed orders without manual database edits.
+- **⚡ Call API for All Ready (N)**: Concurrently processes all pending paid orders in a single batch.
+
+---
+
 ## ⚡ 5-Minute Quickstart
 
-### 1. Clone Repository & Install Dependencies
+### Prerequisites
+- Node.js `20.x` or higher
+- PostgreSQL database (Recommended: [Neon Serverless](https://neon.tech))
+- Telegram Bot Token (from [@BotFather](https://t.me/botfather))
+
+### 1. Clone & Install
 
 ```bash
-git clone https://github.com/sophal111323/backdystore.git
-cd backdystore
+git clone https://github.com/sophal111323/backdystore.git theziessstore
+cd theziessstore
 npm install
 ```
 
-### 2. Configure Environment Variables
+### 2. Configure Environment
 
 ```bash
 cp .env.example .env
 ```
 
-Set your minimum environment keys in `.env`:
+Edit `.env` with your credentials:
 
 ```env
-# Database (Neon / Supabase Serverless Postgres)
-DATABASE_URL="postgresql://user:password@ep-sample.ap-southeast-1.neon.tech/dytopup?sslmode=require"
+# Database (Neon Serverless PostgreSQL)
+DATABASE_URL="postgresql://user:password@ep-divine-shape.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
 
-# Security & Admin Authentication
-ADMIN_JWT_SECRET="generate-a-super-secret-32-character-key-here"
-ADMIN_EMAIL="admin@dytopup.com"
-ADMIN_PASSWORD="YourSecurePassword123!@#"
+# Security & Admin 3FA Authentication
+ADMIN_JWT_SECRET="generate-a-secure-random-64-character-secret-key"
+ADMIN_EMAIL="admin@theziessstore.com"
+ADMIN_PASSWORD="YourSuperSecurePassword123!@#"
+ADMIN_TOTP_SECRET="JBSWY3DPEHPK3PXP" # Base32 secret for Google Authenticator
 
-# Payment Gateway (Tola Saint / Sandbox)
-PAYMENT_SIMULATION_MODE="true"
+# Telegram Bot (Fulfillment Alerts & 3FA Key Dispatch)
+TELEGRAM_BOT_TOKEN="1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ"
+TELEGRAM_CHAT_ID="-1001234567890"
+TELEGRAM_ADMIN_USER_IDS="123456789" # Telegram user IDs authorized to request 3FA keys
+
+# Payment Gateway (Tola Saint / KHQR)
+PAYMENT_SIMULATION_MODE="true" # Set false for production
 TOLA_SAINT_BASE_URL="https://api.tolasaint.com"
-TOLA_SAINT_API_KEY=""
-TOLA_SAINT_WEBHOOK_SECRET=""
+TOLA_SAINT_API_KEY="your-api-key"
+TOLA_SAINT_WEBHOOK_SECRET="your-webhook-secret"
 
-# Public Application URLs
+# Upstream Top-up Suppliers
+BAY2GAME_PARTNER_ID="your-partner-id"
+BAY2GAME_SECRET_KEY="your-secret-key"
+KHMER_TOPUP_API_KEY="your-api-key"
+
+# App URLs
 NEXT_PUBLIC_BASE_URL="http://localhost:3000"
 PUBLIC_APP_URL="http://localhost:3000"
 ```
 
-### 3. Initialize Database & Seed
+### 3. Initialize Database Schema
 
 ```bash
 npx prisma generate
@@ -158,116 +214,85 @@ npx prisma db push
 npm run db:seed
 ```
 
-### 4. Launch Development Server
+### 4. Start Development Server
 
 ```bash
 npm run dev
 ```
 
-* 🌐 **Storefront:** [http://localhost:3000](http://localhost:3000)
-* 🔒 **Admin Portal:** [http://localhost:3000/admin/dystore](http://localhost:3000/admin/dystore)
+- 🌐 **Storefront:** [http://localhost:3000](http://localhost:3000)
+- 🔒 **Admin Portal:** [http://localhost:3000/admin](http://localhost:3000/admin)
 
 ---
 
 ## 🛠️ Admin Control Center
 
-| Route | Functionality | Access Level |
-| :--- | :--- | :---: |
-| `/admin` | Main Dashboard & Live Sales Statistics | `Admin` |
-| `/admin/games` | Game Management (Add, Edit, Reorder, Badges) | `Admin` |
-| `/admin/products` | Top-Up Package Pricing & Supplier Mapping | `Admin` |
-| `/admin/orders` | Live Transactions, Status Sync & CSV Export | `Admin` |
-| `/admin/banners` | Homepage Hero Slider & Promotions | `Admin` |
-| `/admin/customers` | Aggregated Customer Directory & Lifetime Spend | `Admin` |
-| `/admin/banlist` | Fraud Prevention & Entity Blacklist (IP/UID) | `SuperAdmin` |
-| `/admin/audit-logs` | Immutable Audit Trail of Admin Operations | `SuperAdmin` |
-| `/admin/settings` | Branding, Announcement Bar & Maintenance Gate | `SuperAdmin` |
-
----
-
-## 🔐 Security Architecture
-
-```
-                                  ┌───────────────────────────┐
-                                  │      Incoming Request     │
-                                  └─────────────┬─────────────┘
-                                                │
-                                                ▼
-                                  ┌───────────────────────────┐
-                                  │  Edge Security Middleware │
-                                  │  (CSP Nonce, Strict Headers)│
-                                  └─────────────┬─────────────┘
-                                                │
-                     ┌──────────────────────────┴──────────────────────────┐
-                     ▼                                                     ▼
-        ┌─────────────────────────┐                           ┌─────────────────────────┐
-        │     Public Endpoints    │                           │     Admin Endpoints     │
-        │  • Zod Schema Validator │                           │  • SameSite=Strict Auth │
-        │  • IP Rate Limiter      │                           │  • Progressive Lockout  │
-        │  • Anti-IDOR Masking    │                           │  • RBAC Permission Gate │
-        └─────────────────────────┘                           └─────────────────────────┘
-```
-
-- 🛡️ **Progressive Lock Policy:** Brute-force mitigation algorithm (Fails 1-2: 0s, Fail 3: 1 min, Fail 4: 5 min, Fail 5+: 15-30 min).
-- 🍪 **Stateless Hybrid Session:** HttpOnly JWT with database `admin.active` revocation verification on every request.
-- ⚡ **Anti-SSRF Protection:** Outgoing requests are constrained strictly to predefined supplier hostnames.
-- 🛡️ **Upload Hardening:** Magic-byte inspection, file size capping (5MB), and SVG elimination to prevent stored XSS.
-
----
-
-## 🚀 Deployment Guide
-
-### Deploying to Vercel (Recommended)
-
-1. Push your repository to GitHub (`main` branch).
-2. Import the project into **[Vercel Dashboard](https://vercel.com/new)**.
-3. Configure Environment Variables (`DATABASE_URL`, `ADMIN_JWT_SECRET`, etc.).
-4. Set Build Command to `npm run build` and deploy!
-5. In your **Tola Saint Dashboard**, point your Webhook URL to:
-   ```
-   https://your-domain.vercel.app/api/payment/webhook/tolasaint
-   ```
+| Route | Purpose | Key Actions | Role Required |
+| :--- | :--- | :--- | :---: |
+| `/admin` | Live Dashboard | Real-time revenue charts, active order counts, quick stats | `Admin` |
+| `/admin/orders` | Order Management | ⚡ **Call API**, **Retry Failed**, **Batch Fulfill**, CSV Export | `Admin` |
+| `/admin/orders/[id]` | Order Deep Dive | Raw supplier response, player UID verification, delivery notes | `Admin` |
+| `/admin/games` | Catalog Manager | Add games, reorder display sequence, upload banner art | `Admin` |
+| `/admin/products` | Package Pricing | Configure diamond tiers, profit margins, supplier code mappings | `Admin` |
+| `/admin/banners` | Promo Hero Slider | Upload edge-to-edge promotional banners & set click links | `Admin` |
+| `/admin/customers` | Customer Directory | View lifetime spend, purchase history & player UID records | `Admin` |
+| `/admin/banlist` | Fraud Shield | Block malicious IP addresses, fraudulent UIDs & emails | `SuperAdmin` |
+| `/admin/audit-logs` | Compliance Trail | Immutable log of administrative actions, logins & IP addresses | `SuperAdmin` |
+| `/admin/settings` | Store Settings | Maintenance gate toggle, branding, exchange rate & announcements | `SuperAdmin` |
 
 ---
 
 ## 📂 Project Structure
 
 ```
-dytopup/
+TheziessStore/
 ├── app/
-│   ├── (storefront)/         # Home, Game details, Order tracker, FAQ, Blog
-│   ├── admin/                # Admin Panel UI pages
-│   └── api/                  # RESTful API handlers (Orders, Payment, Auth, Admin)
-├── components/               # Modular UI Components (Header, Footer, KHQR Sheet)
-├── lib/
-│   ├── payment/              # Tola Saint KHQR provider & sandbox engine
-│   ├── topup/                # Khmer TopUp & Bay2Game fulfillment adapters
-│   ├── auth.ts               # Web & Mobile authentication helpers
-│   ├── lockPolicy.ts         # Progressive lockout security policy
-│   └── telegram.ts           # Unified Telegram bot dispatcher
+│   ├── (storefront)/              # Customer views (Home, Checkout, Order Tracker, Privacy)
+│   ├── admin/                     # 3FA Admin command center views
+│   │   ├── orders/                # Order management with ⚡ Call API & bulk fulfillment
+│   │   ├── games/                 # Game catalog management
+│   │   ├── products/              # Product packages & supplier code mapping
+│   │   └── settings/              # Store branding, maintenance gate & controls
+│   └── api/                       # REST API handlers
+│       ├── admin/                 # Protected admin APIs (Auth 3FA, Orders, Fulfill, Upload)
+│       ├── orders/                # Order placement & public status tracking
+│       ├── payment/webhook/       # KHQR payment confirmation webhooks
+│       └── telegram/webhook/      # Telegram bot webhook (/getkey, /status)
+├── components/                    # Modular React components
+│   ├── Header.tsx                 # Transparent mascot navigation header
+│   ├── HeroCarousel.tsx           # Full-bleed responsive promotional slider
+│   ├── GameCard.tsx               # Interactive game catalog cards
+│   ├── KHQRSheet.tsx              # Dynamic QR payment modal with countdown
+│   └── AdminSidebar.tsx           # Dashboard navigation with active states
+├── lib/                           # Core business logic & services
+│   ├── topup/                     # Multi-supplier fulfillment adapters (Bay2Game, KhmerTopup, FrozenYuki)
+│   ├── fulfillment.ts             # Idempotent order fulfillment & retry state machine
+│   ├── payment/                   # KHQR generator & webhook verification
+│   ├── secureLogger.ts            # Sanitized security event logging
+│   ├── lockPolicy.ts              # Progressive lockout brute-force defense
+│   ├── telegram.ts                # Telegram notification dispatcher
+│   └── prisma.ts                  # Shared Prisma client instance
 ├── prisma/
-│   ├── schema.prisma         # Multi-model database schema
-│   └── seed.ts               # Default games & administrator seed script
-├── public/                   # Static assets & brand icons
-└── scripts/                  # Management scripts & favicon generator
+│   ├── schema.prisma              # Database schema definition
+│   └── seed.ts                    # Initial games, products & admin seed script
+└── public/                        # Static assets, transparent logos & icons
 ```
 
 ---
 
 ## 📄 License & Copyright
 
-**Copyright © 2026 DyTopup (SokPhal). All Rights Reserved.**
+**Copyright © 2026 TheziessStore (SokPhal). All Rights Reserved.**
 
-Developed & Maintained with ❤️ by **[SokPhal](https://sophal.vercel.app/)** for **DyTopup**.
+Developed & Maintained with ❤️ by **[SokPhal](https://sophal.vercel.app/)** for **TheziessStore**.
 
-This project and its source code are proprietary and confidential. Unauthorized copying, distribution, reproduction, or modification of this project, in whole or in part, via any medium is strictly prohibited without explicit written permission from the author.
+This software and its source code are proprietary and confidential. Unauthorized copying, reverse engineering, redistribution, or modification of this project, in whole or in part, via any medium is strictly prohibited without prior written consent from the author.
 
 ---
 
 <div align="center">
 
 Built with ⚡ for the Cambodian gaming community by **[SokPhal](https://sophal.vercel.app/)**.  
-Support: **[@dytopup](https://t.me/dytopup)** on Telegram • Portfolio: **[sophal.vercel.app](https://sophal.vercel.app/)**
+Portfolio: **[sophal.vercel.app](https://sophal.vercel.app/)**
 
 </div>
-
