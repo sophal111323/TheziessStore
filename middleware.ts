@@ -312,15 +312,19 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
     );
   }
 
-  function rewriteResponse(path: string, init?: { status?: number }): NextResponse {
+  function rewriteResponse(path: string, init?: { status?: number }, internalAdmin = false): NextResponse {
     const url = req.nextUrl.clone();
     url.pathname = path;
     // Behind reverse proxy (Nginx), internal Next.js rewrite fetches must use http to localhost
     url.protocol = "http:";
+    const headers = new Headers(requestHeaders);
+    if (internalAdmin) {
+      headers.set("x-internal-admin-rewrite", "1");
+    }
     return addSecurityHeaders(
       NextResponse.rewrite(url, {
         request: {
-          headers: requestHeaders,
+          headers,
         },
         status: init?.status,
       }),
@@ -330,6 +334,11 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
   }
 
   const adminLoginPath = getAdminLoginPath();
+
+  // If this is an internal rewrite intended to render the admin login page, allow it through
+  if (req.headers.get("x-internal-admin-rewrite") === "1" && pathname === "/admin/login") {
+    return nextResponse();
+  }
 
   // ✅ Normal pages: only apply CSP/security headers.
   // No need to verify admin JWT outside admin area.
@@ -361,7 +370,7 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
     }
     // If custom secret path is configured, rewrite internally to serve the login page
     if (adminLoginPath !== "/admin/login") {
-      return rewriteResponse("/admin/login");
+      return rewriteResponse("/admin/login", undefined, true);
     }
     return nextResponse();
   }
