@@ -7,36 +7,18 @@ import { logSecurityEvent } from "@/lib/secureLogger";
 const SESSION_COOKIE = "admin_token";
 
 const ADMIN_HOME_PATH = "/admin";
-const ADMIN_LOGIN_PATH = "/admin/login";
 
-// ✅ Valid admin routes
-const VALID_ADMIN_PREFIXES = [
-  "/admin/audit-logs",
-  "/admin/banlist",
-  "/admin/banners",
-  "/admin/blog",
-  "/admin/customers",
-  "/admin/faqs",
-  "/admin/games",
-  "/admin/orders",
-  "/admin/products",
-  "/admin/promo-codes",
-  "/admin/security",
-  "/admin/settings",
-  "/admin/login",
-  "/admin/dystore",
-];
-
-function isValidAdminPath(pathname: string): boolean {
-  if (pathname === ADMIN_HOME_PATH) return true;
-
-  return VALID_ADMIN_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(p + "/")
-  );
+function getAdminLoginPath(): string {
+  const custom = process.env.ADMIN_LOGIN_PATH?.trim();
+  if (custom && custom.startsWith("/")) {
+    return custom.replace(/\/+$/, "");
+  }
+  return "/admin/login";
 }
 
-function isAdminArea(pathname: string): boolean {
+function isAdminArea(pathname: string, adminLoginPath: string): boolean {
   return (
+    pathname === adminLoginPath ||
     pathname === "/admin" ||
     pathname.startsWith("/admin/") ||
     pathname.startsWith("/api/admin")
@@ -330,14 +312,26 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
     );
   }
 
-  // ✅ Normal pages: only apply CSP/security headers.
-  // No need to verify admin JWT outside admin area.
-  if (!isAdminArea(pathname)) {
-    return nextResponse();
+  function rewriteResponse(url: URL, init?: { status?: number }): NextResponse {
+    return addSecurityHeaders(
+      NextResponse.rewrite(url, {
+        request: {
+          headers: requestHeaders,
+        },
+        status: init?.status,
+      }),
+      cspHeader,
+      nonce
+    );
   }
 
-  const token = req.cookies.get(SESSION_COOKIE)?.value;
-  const isLoggedIn = await isValidAdminToken(token);
+  const adminLoginPath = getAdminLoginPath();
+
+  // ✅ Normal pages: only apply CSP/security headers.
+  // No need to verify admin JWT outside admin area.
+  if (!isAdminArea(pathname, adminLoginPath)) {
+    return nextResponse();
+  }
 
   // Admin API routes validate cookie/Bearer sessions inside route handlers.
   // Middleware only adds security headers here so Flutter Bearer tokens are not blocked.
@@ -345,17 +339,33 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
     return nextResponse();
   }
 
+  // 🛡️ Hide old default login paths if a custom ADMIN_LOGIN_PATH is configured
+  if (
+    (pathname === "/admin/login" || pathname === "/admin/dystore") &&
+    pathname !== adminLoginPath
+  ) {
+    return rewriteResponse(new URL("/not-found", req.url), { status: 404 });
+  }
+
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  const isLoggedIn = await isValidAdminToken(token);
+
   // Login page access
-  if (pathname === "/admin/login" || pathname === "/admin/dystore") {
+  if (pathname === adminLoginPath) {
     if (isLoggedIn) {
       return redirectResponse(new URL(ADMIN_HOME_PATH, req.url));
+    }
+    // If custom secret path is configured, rewrite internally to serve the login page
+    if (adminLoginPath !== "/admin/login") {
+      return rewriteResponse(new URL("/admin/login", req.url));
     }
     return nextResponse();
   }
 
-  // Protected admin routes: must be logged in
-  if (!isLoggedIn && pathname.startsWith("/admin")) {
-    return redirectResponse(new URL(ADMIN_LOGIN_PATH, req.url));
+  // Protected admin routes: if not logged in, pretend they do not exist (404 Not Found)
+  // to prevent leaking the secret ADMIN_LOGIN_PATH to unauthorized visitors
+  if (!isLoggedIn && (pathname === "/admin" || pathname.startsWith("/admin/"))) {
+    return rewriteResponse(new URL("/not-found", req.url), { status: 404 });
   }
 
   // Logged in: allow access
