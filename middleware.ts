@@ -344,7 +344,7 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
     (pathname === "/admin/login" || pathname === "/admin/dystore") &&
     pathname !== adminLoginPath
   ) {
-    return rewriteResponse(new URL("/not-found", req.url), { status: 404 });
+    return rewriteResponse(new URL("/_not-found", req.url), { status: 404 });
   }
 
   const token = req.cookies.get(SESSION_COOKIE)?.value;
@@ -365,7 +365,7 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
   // Protected admin routes: if not logged in, pretend they do not exist (404 Not Found)
   // to prevent leaking the secret ADMIN_LOGIN_PATH to unauthorized visitors
   if (!isLoggedIn && (pathname === "/admin" || pathname.startsWith("/admin/"))) {
-    return rewriteResponse(new URL("/not-found", req.url), { status: 404 });
+    return rewriteResponse(new URL("/_not-found", req.url), { status: 404 });
   }
 
   // Logged in: allow access
