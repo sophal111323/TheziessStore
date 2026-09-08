@@ -270,6 +270,10 @@ export async function fulfillPaidOrder(
         );
       }
 
+      import("@/lib/order-tracker").then((m) => {
+        m.startBackgroundOrderTracker(order.orderNumber);
+      }).catch(() => {});
+
       return {
         success: true,
         transactionId: transactionRef,
@@ -302,6 +306,10 @@ export async function fulfillPaidOrder(
         )
       );
     }
+
+    import("@/lib/order-tracker").then((m) => {
+      m.startBackgroundOrderTracker(order.orderNumber);
+    }).catch(() => {});
 
     return {
       success: false,
@@ -398,15 +406,24 @@ export async function refreshTopupStatus(orderNumber: string): Promise<Fulfillme
     });
 
     if (updated.count === 1) {
+      const baseUrl = process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "";
+      const link = baseUrl
+        ? `\n<a href="${baseUrl}/admin/orders/${order.orderNumber}">Open in admin</a>`
+        : "";
+
+      const nicknameLine = order.playerNickname
+        ? `🎮 Nickname: ${escapeHtml(order.playerNickname)}\n`
+        : "";
+      const serverLine = order.serverId ? ` (${escapeHtml(order.serverId)})` : "";
+
       await notifyTelegram(
-        manualReviewMessage(
-          `✅ <b>Auto topup DELIVERED (${escapeHtml(supplier.displayName)})</b>`,
-          order.orderNumber,
-          order.game.name,
-          order.product.name,
-          order.playerUid,
-          `${escapeHtml(supplier.displayName)} ref: <code>${escapeHtml(remote.transactionId ?? reference)}</code> (status refresh)`
-        )
+        `✅ <b>Topup DELIVERED (${escapeHtml(supplier.displayName)})</b>\n` +
+          `<b>#${escapeHtml(order.orderNumber)}</b>\n` +
+          `${escapeHtml(order.game.name)} – ${escapeHtml(order.product.name)}\n` +
+          `UID: <code>${escapeHtml(order.playerUid)}</code>${serverLine}\n` +
+          `${nicknameLine}` +
+          `Ref: <code>${escapeHtml(remote.transactionId ?? reference)}</code>\n` +
+          `Amount: $${order.amountUsd.toFixed(2)}${link}`
       );
     }
 
@@ -425,15 +442,19 @@ export async function refreshTopupStatus(orderNumber: string): Promise<Fulfillme
       },
     });
 
+    const baseUrl = process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "";
+    const link = baseUrl
+      ? `\n<a href="${baseUrl}/admin/orders/${order.orderNumber}">Open in admin</a>`
+      : "";
+    const serverLine = order.serverId ? ` (${escapeHtml(order.serverId)})` : "";
+
     await notifyTelegram(
-      manualReviewMessage(
-        `⚠️ <b>Auto topup FAILED (${escapeHtml(supplier.displayName)}) — process manually</b>`,
-        order.orderNumber,
-        order.game.name,
-        order.product.name,
-        order.playerUid,
-        `${supplier.displayName} reported FAILED.`
-      )
+      `⚠️ <b>Topup FAILED (${escapeHtml(supplier.displayName)}) — process manually</b>\n` +
+        `<b>#${escapeHtml(order.orderNumber)}</b>\n` +
+        `${escapeHtml(order.game.name)} – ${escapeHtml(order.product.name)}\n` +
+        `UID: <code>${escapeHtml(order.playerUid)}</code>${serverLine}\n` +
+        `Ref: <code>${escapeHtml(remote.transactionId ?? reference)}</code>\n` +
+        `Error: ${escapeHtml(remote.error || `${supplier.displayName} reported FAILED.`)}${link}`
     );
 
     return { success: false, status: "failed", error: `${supplier.displayName} reported failed` };

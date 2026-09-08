@@ -459,13 +459,21 @@ export default function CheckoutClient() {
   const orderExists = order !== null;
   useEffect(() => {
     if (!orderExists || !orderStatus) return;
-    if (TERMINAL.has(orderStatus) || PAID_STATES.has(orderStatus)) {
+    if (TERMINAL.has(orderStatus)) {
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
       return;
     }
+
+    if (orderStatus === "PROCESSING" || orderStatus === "PAID") {
+      // Order is paid and being fulfilled by the supplier — keep polling until DELIVERED or terminal
+      pollRef.current = setInterval(() => { fetchOrder(); }, 4000);
+      return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
+    }
+
+    // Pending payment — poll syncPayment
     pollRef.current = setInterval(() => { syncPaymentThenFetchOrder(); }, 5000);
     return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
-  }, [orderExists, orderStatus, syncPaymentThenFetchOrder]);
+  }, [orderExists, orderStatus, fetchOrder, syncPaymentThenFetchOrder]);
 
   // Countdown — uses paymentExpiresAt from API; falls back to createdAt + 5 min.
   const expiresAt = order?.paymentExpiresAt;
@@ -546,9 +554,22 @@ export default function CheckoutClient() {
             {isPaid && (
               <div className="rounded-2xl border border-green-400/40 bg-gradient-to-br from-green-500/10 to-emerald-500/5 p-8 text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20 mb-4">
-                  <CheckCircle2 className="h-10 w-10 text-green-600" />
+                  {order.status === "DELIVERED" ? (
+                    <CheckCircle2 className="h-10 w-10 text-green-600" />
+                  ) : (
+                    <Loader2 className="h-10 w-10 text-pink-600 animate-spin" />
+                  )}
                 </div>
-                <h1 className="font-display text-2xl font-bold mb-2">ការទូទាត់បានជោគជ័យ!</h1>
+                <h1 className="font-display text-2xl font-bold mb-2">
+                  {order.status === "DELIVERED"
+                    ? "ការទូទាត់ និងបញ្ចូល Credits ជោគជ័យ!"
+                    : "ការទូទាត់បានជោគជ័យ!"}
+                </h1>
+                <p className="text-pink-500 text-sm mb-1">
+                  {order.status === "DELIVERED"
+                    ? "Credits ត្រូវបានបញ្ចូលទៅកាន់គណនីរបស់អ្នករួចរាល់ហើយ"
+                    : "កំពុងដំណើរការបញ្ចូល Credits ទៅកាន់គណនីហ្គេមរបស់អ្នក..."}
+                </p>
                 <p className="text-pink-500 text-sm mb-1">
                   Order <span className="font-mono text-pink-800">{order.orderNumber}</span>
                 </p>

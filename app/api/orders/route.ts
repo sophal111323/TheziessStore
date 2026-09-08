@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { generateOrderNumber, isValidUid, calcKhr } from "@/lib/utils";
 import { initiatePayment } from "@/lib/payment";
+import { startBackgroundPaymentTracker } from "@/lib/order-tracker";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { applyRateLimit } from "@/lib/rateLimit";
@@ -308,6 +309,10 @@ export async function POST(req: NextRequest) {
         paymentExpiresAt: init.expiresAt,
       },
     });
+
+    if (init.paymentRef && !init.paymentRef.startsWith("SIM-")) {
+      startBackgroundPaymentTracker(order.orderNumber);
+    }
 
     return NextResponse.json({
       orderNumber: order.orderNumber,

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notifyTelegram, escapeHtml } from "@/lib/telegram";
 import { fulfillPaidOrder } from "@/lib/fulfillment";
 import { getSupplier } from "@/lib/topup";
+import { startBackgroundOrderTracker } from "@/lib/order-tracker";
 
 /**
  * Runs post-payment work after an order safely transitions to PAID.
@@ -84,6 +85,11 @@ export async function notifyAndMaybeDeliverPaidOrder(orderId: string) {
       `Method: ${escapeHtml(updatedOrder.paymentMethod || "KHQR")}\n` +
       `${statusSection}${link}`
   );
+
+  // 4. Auto-track upstream delivery in background if order is PROCESSING
+  if (updatedOrder.status === "PROCESSING" && updatedOrder.topupProviderRef) {
+    startBackgroundOrderTracker(updatedOrder.orderNumber);
+  }
 
   return fulfillmentResult;
 }
