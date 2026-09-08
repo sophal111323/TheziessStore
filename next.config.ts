@@ -19,6 +19,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  env: {
+    ADMIN_LOGIN_PATH: process.env.ADMIN_LOGIN_PATH || "/admin/theziessstore030511",
+  },
   serverExternalPackages: ["pdfkit", "fontkit"],
   outputFileTracingRoot: path.resolve(__dirname),
   poweredByHeader: false,
