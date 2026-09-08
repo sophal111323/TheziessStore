@@ -312,7 +312,11 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
     );
   }
 
-  function rewriteResponse(url: URL, init?: { status?: number }): NextResponse {
+  function rewriteResponse(path: string, init?: { status?: number }): NextResponse {
+    const url = req.nextUrl.clone();
+    url.pathname = path;
+    // Behind reverse proxy (Nginx), internal Next.js rewrite fetches must use http to localhost
+    url.protocol = "http:";
     return addSecurityHeaders(
       NextResponse.rewrite(url, {
         request: {
@@ -344,7 +348,7 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
     (pathname === "/admin/login" || pathname === "/admin/dystore") &&
     pathname !== adminLoginPath
   ) {
-    return rewriteResponse(new URL("/_not-found", req.url), { status: 404 });
+    return rewriteResponse("/_not-found", { status: 404 });
   }
 
   const token = req.cookies.get(SESSION_COOKIE)?.value;
@@ -357,7 +361,7 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
     }
     // If custom secret path is configured, rewrite internally to serve the login page
     if (adminLoginPath !== "/admin/login") {
-      return rewriteResponse(new URL("/admin/login", req.url));
+      return rewriteResponse("/admin/login");
     }
     return nextResponse();
   }
@@ -365,7 +369,7 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
   // Protected admin routes: if not logged in, pretend they do not exist (404 Not Found)
   // to prevent leaking the secret ADMIN_LOGIN_PATH to unauthorized visitors
   if (!isLoggedIn && (pathname === "/admin" || pathname.startsWith("/admin/"))) {
-    return rewriteResponse(new URL("/_not-found", req.url), { status: 404 });
+    return rewriteResponse("/_not-found", { status: 404 });
   }
 
   // Logged in: allow access
