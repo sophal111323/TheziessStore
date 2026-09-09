@@ -51,17 +51,6 @@ const NAV: NavItem[] = [
       </svg>
     ),
   },
-  {
-    href: "/#faq",
-    label: "FAQ",
-    helper: "Questions",
-    icon: (
-      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M8 9a4 4 0 1 1 7 2.65c-.72.73-1.5 1.12-2.11 1.67-.6.55-.89 1.05-.89 1.68" />
-        <path d="M12 17h.01" />
-      </svg>
-    ),
-  },
 ];
 
 function isNavActive(pathname: string | null, href: string) {
@@ -330,7 +319,7 @@ export default function Header() {
 
             <div className="mt-2.5 grid grid-cols-2 gap-2.5">
               <a
-                href="https://t.me/thephal"
+                href="https://t.me/Theziess"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setMobileOpen(false)}
@@ -343,7 +332,7 @@ export default function Header() {
                   </svg>
                 </span>
                 <span className="mt-2 block text-[12px] font-black text-pink-800">Telegram</span>
-                <span className="mt-0.5 block truncate text-[10px] font-bold text-pink-400">@thephal</span>
+                <span className="mt-0.5 block truncate text-[10px] font-bold text-pink-400">@Theziess</span>
               </a>
 
               <div
