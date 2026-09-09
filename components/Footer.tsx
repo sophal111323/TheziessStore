@@ -20,7 +20,7 @@ function socialInfo(value: string | null | undefined, fallbackUsername: string, 
 }
 
 function telegramInfo(value: string | null | undefined) {
-  return { href: "https://t.me/thephal", label: "@thephal" };
+  return { href: "https://t.me/Theziess", label: "@Theziess" };
 }
 
 function tiktokInfo(value: string | null | undefined) {
