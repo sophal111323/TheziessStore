@@ -24,7 +24,7 @@ function telegramInfo(value: string | null | undefined) {
 }
 
 function tiktokInfo(value: string | null | undefined) {
-  return { href: "#", label: "@TheziessStore" };
+  return { href: "https://www.tiktok.com/@TheziessStore", label: "@TheziessStore" };
 }
 
 export default async function Footer() {
@@ -69,12 +69,15 @@ export default async function Footer() {
                   <path d="M21.198 2.433a2.242 2.242 0 0 0-1.022.215l-8.609 3.33c-2.068.8-4.133 1.598-5.724 2.21a405.15 405.15 0 0 1-2.349.88 2.252 2.252 0 0 0 .28 4.402l1.504.308c.256.053.515.068.78.044l.85-.082 1.65 4.78c.114.332.415.554.764.554h.43c.35 0 .65-.222.764-.556l.908-2.636 4.354 3.226a2.24 2.24 0 0 0 3.345-1.09l3.12-9.545a2.253 2.253 0 0 0-.8-2.44z" />
                 </svg>
               </a>
-              <span
+              <a
+                href={tiktok.href}
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="TikTok"
-                className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-pink-200 bg-pink-50 text-pink-500 text-xs font-bold cursor-default select-none"
+                className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-pink-200 bg-pink-50 text-pink-500 transition-all hover:border-pink-400 hover:bg-pink-100 hover:text-pink-700 text-xs font-bold"
               >
                 ♪
-              </span>
+              </a>
             </div>
           </div>
 
@@ -122,9 +125,14 @@ export default async function Footer() {
                   </a>
                 </li>
                 <li>
-                  <span className="text-pink-800/85 font-semibold inline-block py-0.5">
+                  <a
+                    href={tiktok.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-pink-800/85 transition-colors hover:text-pink-600 font-semibold inline-block py-0.5"
+                  >
                     TikTok: {tiktok.label}
-                  </span>
+                  </a>
                 </li>
                 {supportEmail && (
                   <li>

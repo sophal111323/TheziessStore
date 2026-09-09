@@ -335,8 +335,12 @@ export default function Header() {
                 <span className="mt-0.5 block truncate text-[10px] font-bold text-pink-400">@Theziess</span>
               </a>
 
-              <div
-                className="group rounded-[1rem] border border-pink-100 bg-gradient-to-br from-pink-50 via-white to-white px-3 py-2.5 text-left transition-all duration-300 cursor-default"
+              <a
+                href="https://www.tiktok.com/@TheziessStore"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMobileOpen(false)}
+                className="group rounded-[1rem] border border-pink-100 bg-gradient-to-br from-pink-50 via-white to-white px-3 py-2.5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-pink-200 hover:shadow-md hover:shadow-pink-100/80 active:scale-[0.99]"
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-pink-100 to-white text-pink-600 shadow-inner shadow-white">
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -346,7 +350,7 @@ export default function Header() {
                 </span>
                 <span className="mt-2 block text-[12px] font-black text-pink-800">TikTok</span>
                 <span className="mt-0.5 block truncate text-[10px] font-bold text-pink-400">@TheziessStore</span>
-              </div>
+              </a>
             </div>
           </div>
         </div>

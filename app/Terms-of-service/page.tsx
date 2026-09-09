@@ -284,31 +284,34 @@ export default function TermsOfServicePage() {
 
               <div className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6">
                 <a
-                  href="https://t.me/thephal"
+                  href="https://t.me/Theziess"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="group rounded-[1.5rem] border border-pink-100 bg-white p-5 shadow-sm shadow-pink-100/70 transition-all duration-300 hover:-translate-y-1 hover:border-pink-300 hover:shadow-xl hover:shadow-pink-200/70"
                 >
-                  <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-500 shadow-inner shadow-white">
+                  <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-500 shadow-inner shadow-white transition-transform duration-300 group-hover:scale-110">
                     <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                       <path d="M21.9 4.6c.3-1.2-.7-1.7-1.7-1.3L3.3 9.8c-1.1.4-1.1 1.1-.2 1.4l4.3 1.3 1.7 5.2c.2.7.4 1 .8 1 .4 0 .6-.2.9-.5l2.1-2 4.4 3.2c.8.5 1.3.3 1.5-.8l3.1-14ZM8.1 12l9.9-6.2c.5-.3.9-.1.5.2l-8 7.3-.3 3.1-1.4-4.3-.7-.1Z" />
                     </svg>
                   </span>
                   <h3 className="text-lg font-black text-pink-950">Telegram</h3>
-                  <p className="mt-1 text-sm font-bold text-pink-500">@thephal</p>
+                  <p className="mt-1 text-sm font-bold text-pink-500">@Theziess</p>
                 </a>
 
-                <div
-                  className="group rounded-[1.5rem] border border-pink-100 bg-white p-5 shadow-sm shadow-pink-100/70 cursor-default"
+                <a
+                  href="https://www.tiktok.com/@TheziessStore"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group rounded-[1.5rem] border border-pink-100 bg-white p-5 shadow-sm shadow-pink-100/70 transition-all duration-300 hover:-translate-y-1 hover:border-pink-300 hover:shadow-xl hover:shadow-pink-200/70"
                 >
-                  <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-pink-50 text-pink-600 shadow-inner shadow-white">
+                  <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-pink-50 text-pink-600 shadow-inner shadow-white transition-transform duration-300 group-hover:scale-110">
                     <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                       <path d="M16.7 3c.4 2.3 1.7 3.6 4 3.8v3.2a7.2 7.2 0 0 1-4-1.2v5.8c0 3.8-2.6 6.4-6.2 6.4A6.1 6.1 0 0 1 4.3 15c0-3.7 3-6.5 6.8-6.2V12a2.8 2.8 0 0 0-3.4 2.7 2.8 2.8 0 0 0 2.8 2.8c1.7 0 2.8-1.1 2.8-3.1V3h3.4Z" />
                     </svg>
                   </span>
                   <h3 className="text-lg font-black text-pink-950">TikTok</h3>
                   <p className="mt-1 text-sm font-bold text-pink-500">@TheziessStore</p>
-                </div>
+                </a>
               </div>
             </div>
           </section>

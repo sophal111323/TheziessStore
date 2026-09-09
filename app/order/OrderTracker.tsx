@@ -509,7 +509,7 @@ export default function OrderTracker() {
             {orderStatus === "FAILED" && (
               <div className="mx-5 mb-5 rounded-lg border border-red-300 bg-red-100 p-4 text-sm text-red-500 sm:mx-6 sm:mb-6">
                 មានអ្វីមិនប្រក្រតី! សូមទាក់ទងទៅ{" "}
-                <strong>@thephal</strong> តាម Telegram ជាមួយលេខបញ្ជាទិញ។
+                <strong>@Theziess</strong> តាម Telegram ជាមួយលេខបញ្ជាទិញ។
               </div>
             )}
 
