@@ -6,6 +6,7 @@ import RouteProgress from "@/components/RouteProgress";
 import AnnouncementBar from "@/components/AnnouncementBar";
 import MaintenanceGate from "@/components/MaintenanceGate";
 import PublicDataRefresh from "@/components/PublicDataRefresh";
+import TelegramFloatingButton from "@/components/TelegramFloatingButton";
 import { getPublicSettings } from "@/lib/publicData";
 
 export const metadata: Metadata = {
@@ -91,6 +92,7 @@ export default async function RootLayout({
           <AnnouncementBar />
           <MaintenanceGate />
           {children}
+          <TelegramFloatingButton />
         </CurrencyProvider>
       </body>
     </html>
