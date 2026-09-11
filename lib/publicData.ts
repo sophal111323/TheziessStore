@@ -43,10 +43,10 @@ export const getPublicSettings = unstable_cache(
       .catch(() => null);
 
     return {
-      siteName: settings?.siteName || "DyTopup",
+      siteName: settings?.siteName || "TheziessStore",
       exchangeRate: settings?.exchangeRate ?? 4100,
-      supportTelegram: settings?.supportTelegram || "@dytopup",
-      supportTikTok: settings?.supportTikTok || "@dytopup",
+      supportTelegram: settings?.supportTelegram || "@Theziess",
+      supportTikTok: settings?.supportTikTok || "@TheziessStore",
       supportEmail: settings?.supportEmail || null,
       maintenanceMode: settings?.maintenanceMode ?? false,
       maintenanceMessage:
@@ -69,8 +69,8 @@ export const getPublicSettings = unstable_cache(
         paymentsEnabled: settings?.paymentsEnabled ?? true,
         promosEnabled: settings?.promosEnabled ?? true,
       },
-      logoUrl: settings?.logoUrl || "/logo.png",
-      logoText: settings?.logoText || "DYTOPUP",
+      logoUrl: settings?.logoUrl || "/theziessstore-logo.png",
+      logoText: settings?.logoText || "TheziessStore",
       logoTagline: settings?.logoTagline || "Instant · Secure · 24/7",
       updatedAt: settings?.updatedAt ?? null,
     };

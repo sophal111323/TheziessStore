@@ -267,7 +267,7 @@ export default function KHQRBottomSheet({
       ctx.fillStyle = "#6b7280";
       ctx.textAlign = "left";
       ctx.font = "500 28px Arial";
-      ctx.fillText("DY TOPUP", 145, 320);
+      ctx.fillText("TheziessStore", 145, 320);
 
       ctx.fillStyle = "#111827";
       ctx.font = "bold 58px Arial";
@@ -478,7 +478,7 @@ export default function KHQRBottomSheet({
           </div>
         ) : (
           <div key="active" className="animate-slide-up px-7 py-6">
-            <p className="text-sm font-medium text-gray-500">DY TOPUP</p>
+            <p className="text-sm font-medium text-gray-500">TheziessStore</p>
 
             <div className="mt-2 flex items-end gap-2">
               <span className="text-4xl font-black text-gray-900">

@@ -44,7 +44,7 @@ function buildPublicSettings(settings: PublicSettingsRecord) {
   );
 
   return {
-    siteName: settings?.siteName ?? "DyTopup",
+    siteName: settings?.siteName ?? "TheziessStore",
     exchangeRate: settings?.exchangeRate ?? 4100,
     maintenanceMode: settings?.maintenanceMode ?? false,
     maintenanceMessage:
@@ -52,11 +52,11 @@ function buildPublicSettings(settings: PublicSettingsRecord) {
     announcementEnabled,
     announcementText: announcementEnabled ? announcementText : "",
     announcementTone: settings?.announcementTone ?? "info",
-    supportTelegram: settings?.supportTelegram ?? "@dytopup",
-    supportTikTok: settings?.supportTikTok ?? "",
+    supportTelegram: settings?.supportTelegram ?? "@Theziess",
+    supportTikTok: settings?.supportTikTok ?? "@TheziessStore",
     supportEmail: settings?.supportEmail ?? null,
-    logoUrl: settings?.logoUrl ?? "/logo.png",
-    logoText: settings?.logoText ?? "DyTopup",
+    logoUrl: settings?.logoUrl ?? "/theziessstore-logo.png",
+    logoText: settings?.logoText ?? "TheziessStore",
     logoTagline: settings?.logoTagline ?? "Instant · Secure · 24/7",
     appConfig: {
       minSupportedVersion: settings?.appMinSupportedVersion ?? "1.0.0",

@@ -601,7 +601,7 @@ export default function CheckoutClient() {
                 <KHQRFrame
                   qrString={order.qrString}
                   amountUsd={order.amountUsd}
-                  storeName="DY TOPUP"
+                  storeName="TheziessStore"
                   remainingMs={remainingMs}
                 />
 
