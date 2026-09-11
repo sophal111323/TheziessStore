@@ -46,7 +46,7 @@ export const getPublicSettings = unstable_cache(
       siteName: settings?.siteName || "TheziessStore",
       exchangeRate: settings?.exchangeRate ?? 4100,
       supportTelegram: settings?.supportTelegram || "@Theziess",
-      supportTikTok: settings?.supportTikTok || "@TheziessStore",
+      supportTikTok: settings?.supportTikTok || "@theziess",
       supportEmail: settings?.supportEmail || null,
       maintenanceMode: settings?.maintenanceMode ?? false,
       maintenanceMessage:

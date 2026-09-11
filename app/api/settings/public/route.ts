@@ -53,7 +53,7 @@ function buildPublicSettings(settings: PublicSettingsRecord) {
     announcementText: announcementEnabled ? announcementText : "",
     announcementTone: settings?.announcementTone ?? "info",
     supportTelegram: settings?.supportTelegram ?? "@Theziess",
-    supportTikTok: settings?.supportTikTok ?? "@TheziessStore",
+    supportTikTok: settings?.supportTikTok ?? "@theziess",
     supportEmail: settings?.supportEmail ?? null,
     logoUrl: settings?.logoUrl ?? "/theziessstore-logo.png",
     logoText: settings?.logoText ?? "TheziessStore",

@@ -24,7 +24,7 @@ function telegramInfo(value: string | null | undefined) {
 }
 
 function tiktokInfo(value: string | null | undefined) {
-  return { href: "https://www.tiktok.com/@TheziessStore", label: "@TheziessStore" };
+  return { href: "https://www.tiktok.com/@theziess", label: "@theziess" };
 }
 
 export default async function Footer() {

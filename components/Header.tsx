@@ -336,7 +336,7 @@ export default function Header() {
               </a>
 
               <a
-                href="https://www.tiktok.com/@TheziessStore"
+                href="https://www.tiktok.com/@theziess"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setMobileOpen(false)}
@@ -349,7 +349,7 @@ export default function Header() {
                   </svg>
                 </span>
                 <span className="mt-2 block text-[12px] font-black text-pink-800">TikTok</span>
-                <span className="mt-0.5 block truncate text-[10px] font-bold text-pink-400">@TheziessStore</span>
+                <span className="mt-0.5 block truncate text-[10px] font-bold text-pink-400">@theziess</span>
               </a>
             </div>
           </div>
