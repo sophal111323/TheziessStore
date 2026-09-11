@@ -55,9 +55,15 @@ export async function POST(
 ) {
   try {
     const { method: methodParam } = await params;
-    const method = methodParam.toUpperCase() as PaymentMethod;
+    const method = (methodParam || "").toUpperCase();
+    const isSupported =
+      method === "TOLASAINT" ||
+      method === "ABA" ||
+      method === "BAKONG" ||
+      method === "KHQR" ||
+      method === "1";
 
-    if (method !== "TOLASAINT") {
+    if (!isSupported) {
       return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
     }
 

@@ -114,10 +114,17 @@ export async function fetchPaymentStatus(
  * algorithm. Never bypassed by simulation mode.
  */
 export function verifyWebhook(
-  method: PaymentMethod,
+  method: PaymentMethod | string,
   rawBody: string,
   headers: Record<string, string>
 ): boolean {
-  if (method !== "TOLASAINT") return false;
+  const norm = String(method || "").toUpperCase();
+  const isSupported =
+    norm === "TOLASAINT" ||
+    norm === "ABA" ||
+    norm === "BAKONG" ||
+    norm === "KHQR" ||
+    norm === "1";
+  if (!isSupported) return false;
   return verifyTolaSaintWebhookSignature(headers, rawBody);
 }

@@ -104,7 +104,7 @@ function shouldTrackRequest(pathname: string): boolean {
 // These endpoints authenticate via HMAC signatures or shared secrets
 // (not browser origins), so the origin guard must never apply to them.
 const ORIGIN_GUARD_EXEMPT_PREFIXES = [
-  "/api/payment/webhook/", // Tola Saint webhook — HMAC-SHA256 signed
+  "/api/payment/webhook", // Tola Saint webhook — HMAC-SHA256 signed
   "/api/webhooks/", // FrozenYuki webhook — HMAC-SHA256 signed
   "/api/cron/", // Vercel cron — CRON_SECRET gated
   "/api/security/track", // middleware's own internal fetch — INTERNAL_SECURITY_SECRET gated
