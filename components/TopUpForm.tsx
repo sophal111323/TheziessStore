@@ -94,16 +94,34 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
     const catOrder = Array.isArray(game.categoryOrder) ? game.categoryOrder : [];
     const entries = Array.from(map.entries());
 
-    if (catOrder.length > 0) {
-      entries.sort(([catA], [catB]) => {
-        const indexA = catOrder.indexOf(catA);
-        const indexB = catOrder.indexOf(catB);
-        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-        if (indexA !== -1) return -1;
-        if (indexB !== -1) return 1;
-        return 0;
-      });
-    }
+    const isMysteryCategory = (cat: string) => cat.toLowerCase().includes("mystery box");
+
+    const findCatIndex = (cat: string) => {
+      const exact = catOrder.indexOf(cat);
+      if (exact !== -1) return exact;
+      if (isMysteryCategory(cat)) {
+        return catOrder.findIndex((c) => isMysteryCategory(c));
+      }
+      return -1;
+    };
+
+    entries.sort(([catA], [catB]) => {
+      const indexA = findCatIndex(catA);
+      const indexB = findCatIndex(catB);
+
+      // 1. Both explicitly ordered by admin -> respect admin order
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+
+      // 2. If Mystery Box is not yet customized in catOrder, place it at the VERY TOP (first)
+      if (isMysteryCategory(catA) && indexA === -1) return -1;
+      if (isMysteryCategory(catB) && indexB === -1) return 1;
+
+      // 3. Any category in catOrder comes before un-ordered categories
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+
+      return 0;
+    });
 
     return entries.map(([category, items]) => ({
       category,

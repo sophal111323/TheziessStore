@@ -45,6 +45,7 @@ export default function AdminProductsPage() {
 
   const [games, setGames] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [randomPackages, setRandomPackages] = useState<any[]>([]);
   const [selectedGame, setSelectedGame] = useState(gameIdFilter);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [loading, setLoading] = useState(true);
@@ -53,12 +54,14 @@ export default function AdminProductsPage() {
 
   async function loadAll() {
     setLoading(true);
-    const [gRes, pRes] = await Promise.all([
+    const [gRes, pRes, rRes] = await Promise.all([
       fetch("/api/admin/games").then((r) => r.json()),
       fetch(`/api/admin/products${selectedGame ? `?gameId=${selectedGame}` : ""}`).then((r) => r.json()),
+      fetch("/api/admin/random-packages").then((r) => r.json()),
     ]);
     setGames(Array.isArray(gRes) ? gRes : []);
     setProducts(Array.isArray(pRes) ? pRes : []);
+    setRandomPackages(Array.isArray(rRes) ? rRes : []);
     setLoading(false);
   }
 
@@ -107,13 +110,18 @@ export default function AdminProductsPage() {
 
   const currentGame = games.find((g) => g.id === selectedGame) || (games.length === 1 ? games[0] : null);
 
+  const hasMysteryBox = randomPackages.some(
+    (rp) => !currentGame || rp.gameId === currentGame.id
+  );
+
   const currentGameCategories: string[] = Array.from(
-    new Set<string>(
-      products
+    new Set<string>([
+      ...(hasMysteryBox ? ["🎡 Mystery Box"] : []),
+      ...products
         .filter((p) => !currentGame || p.gameId === currentGame.id)
         .map((p) => String(p.category || "Diamonds").trim())
-        .filter(Boolean)
-    )
+        .filter(Boolean),
+    ])
   );
 
   let gameSavedOrder: string[] = [];
@@ -123,9 +131,15 @@ export default function AdminProductsPage() {
     }
   } catch {}
 
-  const currentOrderedSlots: string[] = Array.from(
-    new Set<string>([...gameSavedOrder, ...currentGameCategories])
-  ).filter((s) => currentGameCategories.includes(s) || gameSavedOrder.includes(s));
+  const savedHasMystery = gameSavedOrder.some((s) => s.toLowerCase().includes("mystery box"));
+  const combinedSlots =
+    hasMysteryBox && !savedHasMystery
+      ? ["🎡 Mystery Box", ...gameSavedOrder, ...currentGameCategories]
+      : [...gameSavedOrder, ...currentGameCategories];
+
+  const currentOrderedSlots: string[] = Array.from(new Set<string>(combinedSlots)).filter(
+    (s) => currentGameCategories.includes(s) || gameSavedOrder.includes(s)
+  );
 
   async function moveSlot(fromIndex: number, direction: "left" | "right") {
     if (!currentGame) return;

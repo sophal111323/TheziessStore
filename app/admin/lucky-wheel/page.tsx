@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import LuckyWheel, { WheelSlot } from "@/components/LuckyWheel";
 import {
   Sparkles,
@@ -133,6 +134,7 @@ export default function AdminLuckyWheelPage() {
   const [dailyLimit, setDailyLimit] = useState("");
   const [packageImageUrl, setPackageImageUrl] = useState("");
   const [uploadingPackageImage, setUploadingPackageImage] = useState(false);
+  const [placeOnTop, setPlaceOnTop] = useState(true);
 
   // Slots in builder
   const [modalSlots, setModalSlots] = useState<AdminSlot[]>([
@@ -266,6 +268,7 @@ export default function AdminLuckyWheelPage() {
     setPackageImageUrl("");
     setPackageActive(true);
     setDailyLimit("");
+    setPlaceOnTop(true);
     setModalSlots([
       {
         label: "50 Diamonds",
@@ -316,6 +319,13 @@ export default function AdminLuckyWheelPage() {
     setPackageImageUrl(pkg.imageUrl || "");
     setPackageActive(pkg.active);
     setDailyLimit(pkg.maxSpinsPerUserDaily ? String(pkg.maxSpinsPerUserDaily) : "");
+    const g = games.find((x) => x.id === pkg.gameId);
+    let order: string[] = [];
+    try {
+      if ((g as any)?.categoryOrder) order = JSON.parse((g as any).categoryOrder);
+    } catch {}
+    const isFirst = order.length === 0 || (order[0] && order[0].toLowerCase().includes("mystery box"));
+    setPlaceOnTop(Boolean(isFirst));
     setModalSlots(
       pkg.slots.map((s, idx) => ({
         id: s.id,
@@ -457,6 +467,30 @@ export default function AdminLuckyWheelPage() {
       const resJson = await res.json();
       if (!res.ok) {
         throw new Error(resJson.error || "Failed to save package");
+      }
+
+      if (selectedGameId) {
+        try {
+          const g = games.find((x) => x.id === selectedGameId);
+          let existingOrder: string[] = [];
+          if ((g as any)?.categoryOrder) {
+            try {
+              existingOrder = JSON.parse((g as any).categoryOrder);
+            } catch {}
+          }
+          const cleanList = existingOrder.filter((s) => !s.toLowerCase().includes("mystery box"));
+          const newOrder = placeOnTop
+            ? ["🎡 Mystery Box", ...cleanList]
+            : [...cleanList, "🎡 Mystery Box"];
+
+          await fetch(`/api/admin/games/${selectedGameId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ categoryOrder: JSON.stringify(newOrder) }),
+          });
+        } catch {
+          // ignore game category error
+        }
       }
 
       showToast(editingPackageId ? "Package updated successfully!" : "New Mystery Box created!");
@@ -660,6 +694,29 @@ export default function AdminLuckyWheelPage() {
               </button>
             </div>
           )}
+
+          {/* Storefront Category Position Banner */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-gradient-to-r from-pink-50/90 via-purple-50/50 to-pink-50/90 rounded-2xl border border-pink-200 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-pink-100 flex items-center justify-center text-pink-600 text-lg font-bold shrink-0">
+                🔝
+              </div>
+              <div>
+                <h4 className="font-bold text-gray-900 text-sm">
+                  Storefront Position (ទីតាំងលើគេបង្អស់)
+                </h4>
+                <p className="text-xs text-gray-500">
+                  Category <strong>🎡 Mystery Box</strong> ត្រូវបានកំណត់ឱ្យបង្ហាញនៅ <span className="text-pink-600 font-bold">Slot 1 (ខាងលើគេបង្អស់)</span> នៃទំព័រហ្គេមនីមួយៗ
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/admin/products"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-pink-200 text-xs font-bold text-pink-700 hover:bg-pink-50 transition-colors shrink-0 shadow-xs"
+            >
+              <span>⚙️ Adjust Category Slots in Products</span>
+            </Link>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {packages.map((pkg) => (
@@ -1115,6 +1172,19 @@ export default function AdminLuckyWheelPage() {
                   />
                   <label htmlFor="packageActiveCheckbox" className="text-xs font-bold text-gray-800 cursor-pointer">
                     Enable Package on Storefront
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2 pt-6">
+                  <input
+                    type="checkbox"
+                    id="placeOnTopCheckbox"
+                    checked={placeOnTop}
+                    onChange={(e) => setPlaceOnTop(e.target.checked)}
+                    className="w-4 h-4 text-pink-600 rounded cursor-pointer"
+                  />
+                  <label htmlFor="placeOnTopCheckbox" className="text-xs font-bold text-gray-800 cursor-pointer" title="Put Mystery Box at Slot 1 (first) on the game page">
+                    🔝 Show on Top (ខាងលើគេបង្អស់ - Slot 1)
                   </label>
                 </div>
               </div>
