@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Check,
   Sparkles,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { playPaymentSuccessSound } from "@/lib/sound";
@@ -349,17 +350,25 @@ export default function KHQRBottomSheet({
 
   return (
     <div
-      onClick={onClose}
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
     >
       <div
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-[30px] bg-white shadow-2xl animate-slide-up"
       >
-        <div className="bg-red-600 px-6 py-5 text-white">
+        <div className="relative bg-red-600 px-6 py-5 text-white">
           <h2 className="text-center text-3xl font-black tracking-wide">
             KHQR
           </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-4 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white hover:text-red-600 transition-colors cursor-pointer"
+            aria-label="Close KHQR"
+            title="Close"
+          >
+            <X className="h-5 w-5" strokeWidth={2.5} />
+          </button>
         </div>
 
         {isPaid(currentOrder.status) ? (
