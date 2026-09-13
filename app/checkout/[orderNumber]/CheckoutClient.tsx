@@ -529,6 +529,16 @@ export default function CheckoutClient() {
     }
   }, [isPaid]);
 
+  // 🎡 Auto-redirect to spin page for lucky wheel orders
+  useEffect(() => {
+    if (isPaid && order?.isRandomSpin && order.orderNumber) {
+      const timer = setTimeout(() => {
+        window.location.href = `/spin/${encodeURIComponent(order.orderNumber)}`;
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isPaid, order?.isRandomSpin, order?.orderNumber]);
+
   return (
     <>
       <main className="mx-auto max-w-3xl px-4 py-8 sm:py-12 sm:px-6">

@@ -68,6 +68,36 @@ export default function LuckyWheel({
     }
   }, []);
 
+  // Play victory chime when landing on winning slice
+  const playVictoryFanfare = useCallback(() => {
+    try {
+      if (!audioCtxRef.current) {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) audioCtxRef.current = new AudioCtx();
+      }
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+      if (ctx.state === "suspended") ctx.resume();
+
+      const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const startTime = ctx.currentTime + idx * 0.11;
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(freq, startTime);
+        gain.gain.setValueAtTime(0.2, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.38);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + 0.4);
+      });
+    } catch {
+      // ignore
+    }
+  }, []);
+
   // Draw the wheel onto the canvas
   const drawWheel = useCallback(
     (rotationAngle: number) => {
@@ -240,6 +270,7 @@ export default function LuckyWheel({
         currentRotationRef.current = finalRotation;
         drawWheel(finalRotation);
         setInternalSpinning(false);
+        playVictoryFanfare();
         if (onSpinEnd) {
           onSpinEnd(slots[targetIndex]);
         }
@@ -253,7 +284,7 @@ export default function LuckyWheel({
         cancelAnimationFrame(animFrameRef.current);
       }
     };
-  }, [targetIndex, slots, drawWheel, onSpinEnd, playTickSound]);
+  }, [targetIndex, slots, drawWheel, onSpinEnd, playTickSound, playVictoryFanfare]);
 
   const spinning = isSpinning || internalSpinning;
 

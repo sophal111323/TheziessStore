@@ -12,6 +12,7 @@ import {
   Copy,
   ExternalLink,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { playPaymentSuccessSound } from "@/lib/sound";
@@ -22,6 +23,7 @@ type OrderPayment = {
   amountUsd: number;
   qrString: string | null;
 
+  isRandomSpin?: boolean;
   expiresAt?: string | null;
   paymentExpiresAt?: string | null;
   canPay?: boolean;
@@ -71,6 +73,16 @@ export default function KHQRBottomSheet({
       playPaymentSuccessSound();
     }
   }, [currentOrder.status]);
+
+  // 🎡 Auto-redirect to spin page for lucky wheel orders
+  useEffect(() => {
+    if (isPaid(currentOrder.status) && currentOrder.isRandomSpin) {
+      const timer = setTimeout(() => {
+        window.location.href = `/spin/${encodeURIComponent(currentOrder.orderNumber)}`;
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [currentOrder.status, currentOrder.isRandomSpin, currentOrder.orderNumber]);
 
   const orderPageUrl = `/order?orderNumber=${encodeURIComponent(
     currentOrder.orderNumber
@@ -351,49 +363,103 @@ export default function KHQRBottomSheet({
         </div>
 
         {isPaid(currentOrder.status) ? (
-          <div key="paid" className="animate-slide-up px-7 py-10 text-center">
-            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
-              <CheckCircle2 className="h-12 w-12 text-green-500" />
-            </div>
+          currentOrder.isRandomSpin ? (
+            <div key="paid-spin" className="animate-slide-up px-7 py-10 text-center">
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-tr from-pink-500 via-rose-500 to-purple-600 text-white shadow-xl shadow-pink-300 animate-bounce">
+                <span className="text-4xl">🎡</span>
+              </div>
 
-            <h3 className="text-2xl font-black text-gray-900">
-              ការទូទាត់បានជោគជ័យ!
-            </h3>
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-pink-100 text-pink-700 text-xs font-black mb-2">
+                <Sparkles className="h-3.5 w-3.5 text-amber-500 animate-pulse" />
+                <span>MYSTERY BOX UNLOCKED</span>
+              </div>
 
-            <div className="mt-5 rounded-2xl border border-pink-100 bg-pink-50 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-pink-500">
-                Order Number
+              <h3 className="text-2xl font-black text-gray-900">
+                ការទូទាត់បានជោគជ័យ!
+              </h3>
+
+              <p className="mt-2 text-sm font-bold text-pink-600 animate-pulse">
+                កំពុងនាំអ្នកទៅកាន់កងបង្វិលសំណាង...
               </p>
 
-              <p className="mt-1 break-all font-mono text-base font-black text-gray-900">
-                {currentOrder.orderNumber}
-              </p>
+              <div className="mt-4 rounded-2xl border border-pink-100 bg-pink-50/80 px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-pink-500">
+                  Order Number
+                </p>
+                <p className="mt-1 break-all font-mono text-base font-black text-gray-900">
+                  {currentOrder.orderNumber}
+                </p>
+              </div>
+
+              <div className="mt-6 flex flex-col gap-3">
+                <a
+                  href={`/spin/${encodeURIComponent(currentOrder.orderNumber)}`}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-600 via-rose-500 to-purple-600 px-6 py-4 text-sm sm:text-base font-black text-white shadow-xl shadow-pink-300 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                >
+                  <Sparkles className="h-4 w-4 text-amber-300" />
+                  <span>បង្វិលកងសំណាងឥឡូវនេះ (Spin Now)</span>
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+
+                <button
+                  type="button"
+                  onClick={copyOrderNumber}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-xs font-bold text-pink-600 hover:bg-pink-50"
+                >
+                  {copiedOrder ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                  {copiedOrder ? "Copied Order #" : "Copy Order #"}
+                </button>
+              </div>
             </div>
+          ) : (
+            <div key="paid" className="animate-slide-up px-7 py-10 text-center">
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
+                <CheckCircle2 className="h-12 w-12 text-green-500" />
+              </div>
 
-            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={copyOrderNumber}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-extrabold text-pink-600 shadow-sm transition hover:bg-pink-50 active:scale-[0.99]"
-              >
-                {copiedOrder ? (
-                  <Check className="h-4 w-4 text-green-500" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
+              <h3 className="text-2xl font-black text-gray-900">
+                ការទូទាត់បានជោគជ័យ!
+              </h3>
 
-                {copiedOrder ? "Copied" : "Copy Order"}
-              </button>
+              <div className="mt-5 rounded-2xl border border-pink-100 bg-pink-50 px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-pink-500">
+                  Order Number
+                </p>
 
-              <a
-                href={orderPageUrl}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-600 to-pink-500 px-4 py-3 text-sm font-extrabold text-white shadow-lg shadow-pink-200 transition hover:scale-[1.01] active:scale-[0.99]"
-              >
-                Go to Order
-                <ExternalLink className="h-4 w-4" />
-              </a>
+                <p className="mt-1 break-all font-mono text-base font-black text-gray-900">
+                  {currentOrder.orderNumber}
+                </p>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={copyOrderNumber}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-extrabold text-pink-600 shadow-sm transition hover:bg-pink-50 active:scale-[0.99]"
+                >
+                  {copiedOrder ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+
+                  {copiedOrder ? "Copied" : "Copy Order"}
+                </button>
+
+                <a
+                  href={orderPageUrl}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-600 to-pink-500 px-4 py-3 text-sm font-extrabold text-white shadow-lg shadow-pink-200 transition hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  Go to Order
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </div>
             </div>
-          </div>
+          )
         ) : expired ? (
           <div key="expired" className="animate-slide-up px-7 py-10 text-center">
             <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-pink-50 ring-8 ring-pink-100/70">

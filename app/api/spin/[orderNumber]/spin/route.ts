@@ -114,9 +114,23 @@ export async function POST(
     }
 
     // 3. One spin per successful transaction (idempotent)
-    // If spin transaction already exists and is SPUN or COMPLETED, return the existing result
+    // If spin transaction is already COMPLETED, it is permanently expired
     const existingTx = order.spinTransaction;
-    if (existingTx && (existingTx.status === "SPUN" || existingTx.status === "COMPLETED")) {
+    if (existingTx && existingTx.status === "COMPLETED") {
+      return NextResponse.json(
+        {
+          error: "កងបង្វិលនេះត្រូវបានប្រើប្រាស់រួចរាល់ហើយ មិនអាចបង្វិលបានទៀតទេ (This lucky wheel has already expired).",
+          expired: true,
+          status: "COMPLETED",
+          winningRewardLabel: existingTx.winningRewardLabel,
+          winningRewardAmount: existingTx.winningRewardAmount,
+        },
+        { status: 400 }
+      );
+    }
+
+    // If already SPUN, return the established result
+    if (existingTx && existingTx.status === "SPUN") {
       const existingIndex = slots.findIndex((s) => s.id === existingTx.winningSlotId);
       return NextResponse.json({
         ok: true,

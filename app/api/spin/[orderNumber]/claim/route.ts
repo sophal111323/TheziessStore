@@ -38,12 +38,13 @@ export async function POST(
       return NextResponse.json({ error: "Spin transaction not found" }, { status: 404 });
     }
 
-    // 1. Prevent double-claiming rewards
+    // 1. Prevent double-claiming rewards & expired state
     if (tx.status === "COMPLETED") {
       return NextResponse.json({
         ok: true,
         alreadyClaimed: true,
-        message: "Reward has already been claimed",
+        expired: true,
+        message: "Reward has already been claimed and this spin is expired",
         rewardLabel: tx.winningRewardLabel,
         rewardAmount: tx.winningRewardAmount,
         claimedAt: tx.claimedAt,
