@@ -130,18 +130,48 @@ export async function GET(
       }
     }
 
+    // Query products for this game to auto-resolve icons if slot icon is not an image URL
+    const gameProducts = await prisma.product.findMany({
+      where: { gameId: order.gameId, active: true },
+      select: { name: true, supplierCode: true, imageUrl: true },
+    });
+
     // Sanitize slots for client (do not leak backend supplier codes)
-    const sanitizedSlots = order.randomPackage.slots.map((s, index) => ({
-      id: s.id,
-      index,
-      label: s.label,
-      rewardType: s.rewardType,
-      rewardAmount: s.rewardAmount,
-      probability: s.probability,
-      color: s.color,
-      textColor: s.textColor,
-      icon: s.icon,
-    }));
+    const sanitizedSlots = order.randomPackage.slots.map((s, index) => {
+      let icon = s.icon;
+      const isUrl = icon && (icon.startsWith("http://") || icon.startsWith("https://") || icon.startsWith("/"));
+      if (!isUrl) {
+        // Attempt match by supplierCode or name against game products
+        const matchedProduct = gameProducts.find((p) => {
+          if (s.supplierCode && p.supplierCode && s.supplierCode.trim().toLowerCase() === p.supplierCode.trim().toLowerCase()) {
+            return true;
+          }
+          const sLabel = s.label.trim().toLowerCase();
+          const pName = p.name.trim().toLowerCase();
+          return sLabel === pName || pName.includes(sLabel) || sLabel.includes(pName);
+        });
+
+        if (matchedProduct?.imageUrl) {
+          icon = matchedProduct.imageUrl;
+        } else if (order.randomPackage?.imageUrl) {
+          icon = order.randomPackage.imageUrl;
+        } else if (order.game?.imageUrl) {
+          icon = order.game.imageUrl;
+        }
+      }
+
+      return {
+        id: s.id,
+        index,
+        label: s.label,
+        rewardType: s.rewardType,
+        rewardAmount: s.rewardAmount,
+        probability: s.probability,
+        color: s.color,
+        textColor: s.textColor,
+        icon,
+      };
+    });
 
     return NextResponse.json({
       orderNumber: order.orderNumber,

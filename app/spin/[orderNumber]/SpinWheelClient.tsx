@@ -262,13 +262,29 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
     data.winningRewardLabel ||
     (wonSlot ? wonSlot.label : "Diamond Reward");
 
-  // Image configured in admin panel: slice custom icon -> package logo
+  // Image configured in admin panel: slice custom icon -> data.slots match -> package logo -> game logo
   const wonRewardImage = useMemo(() => {
     if (wonSlot?.icon && (wonSlot.icon.startsWith("http") || wonSlot.icon.startsWith("/"))) {
       return wonSlot.icon;
     }
-    return data?.package?.imageUrl || null;
-  }, [wonSlot, data?.package?.imageUrl]);
+    if (data?.slots) {
+      const match = data.slots.find(
+        (s: WheelSlot) =>
+          (wonSlot?.id && s.id === wonSlot.id) ||
+          (wonSlot?.label && s.label?.trim().toLowerCase() === wonSlot.label?.trim().toLowerCase())
+      );
+      if (match?.icon && (match.icon.startsWith("http") || match.icon.startsWith("/"))) {
+        return match.icon;
+      }
+    }
+    if (data?.package?.imageUrl) {
+      return data.package.imageUrl;
+    }
+    if (data?.game?.imageUrl) {
+      return data.game.imageUrl;
+    }
+    return null;
+  }, [wonSlot, data]);
 
   return (
     <div className="relative min-h-[85vh] overflow-hidden px-4 py-8 sm:py-12 sm:px-6">
@@ -513,12 +529,16 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
               {/* Ambient gold glow */}
               <div className="pointer-events-none absolute -top-16 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-yellow-400/30 blur-3xl" />
 
-              {/* Sparkle / Reward Icon */}
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-tr from-yellow-400 via-amber-300 to-yellow-500 text-purple-950 shadow-xl shadow-yellow-400/50 ring-4 ring-yellow-200/50 mb-4 animate-bounce overflow-hidden p-2.5">
+              {/* Sparkle / Reward Icon (Configured from Admin Panel) */}
+              <div className="mx-auto flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-3xl bg-gradient-to-tr from-yellow-400 via-amber-300 to-yellow-500 text-purple-950 shadow-2xl shadow-yellow-400/60 ring-8 ring-yellow-400/20 mb-4 animate-bounce overflow-hidden p-3 bg-white/95">
                 {wonRewardImage ? (
-                  <img src={wonRewardImage} alt={wonSlot.label} className="w-full h-full object-contain" />
+                  <img
+                    src={wonRewardImage}
+                    alt={wonSlot.label}
+                    className="w-full h-full object-contain drop-shadow-md"
+                  />
                 ) : (
-                  <Sparkles className="h-10 w-10 text-purple-950" />
+                  <Sparkles className="h-12 w-12 text-purple-950" />
                 )}
               </div>
 
@@ -537,17 +557,6 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
 
                 {/* Won Reward Highlight */}
                 <div className="mb-4">
-                  {wonRewardImage && (
-                    <div className="mb-2.5 flex justify-center">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border border-yellow-400/40 bg-white/10 p-2 flex items-center justify-center shadow-lg">
-                        <img
-                          src={wonRewardImage}
-                          alt={wonSlot.label}
-                          className="w-full h-full object-contain drop-shadow-md"
-                        />
-                      </div>
-                    </div>
-                  )}
                   <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-yellow-400/20 border border-yellow-400/40 text-[11px] font-black uppercase text-yellow-300 tracking-wider">
                     <Sparkles className="h-3 w-3 text-yellow-300" />
                     រង្វាន់ឈ្នះ (Won Reward)

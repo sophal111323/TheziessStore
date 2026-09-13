@@ -136,6 +136,7 @@ export default function AdminLuckyWheelPage() {
   const [uploadingPackageImage, setUploadingPackageImage] = useState(false);
   const [placeOnTop, setPlaceOnTop] = useState(true);
   const [uploadingSliceIndex, setUploadingSliceIndex] = useState<number | null>(null);
+  const [gameProducts, setGameProducts] = useState<any[]>([]);
 
   // Slots in builder
   const [modalSlots, setModalSlots] = useState<AdminSlot[]>([
@@ -221,6 +222,19 @@ export default function AdminLuckyWheelPage() {
   useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
+
+  useEffect(() => {
+    if (!selectedGameId) {
+      setGameProducts([]);
+      return;
+    }
+    fetch(`/api/admin/products?gameId=${selectedGameId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setGameProducts(data);
+      })
+      .catch((err) => console.error("Failed to load products for game:", err));
+  }, [selectedGameId]);
 
   // Fetch history & analytics
   const loadHistoryAndAnalytics = useCallback(async () => {
@@ -1516,6 +1530,38 @@ export default function AdminLuckyWheelPage() {
                                   disabled={uploadingSliceIndex === index}
                                 />
                               </label>
+
+                              {gameProducts.length > 0 && (
+                                <select
+                                  className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-pink-200 bg-pink-50 text-pink-700 cursor-pointer outline-none hover:bg-pink-100 max-w-[140px] truncate"
+                                  onChange={(e) => {
+                                    const prodId = e.target.value;
+                                    if (!prodId) return;
+                                    const prod = gameProducts.find((p) => p.id === prodId);
+                                    if (!prod) return;
+                                    const updated = [...modalSlots];
+                                    updated[index] = {
+                                      ...updated[index],
+                                      label: prod.name,
+                                      supplier: prod.supplier || updated[index].supplier,
+                                      supplierCode: prod.supplierCode || updated[index].supplierCode,
+                                      rewardAmount: prod.amount || updated[index].rewardAmount,
+                                      icon: prod.imageUrl || updated[index].icon,
+                                    };
+                                    setModalSlots(updated);
+                                    e.target.value = "";
+                                  }}
+                                  defaultValue=""
+                                  title="Autofill label, provider code & image from existing game product"
+                                >
+                                  <option value="">⚡ Autofill Product...</option>
+                                  {gameProducts.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                      {p.name} {p.imageUrl ? "🖼️" : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-1.5 flex-1 sm:max-w-xs">

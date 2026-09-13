@@ -202,6 +202,28 @@ export async function POST(
       });
     }
 
+    let resolvedIcon = winningSlot.icon;
+    const isIconUrl = resolvedIcon && (resolvedIcon.startsWith("http://") || resolvedIcon.startsWith("https://") || resolvedIcon.startsWith("/"));
+    if (!isIconUrl) {
+      const gameProducts = await prisma.product.findMany({
+        where: { gameId: order.gameId, active: true },
+        select: { name: true, supplierCode: true, imageUrl: true },
+      });
+      const matched = gameProducts.find((p) => {
+        if (winningSlot.supplierCode && p.supplierCode && winningSlot.supplierCode.trim().toLowerCase() === p.supplierCode.trim().toLowerCase()) {
+          return true;
+        }
+        const sLabel = winningSlot.label.trim().toLowerCase();
+        const pName = p.name.trim().toLowerCase();
+        return sLabel === pName || pName.includes(sLabel) || sLabel.includes(pName);
+      });
+      if (matched?.imageUrl) {
+        resolvedIcon = matched.imageUrl;
+      } else if (order.randomPackage?.imageUrl) {
+        resolvedIcon = order.randomPackage.imageUrl;
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       status: "SPUN",
@@ -213,7 +235,7 @@ export async function POST(
         rewardAmount: winningSlot.rewardAmount,
         probability: winningSlot.probability,
         color: winningSlot.color,
-        icon: winningSlot.icon,
+        icon: resolvedIcon,
       },
     });
   } catch (err: any) {
