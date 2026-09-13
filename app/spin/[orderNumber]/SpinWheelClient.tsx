@@ -13,6 +13,9 @@ import {
   Check,
   RotateCcw,
   ChevronRight,
+  Package,
+  User,
+  Gamepad2,
 } from "lucide-react";
 
 interface SpinPageData {
@@ -358,7 +361,15 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
                   <span className="font-bold text-gray-900">{data.game.name}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-500">គណនី (UID)</span>
+                  <span className="font-semibold text-gray-500">កញ្ចប់ (Package)</span>
+                  <span className="font-bold text-gray-900">{data.package.name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-gray-500">ឈ្មោះអ្នកលេង (Player Name)</span>
+                  <span className="font-bold text-pink-600">{data.playerNickname || "—"}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-gray-500">Player ID (UID)</span>
                   <span className="font-mono font-black text-pink-700">
                     {data.playerUid} {data.serverId ? `(${data.serverId})` : ""}
                   </span>
@@ -483,16 +494,77 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
               </h2>
 
               {/* Won Reward Card */}
-              <div className="my-5 rounded-2xl border border-yellow-400/40 bg-white/10 p-5 backdrop-blur-md">
-                <p className="text-3xl sm:text-4xl font-black text-yellow-300 drop-shadow">
-                  {wonSlot.label}
-                </p>
-                <p className="mt-1 text-xs font-bold text-white/70">
-                  ឱកាសឈ្នះ: {wonSlot.probability}% · Game: {data.game.name}
-                </p>
-                <p className="mt-2 text-xs font-mono font-semibold text-pink-300">
-                  UID: {data.playerUid} {data.serverId ? `(${data.serverId})` : ""}
-                </p>
+              <div className="my-5 overflow-hidden rounded-2xl border border-yellow-400/50 bg-gradient-to-b from-white/[0.12] via-white/[0.06] to-white/[0.03] p-5 backdrop-blur-md shadow-2xl text-center relative">
+                {/* Top gold shine accent */}
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500" />
+
+                {/* Won Reward Highlight */}
+                <div className="mb-4">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-yellow-400/20 border border-yellow-400/40 text-[11px] font-black uppercase text-yellow-300 tracking-wider">
+                    <Sparkles className="h-3 w-3 text-yellow-300" />
+                    រង្វាន់ឈ្នះ (Won Reward)
+                  </span>
+                  <p className="mt-2 text-3xl sm:text-4xl font-black bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-400 bg-clip-text text-transparent drop-shadow-[0_2px_14px_rgba(251,191,36,0.5)]">
+                    {wonSlot.label}
+                  </p>
+                  <p className="mt-1 text-[11px] font-semibold text-white/70">
+                    ឱកាសឈ្នះ: <span className="text-yellow-300 font-bold">{wonSlot.probability}%</span> · Game: <span className="text-white font-bold">{data.game.name}</span>
+                  </p>
+                </div>
+
+                {/* Info Card: Name package, player name, player id */}
+                <div className="border-t border-white/10 pt-3 space-y-2 text-left text-xs">
+                  {/* 1. Name Package */}
+                  <div className="flex items-center justify-between gap-3 rounded-xl bg-white/[0.06] px-3.5 py-2.5 border border-white/10 hover:border-yellow-400/30 transition-colors">
+                    <div className="flex items-center gap-2 text-amber-200/90 font-semibold text-xs">
+                      <div className="w-6 h-6 rounded-lg bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-300 shrink-0">
+                        <Package className="h-3.5 w-3.5" />
+                      </div>
+                      <span>Package:</span>
+                    </div>
+                    <div className="text-right flex items-center gap-1.5 truncate">
+                      <span className="font-black text-white text-xs sm:text-sm truncate">
+                        {data.package.name}
+                      </span>
+                      {data.package.badge && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-pink-500/30 text-pink-200 border border-pink-400/30 font-bold shrink-0">
+                          {data.package.badge}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 2. Player Name */}
+                  <div className="flex items-center justify-between gap-3 rounded-xl bg-white/[0.06] px-3.5 py-2.5 border border-white/10 hover:border-pink-400/30 transition-colors">
+                    <div className="flex items-center gap-2 text-pink-200/90 font-semibold text-xs">
+                      <div className="w-6 h-6 rounded-lg bg-pink-400/20 border border-pink-400/30 flex items-center justify-center text-pink-300 shrink-0">
+                        <User className="h-3.5 w-3.5" />
+                      </div>
+                      <span>Player Name:</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-black text-pink-300 text-xs sm:text-sm">
+                        {data.playerNickname || "—"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 3. Player ID (UID) */}
+                  <div className="flex items-center justify-between gap-3 rounded-xl bg-white/[0.06] px-3.5 py-2.5 border border-white/10 hover:border-cyan-400/30 transition-colors">
+                    <div className="flex items-center gap-2 text-cyan-200/90 font-semibold text-xs">
+                      <div className="w-6 h-6 rounded-lg bg-cyan-400/20 border border-cyan-400/30 flex items-center justify-center text-cyan-300 shrink-0">
+                        <Gamepad2 className="h-3.5 w-3.5" />
+                      </div>
+                      <span>Player ID:</span>
+                    </div>
+                    <div className="text-right font-mono font-black text-cyan-200 text-xs sm:text-sm flex items-center gap-1.5">
+                      <span>{data.playerUid}</span>
+                      {data.serverId && (
+                        <span className="text-cyan-400/70 text-[11px] font-normal">({data.serverId})</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* ⚡ AUTOMATIC DELIVERY STATUS (NO CLAIM BUTTON NEEDED) */}

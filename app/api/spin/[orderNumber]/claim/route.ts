@@ -51,16 +51,16 @@ export async function POST(
       });
     }
 
-    if (tx.status !== "SPUN") {
+    if (tx.status !== "SPUN" && tx.status !== "FAILED") {
       return NextResponse.json(
         { error: "Please spin the wheel before claiming your reward" },
         { status: 400 }
       );
     }
 
-    // Atomic lock: Only one concurrent request can transition SPUN -> CLAIMING
+    // Atomic lock: Only one concurrent request can transition SPUN / FAILED -> CLAIMING
     const locked = await prisma.randomSpinTransaction.updateMany({
-      where: { id: tx.id, status: "SPUN" },
+      where: { id: tx.id, status: { in: ["SPUN", "FAILED"] } },
       data: { status: "CLAIMING" },
     });
 

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getClientIp } from "@/lib/getIp";
 import { publicRateLimit } from "@/lib/apiSecurity";
+import { lookupBay2GameNickname } from "@/lib/gameLookup/bay2game";
 
 export const dynamic = "force-dynamic";
 
@@ -107,6 +108,28 @@ export async function GET(
       });
     }
 
+    let playerNickname = order.playerNickname || spinTx.playerNickname || null;
+    if (!playerNickname && order.playerUid && order.game?.slug) {
+      try {
+        const lookup = await lookupBay2GameNickname(order.game.slug, order.playerUid, order.serverId || undefined);
+        if (lookup?.username) {
+          playerNickname = lookup.username;
+          await prisma.order.update({
+            where: { id: order.id },
+            data: { playerNickname: lookup.username },
+          }).catch(() => {});
+          if (spinTx) {
+            await prisma.randomSpinTransaction.update({
+              where: { id: spinTx.id },
+              data: { playerNickname: lookup.username },
+            }).catch(() => {});
+          }
+        }
+      } catch {
+        // ignore lookup errors
+      }
+    }
+
     // Sanitize slots for client (do not leak backend supplier codes)
     const sanitizedSlots = order.randomPackage.slots.map((s, index) => ({
       id: s.id,
@@ -125,7 +148,7 @@ export async function GET(
       status: spinTx.status, // "PENDING" | "SPUN" | "COMPLETED" | "FAILED"
       playerUid: order.playerUid,
       serverId: order.serverId,
-      playerNickname: order.playerNickname,
+      playerNickname: playerNickname,
       game: order.game,
       package: {
         id: order.randomPackage.id,
