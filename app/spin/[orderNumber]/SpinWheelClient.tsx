@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import LuckyWheel, { WheelSlot } from "@/components/LuckyWheel";
 import Link from "next/link";
 import {
@@ -129,9 +129,18 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
       }
       setData(json);
 
+      // Locate winning slot if previously determined or completed
+      if (json.winningSlotId) {
+        const found = json.slots?.find((s: WheelSlot) => s.id === json.winningSlotId);
+        if (found) setWonSlot(found);
+      } else if (json.winningRewardLabel) {
+        const found = json.slots?.find((s: WheelSlot) => s.label === json.winningRewardLabel);
+        if (found) setWonSlot(found);
+      }
+
       // If already spun and waiting for claim, auto-trigger claim!
       if (json.status === "SPUN" && json.winningSlotId) {
-        const found = json.slots.find((s: WheelSlot) => s.id === json.winningSlotId);
+        const found = json.slots?.find((s: WheelSlot) => s.id === json.winningSlotId);
         if (found) {
           setWonSlot(found);
           setShowWinModal(true);
@@ -253,6 +262,14 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
     data.winningRewardLabel ||
     (wonSlot ? wonSlot.label : "Diamond Reward");
 
+  // Image configured in admin panel: slice custom icon -> package logo
+  const wonRewardImage = useMemo(() => {
+    if (wonSlot?.icon && (wonSlot.icon.startsWith("http") || wonSlot.icon.startsWith("/"))) {
+      return wonSlot.icon;
+    }
+    return data?.package?.imageUrl || null;
+  }, [wonSlot, data?.package?.imageUrl]);
+
   return (
     <div className="relative min-h-[85vh] overflow-hidden px-4 py-8 sm:py-12 sm:px-6">
       {/* ── Ambient Background Lighting ── */}
@@ -322,8 +339,12 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
             <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500" />
 
             {/* Victory Badge */}
-            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-tr from-amber-400 via-yellow-300 to-amber-500 text-purple-950 shadow-xl shadow-amber-300/60 ring-8 ring-amber-100 mb-5 animate-bounce">
-              <Trophy className="h-12 w-12 text-purple-950" />
+            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-tr from-amber-400 via-yellow-300 to-amber-500 text-purple-950 shadow-xl shadow-amber-300/60 ring-8 ring-amber-100 mb-5 animate-bounce overflow-hidden p-3.5">
+              {wonRewardImage ? (
+                <img src={wonRewardImage} alt={prizeLabel} className="w-full h-full object-contain" />
+              ) : (
+                <Trophy className="h-12 w-12 text-purple-950" />
+              )}
             </div>
 
             {/* Expired / Single Use Tag */}
@@ -346,7 +367,19 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
 
             {/* Main Reward Card */}
             <div className="my-7 mx-auto max-w-md rounded-3xl border-2 border-amber-300/80 bg-gradient-to-b from-amber-500/10 via-white to-amber-500/5 p-6 sm:p-8 shadow-lg relative">
-              <span className="text-4xl sm:text-5xl block mb-2">💎</span>
+              {wonRewardImage ? (
+                <div className="mb-3 flex justify-center">
+                  <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-2 border-amber-300/80 bg-white/95 shadow-md flex items-center justify-center p-2.5 overflow-hidden">
+                    <img
+                      src={wonRewardImage}
+                      alt={prizeLabel}
+                      className="w-full h-full object-contain drop-shadow-sm"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <span className="text-4xl sm:text-5xl block mb-2">💎</span>
+              )}
               <p className="text-xs font-black uppercase tracking-wider text-amber-700">
                 រង្វាន់ដែលអ្នកទទួលបាន
               </p>
@@ -480,9 +513,13 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
               {/* Ambient gold glow */}
               <div className="pointer-events-none absolute -top-16 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-yellow-400/30 blur-3xl" />
 
-              {/* Sparkle Icon */}
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-tr from-yellow-400 via-amber-300 to-yellow-500 text-purple-950 shadow-xl shadow-yellow-400/50 ring-4 ring-yellow-200/50 mb-4 animate-bounce">
-                <Sparkles className="h-10 w-10 text-purple-950" />
+              {/* Sparkle / Reward Icon */}
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-tr from-yellow-400 via-amber-300 to-yellow-500 text-purple-950 shadow-xl shadow-yellow-400/50 ring-4 ring-yellow-200/50 mb-4 animate-bounce overflow-hidden p-2.5">
+                {wonRewardImage ? (
+                  <img src={wonRewardImage} alt={wonSlot.label} className="w-full h-full object-contain" />
+                ) : (
+                  <Sparkles className="h-10 w-10 text-purple-950" />
+                )}
               </div>
 
               <span className="rounded-full bg-yellow-400/20 px-3.5 py-1 text-xs font-black uppercase text-yellow-300 border border-yellow-400/40">
@@ -500,6 +537,17 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
 
                 {/* Won Reward Highlight */}
                 <div className="mb-4">
+                  {wonRewardImage && (
+                    <div className="mb-2.5 flex justify-center">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border border-yellow-400/40 bg-white/10 p-2 flex items-center justify-center shadow-lg">
+                        <img
+                          src={wonRewardImage}
+                          alt={wonSlot.label}
+                          className="w-full h-full object-contain drop-shadow-md"
+                        />
+                      </div>
+                    </div>
+                  )}
                   <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-yellow-400/20 border border-yellow-400/40 text-[11px] font-black uppercase text-yellow-300 tracking-wider">
                     <Sparkles className="h-3 w-3 text-yellow-300" />
                     រង្វាន់ឈ្នះ (Won Reward)

@@ -135,6 +135,7 @@ export default function AdminLuckyWheelPage() {
   const [packageImageUrl, setPackageImageUrl] = useState("");
   const [uploadingPackageImage, setUploadingPackageImage] = useState(false);
   const [placeOnTop, setPlaceOnTop] = useState(true);
+  const [uploadingSliceIndex, setUploadingSliceIndex] = useState<number | null>(null);
 
   // Slots in builder
   const [modalSlots, setModalSlots] = useState<AdminSlot[]>([
@@ -338,6 +339,7 @@ export default function AdminLuckyWheelPage() {
         sortOrder: s.sortOrder ?? idx,
         supplier: s.supplier || "bay2game",
         supplierCode: s.supplierCode || "",
+        icon: s.icon || "",
       }))
     );
     setPackageError(null);
@@ -360,6 +362,7 @@ export default function AdminLuckyWheelPage() {
         sortOrder: nextIdx,
         supplier: lastSupplier,
         supplierCode: "",
+        icon: "",
       },
     ]);
   };
@@ -397,6 +400,27 @@ export default function AdminLuckyWheelPage() {
       setPackageError(err.message || "Failed to upload image");
     } finally {
       setUploadingPackageImage(false);
+      e.target.value = "";
+    }
+  };
+
+  // Upload individual slice icon
+  const handleUploadSliceIcon = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingSliceIndex(index);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      handleUpdateSlot(index, "icon", data.url);
+      showToast(`Uploaded icon for slice ${index + 1}!`);
+    } catch (err: any) {
+      alert(err.message || "Failed to upload image");
+    } finally {
+      setUploadingSliceIndex(null);
       e.target.value = "";
     }
   };
@@ -450,6 +474,7 @@ export default function AdminLuckyWheelPage() {
           sortOrder: idx,
           supplier: s.supplier,
           supplierCode: s.supplierCode ? s.supplierCode.trim() : null,
+          icon: s.icon ? s.icon.trim() : null,
         })),
       };
 
@@ -1446,6 +1471,71 @@ export default function AdminLuckyWheelPage() {
                                 className="w-full px-2.5 py-1 text-xs rounded-lg border border-gray-300 bg-white font-mono focus:border-pink-500 outline-none"
                                 title="Provider Product Code / Package ID"
                               />
+                            </div>
+                          </div>
+
+                          {/* Row 3: Reward Slice Icon / Image Upload */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-gray-200/50 text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold text-gray-600 shrink-0 flex items-center gap-1">
+                                <span>🖼️</span>
+                                <span>Slice Image:</span>
+                              </span>
+
+                              {slot.icon && (slot.icon.startsWith("http") || slot.icon.startsWith("/")) ? (
+                                <div className="relative w-7 h-7 rounded-lg border border-pink-200 bg-white overflow-hidden shrink-0 group shadow-2xs">
+                                  <img src={slot.icon} alt="" className="w-full h-full object-contain" />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateSlot(index, "icon", null)}
+                                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white cursor-pointer"
+                                    title="Remove slice image"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ) : null}
+
+                              <label className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-gray-300 hover:bg-gray-50 text-[11px] font-semibold text-gray-700 cursor-pointer transition-colors shadow-2xs">
+                                {uploadingSliceIndex === index ? (
+                                  <>
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    <span>Uploading...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="w-3 h-3 text-pink-500" />
+                                    <span>Upload Image</span>
+                                  </>
+                                )}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => handleUploadSliceIcon(index, e)}
+                                  disabled={uploadingSliceIndex === index}
+                                />
+                              </label>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 flex-1 sm:max-w-xs">
+                              <input
+                                type="text"
+                                value={slot.icon || ""}
+                                onChange={(e) => handleUpdateSlot(index, "icon", e.target.value)}
+                                placeholder="Image URL (empty = uses package logo)"
+                                className="w-full px-2.5 py-1 text-[11px] rounded-lg border border-gray-200 bg-white text-gray-600 focus:border-pink-500 outline-none"
+                                title="Reward Slice Image URL"
+                              />
+                              {slot.icon && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateSlot(index, "icon", null)}
+                                  className="text-[11px] text-red-500 hover:text-red-700 font-medium px-1 cursor-pointer shrink-0"
+                                >
+                                  Clear
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
