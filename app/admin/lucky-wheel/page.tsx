@@ -104,6 +104,13 @@ const DEFAULT_COLORS = [
   "#84CC16", // lime-500
 ];
 
+const PROVIDER_OPTIONS = [
+  { id: "bay2game", label: "Bay2Game", icon: "⚡", codePlaceholder: "e.g. 50 (Bay2Game Code)" },
+  { id: "khmer_topup", label: "Khmer TopUp", icon: "🇰🇭", codePlaceholder: "e.g. 102 (Package ID)" },
+  { id: "frozenyuki", label: "FrozenYuki", icon: "❄️", codePlaceholder: "e.g. ff:100 (Code)" },
+  { id: "manual", label: "Manual", icon: "👤", codePlaceholder: "Optional Note (Manual Delivery)" },
+];
+
 export default function AdminLuckyWheelPage() {
   const [activeTab, setActiveTab] = useState<"packages" | "analytics" | "history">("packages");
   const [loading, setLoading] = useState(true);
@@ -322,6 +329,7 @@ export default function AdminLuckyWheelPage() {
   // Slot mutations
   const handleAddSlot = () => {
     const nextIdx = modalSlots.length;
+    const lastSupplier = modalSlots[modalSlots.length - 1]?.supplier || "bay2game";
     setModalSlots([
       ...modalSlots,
       {
@@ -332,7 +340,7 @@ export default function AdminLuckyWheelPage() {
         color: DEFAULT_COLORS[nextIdx % DEFAULT_COLORS.length],
         textColor: "#FFFFFF",
         sortOrder: nextIdx,
-        supplier: "bay2game",
+        supplier: lastSupplier,
         supplierCode: "",
       },
     ]);
@@ -675,6 +683,9 @@ export default function AdminLuckyWheelPage() {
                           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
                           <span className="text-gray-800">{s.label}</span>
                           <span className="text-gray-500 text-[10px]">({s.probability}%)</span>
+                          <span className="text-[10px] text-gray-500 font-mono ml-0.5" title={`Provider: ${s.supplier || "bay2game"}`}>
+                            {s.supplier === "khmer_topup" ? "🇰🇭" : s.supplier === "frozenyuki" ? "❄️" : s.supplier === "manual" ? "👤" : "⚡"}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -1107,12 +1118,37 @@ export default function AdminLuckyWheelPage() {
                       </div>
                     </div>
 
+                    {/* Quick Set All Provider Toolbar */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-pink-50/80 border border-pink-200/70 text-xs">
+                      <div className="flex items-center gap-1.5 font-bold text-pink-900">
+                        <span>⚡</span>
+                        <span>Set Provider for ALL Slices:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {PROVIDER_OPTIONS.map((prov) => (
+                          <button
+                            key={prov.id}
+                            type="button"
+                            onClick={() => {
+                              setModalSlots((prev) => prev.map((s) => ({ ...s, supplier: prov.id })));
+                              showToast(`All slices set to ${prov.label}`);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-white border border-pink-200 text-gray-700 hover:text-pink-600 hover:border-pink-400 text-xs font-semibold shadow-xs flex items-center gap-1 cursor-pointer transition-all hover:scale-105 active:scale-95"
+                          >
+                            <span>{prov.icon}</span>
+                            <span>{prov.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
                       {modalSlots.map((slot, index) => (
                         <div
                           key={index}
-                          className="p-3.5 rounded-xl border border-gray-200 bg-gray-50/50 space-y-3"
+                          className="p-3.5 rounded-xl border border-gray-200 bg-gray-50/70 space-y-2.5 transition-colors hover:border-pink-200"
                         >
+                          {/* Row 1: Label, Reward Amount, Probability, Color & Delete */}
                           <div className="grid grid-cols-12 gap-2 items-center">
                             {/* Color preview / picker */}
                             <div className="col-span-2 sm:col-span-1">
@@ -1126,19 +1162,19 @@ export default function AdminLuckyWheelPage() {
                             </div>
 
                             {/* Label */}
-                            <div className="col-span-6 sm:col-span-4">
+                            <div className="col-span-10 sm:col-span-5">
                               <input
                                 type="text"
                                 value={slot.label}
                                 onChange={(e) => handleUpdateSlot(index, "label", e.target.value)}
-                                placeholder="Reward Label"
-                                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 bg-white"
+                                placeholder="Reward Label (e.g. 50 Diamonds)"
+                                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 bg-white focus:border-pink-500 outline-none"
                                 required
                               />
                             </div>
 
                             {/* Reward Amount */}
-                            <div className="col-span-4 sm:col-span-2">
+                            <div className="col-span-5 sm:col-span-3">
                               <input
                                 type="number"
                                 min="0"
@@ -1146,14 +1182,14 @@ export default function AdminLuckyWheelPage() {
                                 onChange={(e) =>
                                   handleUpdateSlot(index, "rewardAmount", parseInt(e.target.value) || 0)
                                 }
-                                placeholder="Diamonds"
-                                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 bg-white"
+                                placeholder="Credits / Diamonds"
+                                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 bg-white focus:border-pink-500 outline-none"
                                 title="Reward Amount"
                               />
                             </div>
 
                             {/* Probability */}
-                            <div className="col-span-6 sm:col-span-2">
+                            <div className="col-span-5 sm:col-span-2">
                               <div className="relative">
                                 <input
                                   type="number"
@@ -1164,7 +1200,7 @@ export default function AdminLuckyWheelPage() {
                                   onChange={(e) =>
                                     handleUpdateSlot(index, "probability", parseFloat(e.target.value) || 0)
                                   }
-                                  className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 bg-white pr-5"
+                                  className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 bg-white pr-5 focus:border-pink-500 outline-none"
                                   placeholder="%"
                                   title="Win Probability %"
                                 />
@@ -1172,20 +1208,8 @@ export default function AdminLuckyWheelPage() {
                               </div>
                             </div>
 
-                            {/* Supplier Code */}
-                            <div className="col-span-5 sm:col-span-2">
-                              <input
-                                type="text"
-                                value={slot.supplierCode || ""}
-                                onChange={(e) => handleUpdateSlot(index, "supplierCode", e.target.value)}
-                                placeholder="Code (e.g. ML50)"
-                                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 bg-white font-mono"
-                                title="Upstream Supplier Product Code"
-                              />
-                            </div>
-
                             {/* Delete slot */}
-                            <div className="col-span-1 text-right">
+                            <div className="col-span-2 sm:col-span-1 text-right">
                               <button
                                 type="button"
                                 onClick={() => handleRemoveSlot(index)}
@@ -1194,6 +1218,49 @@ export default function AdminLuckyWheelPage() {
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
+                            </div>
+                          </div>
+
+                          {/* Row 2: API Provider Selector & Provider Product Code */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-gray-200/70">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-bold text-gray-600 shrink-0">API Provider:</span>
+                              <div className="inline-flex rounded-lg p-0.5 bg-gray-200/80 gap-0.5">
+                                {PROVIDER_OPTIONS.map((prov) => {
+                                  const isSelected = (slot.supplier || "bay2game") === prov.id;
+                                  return (
+                                    <button
+                                      key={prov.id}
+                                      type="button"
+                                      onClick={() => handleUpdateSlot(index, "supplier", prov.id)}
+                                      className={`px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                                        isSelected
+                                          ? "bg-white text-pink-700 shadow-xs ring-1 ring-black/5"
+                                          : "text-gray-600 hover:text-gray-900"
+                                      }`}
+                                    >
+                                      <span>{prov.icon}</span>
+                                      <span>{prov.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 flex-1 sm:max-w-xs">
+                              <span className="text-[10px] text-gray-500 font-bold uppercase shrink-0">
+                                {(slot.supplier || "bay2game") === "manual" ? "Note:" : "Code:"}
+                              </span>
+                              <input
+                                type="text"
+                                value={slot.supplierCode || ""}
+                                onChange={(e) => handleUpdateSlot(index, "supplierCode", e.target.value)}
+                                placeholder={
+                                  PROVIDER_OPTIONS.find((p) => p.id === (slot.supplier || "bay2game"))?.codePlaceholder || "Product code"
+                                }
+                                className="w-full px-2.5 py-1 text-xs rounded-lg border border-gray-300 bg-white font-mono focus:border-pink-500 outline-none"
+                                title="Provider Product Code / Package ID"
+                              />
                             </div>
                           </div>
                         </div>

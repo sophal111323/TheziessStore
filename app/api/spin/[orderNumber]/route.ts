@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getClientIp } from "@/lib/getIp";
+import { publicRateLimit } from "@/lib/apiSecurity";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,12 @@ export async function GET(
     if (!orderNumber) {
       return NextResponse.json({ error: "Order number is required" }, { status: 400 });
     }
+
+    const limited = publicRateLimit(req, `spin_detail:${orderNumber}`, {
+      limit: 60,
+      windowMs: 60_000,
+    });
+    if (limited) return limited;
 
     const order = await prisma.order.findUnique({
       where: { orderNumber },

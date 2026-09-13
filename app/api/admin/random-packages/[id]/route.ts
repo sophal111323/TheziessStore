@@ -150,15 +150,15 @@ export const DELETE = withAdminAuth<{ id: string }>(async (req, ctx, admin) => {
     const { id } = await ctx.params;
     const existing = await prisma.randomPackage.findUnique({
       where: { id },
-      include: { _count: { select: { transactions: true } } },
+      include: { _count: { select: { transactions: true, orders: true } } },
     });
 
     if (!existing) {
       return NextResponse.json({ error: "Package not found" }, { status: 404 });
     }
 
-    // If transactions exist, soft-delete by deactivating to preserve order history
-    if (existing._count.transactions > 0) {
+    // If transactions or orders exist, soft-delete by deactivating to preserve order history
+    if (existing._count.transactions > 0 || existing._count.orders > 0) {
       await prisma.randomPackage.update({
         where: { id },
         data: { active: false },

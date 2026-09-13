@@ -14,24 +14,25 @@ const PAID_STATES = new Set(["PAID", "PROCESSING", "DELIVERED"]);
  * and returns the winning slot.
  */
 function pickWeightedSlot<T extends { probability: number }>(slots: T[]): T {
-  const totalWeight = slots.reduce((sum, s) => sum + Math.max(0, s.probability), 0);
-  if (totalWeight <= 0) {
+  const validSlots = slots.filter((s) => s.probability > 0);
+  if (validSlots.length === 0) {
     return slots[0];
   }
 
-  // Cryptographically secure integer scaled to a float [0, 1)
-  const randomFactor = crypto.randomInt(0, 10_000_000) / 10_000_000;
+  const totalWeight = validSlots.reduce((sum, s) => sum + s.probability, 0);
+  // Cryptographically secure integer strictly > 0
+  const randomFactor = crypto.randomInt(1, 10_000_001) / 10_000_000;
   const threshold = randomFactor * totalWeight;
 
   let cumulative = 0;
-  for (const slot of slots) {
-    cumulative += Math.max(0, slot.probability);
+  for (const slot of validSlots) {
+    cumulative += slot.probability;
     if (threshold <= cumulative) {
       return slot;
     }
   }
 
-  return slots[slots.length - 1];
+  return validSlots[validSlots.length - 1];
 }
 
 export async function POST(
@@ -134,8 +135,8 @@ export async function POST(
     const winningSlot = pickWeightedSlot(slots);
     const winningIndex = slots.findIndex((s) => s.id === winningSlot.id);
 
-    // 5. Atomically record the spin result & transition status to SPUN
-    const updatedTx = await prisma.randomSpinTransaction.upsert({
+    // 5. Ensure the transaction row exists in PENDING
+    await prisma.randomSpinTransaction.upsert({
       where: { orderId: order.id },
       create: {
         orderId: order.id,
@@ -145,16 +146,18 @@ export async function POST(
         playerUid: order.playerUid,
         serverId: order.serverId,
         playerNickname: order.playerNickname,
-        status: "SPUN",
-        winningSlotId: winningSlot.id,
-        winningRewardAmount: winningSlot.rewardAmount,
-        winningRewardLabel: winningSlot.label,
-        winningSupplierCode: winningSlot.supplierCode,
-        winningSupplier: winningSlot.supplier,
-        spunAt: new Date(),
-        clientIp,
+        status: "PENDING",
       },
-      update: {
+      update: {},
+    });
+
+    // Atomically transition from PENDING -> SPUN
+    const updated = await prisma.randomSpinTransaction.updateMany({
+      where: {
+        orderId: order.id,
+        status: "PENDING",
+      },
+      data: {
         status: "SPUN",
         winningSlotId: winningSlot.id,
         winningRewardAmount: winningSlot.rewardAmount,
@@ -165,6 +168,25 @@ export async function POST(
         clientIp,
       },
     });
+
+    if (updated.count === 0) {
+      // Concurrently spun; return the won slot
+      const existing = await prisma.randomSpinTransaction.findUnique({ where: { orderId: order.id } });
+      const existingIdx = slots.findIndex((s) => s.id === existing?.winningSlotId);
+      return NextResponse.json({
+        ok: true,
+        alreadySpun: true,
+        status: existing?.status,
+        winningIndex: existingIdx >= 0 ? existingIdx : 0,
+        slot: existing
+          ? {
+              id: existing.winningSlotId,
+              label: existing.winningRewardLabel,
+              rewardAmount: existing.winningRewardAmount,
+            }
+          : winningSlot,
+      });
+    }
 
     return NextResponse.json({
       ok: true,

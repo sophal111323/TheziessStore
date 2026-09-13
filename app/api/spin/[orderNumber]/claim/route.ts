@@ -57,7 +57,24 @@ export async function POST(
       );
     }
 
+    // Atomic lock: Only one concurrent request can transition SPUN -> CLAIMING
+    const locked = await prisma.randomSpinTransaction.updateMany({
+      where: { id: tx.id, status: "SPUN" },
+      data: { status: "CLAIMING" },
+    });
+
+    if (locked.count !== 1) {
+      return NextResponse.json(
+        { error: "Reward is already being processed or has been claimed" },
+        { status: 409 }
+      );
+    }
+
     if (!tx.winningSlotId || tx.winningRewardAmount === null) {
+      await prisma.randomSpinTransaction.update({
+        where: { id: tx.id },
+        data: { status: "SPUN" },
+      });
       return NextResponse.json(
         { error: "No winning reward recorded for this spin" },
         { status: 400 }
@@ -73,7 +90,7 @@ export async function POST(
     let deliveryNote = `Lucky Spin Won: ${tx.winningRewardLabel}`;
 
     // 2. Deliver reward via upstream supplier API if supplierCode is configured
-    if (productCode) {
+    if (productCode && supplierName !== "manual") {
       try {
         const supplier = getSupplier(supplierName);
         const topupResult = await supplier.createOrder({
@@ -88,13 +105,17 @@ export async function POST(
           deliveryNote += ` (Delivered via ${supplier.displayName} Ref: ${fulfillmentRef})`;
         } else {
           console.warn(`Upstream topup error for spin ${order.orderNumber}:`, topupResult.error);
-          // Flag for manual review if upstream supplier failed, but don't lose the user's win
+          fulfillmentStatus = "PENDING_DELIVERY";
           deliveryNote += ` (Upstream ${supplier.displayName} pending: ${topupResult.error || "Unknown error"})`;
         }
       } catch (err: any) {
         console.error("Upstream supplier exception during claim:", err);
+        fulfillmentStatus = "PENDING_DELIVERY";
         deliveryNote += ` (Supplier error: ${err?.message || "Connection failed"})`;
       }
+    } else if (supplierName === "manual") {
+      fulfillmentStatus = "MANUAL_DELIVERY_REQUIRED";
+      deliveryNote += ` (Manual dispatch required by Admin)`;
     }
 
     // 3. Update RandomSpinTransaction to COMPLETED
