@@ -16,11 +16,14 @@ import {
   Loader2,
   AlertCircle,
   Download,
+  Sparkles,
 } from "lucide-react";
 
 interface OrderPayment {
   orderNumber: string;
   status: string;
+  isRandomSpin?: boolean;
+  randomPackageId?: string | null;
   gameName: string;
   gameSlug: string;
   productName: string;
@@ -553,34 +556,71 @@ export default function CheckoutClient() {
             {/* Paid */}
             {isPaid && (
               <div className="rounded-2xl border border-green-400/40 bg-gradient-to-br from-green-500/10 to-emerald-500/5 p-8 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20 mb-4">
-                  {order.status === "DELIVERED" ? (
-                    <CheckCircle2 className="h-10 w-10 text-green-600" />
-                  ) : (
-                    <Loader2 className="h-10 w-10 text-pink-600 animate-spin" />
-                  )}
-                </div>
-                <h1 className="font-display text-2xl font-bold mb-2">
-                  {order.status === "DELIVERED"
-                    ? "ការទូទាត់ និងបញ្ចូល Credits ជោគជ័យ!"
-                    : "ការទូទាត់បានជោគជ័យ!"}
-                </h1>
-                <p className="text-pink-500 text-sm mb-1">
-                  {order.status === "DELIVERED"
-                    ? "Credits ត្រូវបានបញ្ចូលទៅកាន់គណនីរបស់អ្នករួចរាល់ហើយ"
-                    : "កំពុងដំណើរការបញ្ចូល Credits ទៅកាន់គណនីហ្គេមរបស់អ្នក..."}
-                </p>
-                <p className="text-pink-500 text-sm mb-1">
-                  Order <span className="font-mono text-pink-800">{order.orderNumber}</span>
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
-                  <Link href="/" className="inline-flex items-center justify-center rounded-xl border border-pink-400 px-6 py-3 text-sm font-semibold text-pink-600">
-                    Back to Home
-                  </Link>
-                  <Link href={`/order?number=${order.orderNumber}`} className="inline-flex items-center justify-center rounded-xl bg-pink-600 px-6 py-3 text-sm font-semibold text-white">
-                    Track Order
-                  </Link>
-                </div>
+                {order.isRandomSpin ? (
+                  <>
+                    <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-tr from-pink-500 to-rose-400 text-white shadow-lg shadow-pink-200 mb-4 animate-bounce">
+                      <Sparkles className="h-10 w-10 text-white" />
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-xs font-semibold mb-2">
+                      <span>🎡</span> Mystery Box Unlocked
+                    </div>
+                    <h1 className="font-display text-2xl font-bold mb-2 text-gray-900">
+                      ការទូទាត់ជោគជ័យ!
+                    </h1>
+                    <p className="text-gray-600 text-sm mb-2">
+                      អ្នកមានសិទ្ធិបង្វិលកងសំណាង <span className="font-bold text-pink-600">1 លើក</span> ដើម្បីឈ្នះរង្វាន់ពេជ្រ!
+                    </p>
+                    <p className="text-pink-600 text-xs mb-6">
+                      Order <span className="font-mono font-bold text-pink-800">{order.orderNumber}</span>
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      <Link
+                        href={`/spin/${order.orderNumber}`}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 px-8 py-4 text-base font-bold text-white shadow-xl shadow-pink-200 hover:shadow-pink-300 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                      >
+                        <Sparkles className="w-5 h-5 text-white" />
+                        <span>បង្វិលកងសំណាងឥឡូវនេះ (Spin Now)</span>
+                      </Link>
+                      <Link
+                        href={`/order?number=${order.orderNumber}`}
+                        className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Track Order
+                      </Link>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20 mb-4">
+                      {order.status === "DELIVERED" ? (
+                        <CheckCircle2 className="h-10 w-10 text-green-600" />
+                      ) : (
+                        <Loader2 className="h-10 w-10 text-pink-600 animate-spin" />
+                      )}
+                    </div>
+                    <h1 className="font-display text-2xl font-bold mb-2">
+                      {order.status === "DELIVERED"
+                        ? "ការទូទាត់ និងបញ្ចូល Credits ជោគជ័យ!"
+                        : "ការទូទាត់បានជោគជ័យ!"}
+                    </h1>
+                    <p className="text-pink-500 text-sm mb-1">
+                      {order.status === "DELIVERED"
+                        ? "Credits ត្រូវបានបញ្ចូលទៅកាន់គណនីរបស់អ្នករួចរាល់ហើយ"
+                        : "កំពុងដំណើរការបញ្ចូល Credits ទៅកាន់គណនីហ្គេមរបស់អ្នក..."}
+                    </p>
+                    <p className="text-pink-500 text-sm mb-1">
+                      Order <span className="font-mono text-pink-800">{order.orderNumber}</span>
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
+                      <Link href="/" className="inline-flex items-center justify-center rounded-xl border border-pink-400 px-6 py-3 text-sm font-semibold text-pink-600">
+                        Back to Home
+                      </Link>
+                      <Link href={`/order?number=${order.orderNumber}`} className="inline-flex items-center justify-center rounded-xl bg-pink-600 px-6 py-3 text-sm font-semibold text-white">
+                        Track Order
+                      </Link>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

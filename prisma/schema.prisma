@@ -19,28 +19,29 @@ datasource db {
 }
 
 model Game {
-  id             String    @id @default(cuid())
-  slug           String    @unique
+  id             String          @id @default(cuid())
+  slug           String          @unique
   name           String
   publisher      String
   description    String?
   imageUrl       String
   bannerUrl      String?
   currencyName   String
-  uidLabel       String    @default("Player ID")
+  uidLabel       String          @default("Player ID")
   uidExample     String?
-  requiresServer Boolean   @default(false)
-  servers        String    @default("[]")
-  categoryOrder  String    @default("[]")
-  featured       Boolean   @default(false)
-  active         Boolean   @default(true)
-  sortOrder      Int       @default(0)
+  requiresServer Boolean         @default(false)
+  servers        String          @default("[]")
+  categoryOrder  String          @default("[]")
+  featured       Boolean         @default(false)
+  active         Boolean         @default(true)
+  sortOrder      Int             @default(0)
   seoTitle       String?
   seoDescription String?
   products       Product[]
   orders         Order[]
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  randomPackages RandomPackage[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 }
 
 model Product {
@@ -78,12 +79,12 @@ model UploadedFile {
 }
 
 model Order {
-  id               String     @id @default(cuid())
-  orderNumber      String     @unique
+  id               String    @id @default(cuid())
+  orderNumber      String    @unique
   gameId           String
-  game             Game       @relation(fields: [gameId], references: [id])
+  game             Game      @relation(fields: [gameId], references: [id])
   productId        String
-  product          Product    @relation(fields: [productId], references: [id])
+  product          Product   @relation(fields: [productId], references: [id])
   playerUid        String
   serverId         String?
   playerNickname   String?
@@ -91,13 +92,13 @@ model Order {
   customerPhone    String?
   amountUsd        Float
   amountKhr        Float?
-  currency         String     @default("USD")
+  currency         String    @default("USD")
   paymentMethod    String
-  paymentRef       String?    @unique
+  paymentRef       String?   @unique
   paymentUrl       String?
   qrString         String?
   paymentExpiresAt DateTime?
-  status           String     @default("PENDING")
+  status           String    @default("PENDING")
   deliveryNote     String?
   failureReason    String?
   ipAddress        String?
@@ -119,7 +120,14 @@ model Order {
   promoCode        PromoCode? @relation(fields: [promoCodeId], references: [id])
   discountUsd      Float      @default(0)
 
+  // ── Random Spin / Mystery Box ──────────────────────────────────────────
+  isRandomSpin    Boolean                @default(false)
+  randomPackageId String?
+  randomPackage   RandomPackage?         @relation(fields: [randomPackageId], references: [id])
+  spinTransaction RandomSpinTransaction?
+
   @@index([status])
+  @@index([isRandomSpin])
   @@index([createdAt])
   @@index([customerEmail])
 }
@@ -433,4 +441,80 @@ model UsedTotpToken {
   @@unique([adminId, token])
   @@index([adminId])
   @@index([expiresAt])
+}
+
+// ── Random Spin / Mystery Box Models ───────────────────────────────────────
+
+model RandomPackage {
+  id                   String                  @id @default(cuid())
+  gameId               String
+  game                 Game                    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  name                 String
+  description          String?
+  priceUsd             Float
+  priceKhr             Float?
+  imageUrl             String?
+  bannerUrl            String?
+  badge                String?                 @default("🔥 MYSTERY BOX")
+  active               Boolean                 @default(true)
+  sortOrder            Int                     @default(0)
+  maxSpinsPerUserDaily Int?
+  slots                RandomPackageSlot[]
+  transactions         RandomSpinTransaction[]
+  orders               Order[]
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
+  @@index([gameId, active])
+}
+
+model RandomPackageSlot {
+  id           String        @id @default(cuid())
+  packageId    String
+  package      RandomPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  label        String
+  rewardType   String        @default("DIAMOND")
+  rewardAmount Int
+  probability  Float
+  color        String        @default("#EC4899")
+  textColor    String        @default("#FFFFFF")
+  icon         String?       @default("💎")
+  sortOrder    Int           @default(0)
+  supplier     String        @default("bay2game")
+  supplierCode String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([packageId])
+}
+
+model RandomSpinTransaction {
+  id                  String        @id @default(cuid())
+  orderNumber         String        @unique
+  orderId             String        @unique
+  order               Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  packageId           String
+  package             RandomPackage @relation(fields: [packageId], references: [id])
+  gameId              String
+  playerUid           String
+  serverId            String?
+  playerNickname      String?
+  status              String        @default("PENDING") // PENDING, SPUN, COMPLETED, FAILED
+  winningSlotId       String?
+  winningRewardAmount Int?
+  winningRewardLabel  String?
+  winningSupplierCode String?
+  winningSupplier     String?
+  spunAt              DateTime?
+  claimedAt           DateTime?
+  fulfillmentRef      String?
+  fulfillmentStatus   String?
+  deliveryError       String?
+  clientIp            String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@index([status])
+  @@index([playerUid])
+  @@index([createdAt])
 }

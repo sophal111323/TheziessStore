@@ -93,6 +93,8 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
             badge: p.badge,
             category: (p as any).category || "Diamonds",
             imageUrl: p.imageUrl,
+            isRandomSpin: (p as any).isRandomSpin ?? false,
+            randomPackageId: (p as any).randomPackageId ?? null,
           }))}
         />
       </main>

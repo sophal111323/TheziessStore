@@ -24,6 +24,8 @@ interface Product {
   badge: string | null;
   category?: string | null;
   imageUrl: string | null;
+  isRandomSpin?: boolean;
+  randomPackageId?: string | null;
 }
 
 interface Game {
@@ -287,12 +289,14 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
     savePlayerToStorage(uid.trim(), needsServer ? serverId.trim() : undefined, nickname);
 
     try {
+      const isSpin = selectedProduct?.isRandomSpin;
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           gameId: game.id,
-          productId: selected,
+          productId: isSpin ? undefined : selected,
+          randomPackageId: isSpin ? selectedProduct?.randomPackageId : undefined,
           playerUid: uid.trim(),
           serverId: needsServer ? serverId.trim() : undefined,
           paymentMethod: method,

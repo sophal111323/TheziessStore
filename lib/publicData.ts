@@ -201,19 +201,66 @@ const getCachedPublicGameBySlug = unstable_cache(
             updatedAt: true,
           },
         },
+        randomPackages: {
+          where: { active: true },
+          orderBy: { sortOrder: "asc" },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            priceUsd: true,
+            badge: true,
+            imageUrl: true,
+            bannerUrl: true,
+            sortOrder: true,
+            slots: {
+              select: {
+                id: true,
+                label: true,
+                rewardAmount: true,
+                rewardType: true,
+                probability: true,
+                color: true,
+              },
+              orderBy: { sortOrder: "asc" },
+            },
+          },
+        },
       },
     });
 
     if (!game) return null;
 
+    const normalProducts = game.products.map((p) => ({
+      ...p,
+      imageUrl: maskCdnUrl(p.imageUrl) || p.imageUrl,
+      isRandomSpin: false,
+      randomPackageId: null,
+    }));
+
+    const mysteryProducts = (game.randomPackages || []).map((pkg) => ({
+      id: `spin_${pkg.id}`,
+      name: pkg.name,
+      amount: 0,
+      bonus: 0,
+      priceUsd: pkg.priceUsd,
+      badge: pkg.badge || "🎡 Mystery Box",
+      category: "🎡 Mystery Box",
+      imageUrl: maskCdnUrl(pkg.imageUrl) || pkg.imageUrl,
+      sortOrder: pkg.sortOrder,
+      updatedAt: new Date(),
+      isRandomSpin: true,
+      randomPackageId: pkg.id,
+      description: pkg.description,
+      slots: pkg.slots,
+    }));
+
     return {
       ...game,
       imageUrl: maskCdnUrl(game.imageUrl) || game.imageUrl,
       bannerUrl: maskCdnUrl(game.bannerUrl),
-      products: game.products.map((p) => ({
-        ...p,
-        imageUrl: maskCdnUrl(p.imageUrl) || p.imageUrl,
-      })),
+      products: [...mysteryProducts, ...normalProducts],
+      randomPackages: game.randomPackages,
     };
   },
   ["public-game-by-slug-v2"],

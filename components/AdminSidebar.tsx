@@ -11,6 +11,7 @@ const ADMIN_NAV_ITEMS = [
   { href: "/admin/orders", label: "Orders", icon: "📦" },
   { href: "/admin/games", label: "Games", icon: "🎮" },
   { href: "/admin/products", label: "Products", icon: "💎" },
+  { href: "/admin/lucky-wheel", label: "Lucky Wheel", icon: "🎡" },
   { href: "/admin/promo-codes", label: "Promo Codes", icon: "🏷️" },
   { href: "/admin/banners", label: "Banners", icon: "🖼️" },
   { href: "/admin/faqs", label: "FAQ", icon: "❓" },

@@ -13,10 +13,47 @@ import { startBackgroundOrderTracker } from "@/lib/order-tracker";
 export async function notifyAndMaybeDeliverPaidOrder(orderId: string) {
   const fullOrder = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { game: true, product: true },
+    include: { game: true, product: true, randomPackage: true },
   });
 
   if (!fullOrder) return null;
+
+  // ── Random Spin / Mystery Box Order ────────────────────────────────────────
+  // When an order is a random spin, payment is confirmed, but reward delivery
+  // must wait until the user spins the wheel and clicks Claim.
+  if (fullOrder.isRandomSpin && fullOrder.randomPackageId) {
+    await prisma.randomSpinTransaction.upsert({
+      where: { orderId: fullOrder.id },
+      create: {
+        orderId: fullOrder.id,
+        orderNumber: fullOrder.orderNumber,
+        packageId: fullOrder.randomPackageId,
+        gameId: fullOrder.gameId,
+        playerUid: fullOrder.playerUid,
+        serverId: fullOrder.serverId,
+        playerNickname: fullOrder.playerNickname,
+        status: "PENDING",
+      },
+      update: {},
+    });
+
+    const baseUrl =
+      process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "";
+    const spinLink = baseUrl
+      ? `\n<a href="${baseUrl}/spin/${fullOrder.orderNumber}">🎡 Open Spin Wheel</a>`
+      : "";
+
+    await notifyTelegram(
+      `🎁 <b>Mystery Box Payment Successful!</b>\n` +
+        `<b>#${escapeHtml(fullOrder.orderNumber)}</b>\n` +
+        `${escapeHtml(fullOrder.game.name)} – ${escapeHtml(fullOrder.randomPackage?.name || "Mystery Box")}\n` +
+        `UID: <code>${escapeHtml(fullOrder.playerUid)}</code>\n` +
+        `Amount: $${fullOrder.amountUsd.toFixed(2)}\n` +
+        `Status: 🎡 <b>Ready for Lucky Spin</b>${spinLink}`
+    );
+
+    return { ok: true, isRandomSpin: true, status: "PENDING" };
+  }
 
   // 1. Run fulfillment with silentTelegram so it doesn't send a duplicate message
   const fulfillmentResult = await fulfillPaidOrder(fullOrder.orderNumber, {

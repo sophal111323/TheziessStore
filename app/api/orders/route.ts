@@ -40,18 +40,23 @@ const ORDER_RATE_LIMIT_WINDOW_MS = envInt(
   24 * 60 * 60 * 1000
 );
 
-const createOrderSchema = z.object({
-  gameId: z.string().min(1),
-  productId: z.string().min(1),
-  playerUid: z.string().min(4).max(20),
-  serverId: z.string().optional(),
-  customerEmail: z.string().email().optional(),
-  customerPhone: z.string().optional(),
-  paymentMethod: z.enum(["TOLASAINT", "ABA", "ACLEDA", "WING"]),
-  promoCode: z.string().optional(),
-  playerNickname: z.string().max(100).optional(),
-  turnstileToken: z.string().min(1),
-});
+const createOrderSchema = z
+  .object({
+    gameId: z.string().min(1),
+    productId: z.string().optional(),
+    randomPackageId: z.string().optional(),
+    playerUid: z.string().min(4).max(20),
+    serverId: z.string().optional(),
+    customerEmail: z.string().email().optional(),
+    customerPhone: z.string().optional(),
+    paymentMethod: z.enum(["TOLASAINT", "ABA", "ACLEDA", "WING"]),
+    promoCode: z.string().optional(),
+    playerNickname: z.string().max(100).optional(),
+    turnstileToken: z.string().min(1),
+  })
+  .refine((d) => d.productId || d.randomPackageId, {
+    message: "Either productId or randomPackageId is required",
+  });
 
 export async function POST(req: NextRequest) {
 
@@ -151,27 +156,74 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Validate game + product match and pricing
-    const [game, product, settings] = await Promise.all([
+    // Validate game + product/randomPackage match and pricing
+    const [game, settings] = await Promise.all([
       prisma.game.findUnique({ where: { id: data.gameId } }),
-      prisma.product.findUnique({ where: { id: data.productId } }),
       prisma.settings.findUnique({ where: { id: 1 } }),
     ]);
 
     if (!game || !game.active) {
       return NextResponse.json({ error: "Game not found" }, { status: 404 });
     }
-    if (!product || !product.active || product.gameId !== game.id) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 });
-    }
     if (game.requiresServer && !data.serverId) {
       return NextResponse.json({ error: "Server is required for this game" }, { status: 400 });
+    }
+
+    let product = null;
+    let randomPackage = null;
+
+    if (data.randomPackageId) {
+      randomPackage = await prisma.randomPackage.findUnique({
+        where: { id: data.randomPackageId },
+        include: { slots: true },
+      });
+      if (!randomPackage || !randomPackage.active || randomPackage.gameId !== game.id) {
+        return NextResponse.json({ error: "Mystery Box package not found" }, { status: 404 });
+      }
+      if (randomPackage.slots.length < 2) {
+        return NextResponse.json({ error: "Mystery Box is not configured properly" }, { status: 400 });
+      }
+
+      // Check time-based restrictions (daily spin limit)
+      if (randomPackage.maxSpinsPerUserDaily) {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const spinsToday = await prisma.randomSpinTransaction.count({
+          where: {
+            playerUid: data.playerUid,
+            createdAt: { gte: startOfDay },
+          },
+        });
+        if (spinsToday >= randomPackage.maxSpinsPerUserDaily) {
+          return NextResponse.json(
+            { error: `អ្នកអាចបង្វិលបានត្រឹម ${randomPackage.maxSpinsPerUserDaily} ដងក្នុងមួយថ្ងៃ` },
+            { status: 400 }
+          );
+        }
+      }
+
+      if (data.productId) {
+        product = await prisma.product.findUnique({ where: { id: data.productId } });
+      }
+      if (!product) {
+        product = await prisma.product.findFirst({ where: { gameId: game.id, active: true } });
+      }
+      if (!product) {
+        return NextResponse.json({ error: "No products available for this game" }, { status: 404 });
+      }
+    } else {
+      product = await prisma.product.findUnique({ where: { id: data.productId! } });
+      if (!product || !product.active || product.gameId !== game.id) {
+        return NextResponse.json({ error: "Product not found" }, { status: 404 });
+      }
     }
 
     // Create the order
     const orderNumber = generateOrderNumber();
     const userAgent = req.headers.get("user-agent") ?? "unknown";
     const exchangeRate = settings?.exchangeRate ?? 4100;
+    const basePriceUsd = randomPackage ? randomPackage.priceUsd : product.priceUsd;
+    let finalPrice = basePriceUsd;
 
     // ── Promo code handling (race-condition-safe) ────────────────────────────
     //
@@ -191,7 +243,6 @@ export async function POST(req: NextRequest) {
 
     let promoCodeId: string | null = null;
     let discountUsd = 0;
-    let finalPrice = product.priceUsd;
 
     if (data.promoCode && settings?.promosEnabled === false) {
       return NextResponse.json(
@@ -211,7 +262,7 @@ export async function POST(req: NextRequest) {
           // Basic eligibility checks (non-atomic — just early-exit guards).
           if (!promo || !promo.active) return null;
           if (promo.expiresAt && promo.expiresAt < new Date()) return null;
-          if (product.priceUsd < promo.minOrderUsd) return null;
+          if (basePriceUsd < promo.minOrderUsd) return null;
 
           // 2. Atomic conditional increment — WHERE includes the maxUses guard.
           //    If another request just used the last slot, updateMany returns
@@ -236,15 +287,15 @@ export async function POST(req: NextRequest) {
           // 3. Calculate discount only after we have secured the slot.
           let discount =
             promo.discountType === "PERCENT"
-              ? (product.priceUsd * promo.discountValue) / 100
+              ? (basePriceUsd * promo.discountValue) / 100
               : promo.discountValue;
-          discount = Math.min(discount, product.priceUsd);
+          discount = Math.min(discount, basePriceUsd);
           discount = Math.round(discount * 100) / 100;
 
           return {
             promoCodeId: promo.id,
             discountUsd: discount,
-            finalPrice: Math.round((product.priceUsd - discount) * 100) / 100,
+            finalPrice: Math.round((basePriceUsd - discount) * 100) / 100,
           };
         }
       );
@@ -261,6 +312,8 @@ export async function POST(req: NextRequest) {
         orderNumber,
         gameId: game.id,
         productId: product.id,
+        isRandomSpin: Boolean(randomPackage),
+        randomPackageId: randomPackage?.id || null,
         playerUid: data.playerUid,
         serverId: data.serverId,
         playerNickname: data.playerNickname,
@@ -291,12 +344,15 @@ export async function POST(req: NextRequest) {
       returnUrl: `${publicUrl}/order?number=${order.orderNumber}`,
       cancelUrl: `${publicUrl}/games/${game.slug}`,
       callbackUrl: `${publicUrl}/api/payment/webhook/tolasaint`,
-      note: `TheziessStore · ${game.name} · ${product.name}`,
+      note: randomPackage
+        ? `TheziessStore · ${game.name} · ${randomPackage.name}`
+        : `TheziessStore · ${game.name} · ${product.name}`,
       customerEmail: data.customerEmail,
       metadata: {
         game_slug: game.slug,
-        product_name: product.name,
+        product_name: randomPackage ? randomPackage.name : product.name,
         player_uid: data.playerUid,
+        is_random_spin: randomPackage ? "true" : "false",
       },
     });
 

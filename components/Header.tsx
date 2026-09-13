@@ -40,6 +40,21 @@ const NAV: NavItem[] = [
     ),
   },
   {
+    href: "/spin",
+    label: "កងបង្វិល",
+    helper: "Lucky Wheel",
+    icon: (
+      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="m12 2 4 10-4 10" />
+        <path d="m12 12 10-4" />
+        <path d="m12 12-10 4" />
+        <path d="m12 12 8 6" />
+        <path d="m12 12-8-6" />
+      </svg>
+    ),
+  },
+  {
     href: "/order",
     label: "តាមដានការបញ្ជាទិញ",
     helper: "Track order",

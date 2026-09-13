@@ -178,6 +178,8 @@ export async function GET(
     deliveredAt:   order.deliveredAt?.toISOString()  ?? null,
 
     // ── Frontend-friendly flat fields (Task 2) ─────────────────────────────
+    isRandomSpin:      order.isRandomSpin ?? false,
+    randomPackageId:   order.randomPackageId ?? null,
     gameName:          order.game.name,
     gameSlug:          order.game.slug,
     productName:       order.product.name,
