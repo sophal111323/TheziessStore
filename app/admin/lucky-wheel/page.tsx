@@ -21,6 +21,8 @@ import {
   Check,
   X,
   RotateCw,
+  Loader2,
+  Upload,
 } from "lucide-react";
 
 interface AdminGame {
@@ -52,6 +54,8 @@ interface AdminPackage {
   description?: string | null;
   priceUsd: number;
   priceKhr?: number | null;
+  imageUrl?: string | null;
+  bannerUrl?: string | null;
   badge?: string | null;
   active: boolean;
   sortOrder: number;
@@ -127,6 +131,8 @@ export default function AdminLuckyWheelPage() {
   const [description, setDescription] = useState("");
   const [packageActive, setPackageActive] = useState(true);
   const [dailyLimit, setDailyLimit] = useState("");
+  const [packageImageUrl, setPackageImageUrl] = useState("");
+  const [uploadingPackageImage, setUploadingPackageImage] = useState(false);
 
   // Slots in builder
   const [modalSlots, setModalSlots] = useState<AdminSlot[]>([
@@ -257,6 +263,7 @@ export default function AdminLuckyWheelPage() {
     setPriceUsd("1.00");
     setBadge("🔥 MYSTERY BOX");
     setDescription("");
+    setPackageImageUrl("");
     setPackageActive(true);
     setDailyLimit("");
     setModalSlots([
@@ -306,6 +313,7 @@ export default function AdminLuckyWheelPage() {
     setPriceUsd(String(pkg.priceUsd));
     setBadge(pkg.badge || "");
     setDescription(pkg.description || "");
+    setPackageImageUrl(pkg.imageUrl || "");
     setPackageActive(pkg.active);
     setDailyLimit(pkg.maxSpinsPerUserDaily ? String(pkg.maxSpinsPerUserDaily) : "");
     setModalSlots(
@@ -361,6 +369,28 @@ export default function AdminLuckyWheelPage() {
     setModalSlots(updated);
   };
 
+  // Upload package logo
+  const handleUploadPackageImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPackageImage(true);
+    setPackageError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      setPackageImageUrl(data.url);
+      showToast("Package logo uploaded successfully!");
+    } catch (err: any) {
+      setPackageError(err.message || "Failed to upload image");
+    } finally {
+      setUploadingPackageImage(false);
+      e.target.value = "";
+    }
+  };
+
   // Save package
   const handleSavePackage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -395,6 +425,7 @@ export default function AdminLuckyWheelPage() {
         name: packageName.trim(),
         badge: badge.trim() || null,
         description: description.trim() || null,
+        imageUrl: packageImageUrl.trim() || null,
         priceUsd: price,
         active: packageActive,
         maxSpinsPerUserDaily: dailyLimit ? parseInt(dailyLimit, 10) : null,
@@ -638,17 +669,30 @@ export default function AdminLuckyWheelPage() {
               >
                 <div className="p-5 space-y-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-pink-50 text-pink-700 text-xs font-semibold mb-2">
-                        {pkg.badge || "MYSTERY BOX"}
+                    <div className="flex items-start gap-3">
+                      {pkg.imageUrl ? (
+                        <img
+                          src={pkg.imageUrl}
+                          alt={pkg.name}
+                          className="w-12 h-12 rounded-xl object-cover border border-pink-100 shrink-0 shadow-sm"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-xl bg-pink-50 border border-pink-100 flex items-center justify-center text-pink-500 shrink-0">
+                          <Sparkles className="w-6 h-6" />
+                        </div>
+                      )}
+                      <div>
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-pink-50 text-pink-700 text-xs font-semibold mb-1">
+                          {pkg.badge || "MYSTERY BOX"}
+                        </div>
+                        <h3 className="font-bold text-gray-900 text-lg leading-snug">{pkg.name}</h3>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Game: <span className="font-medium text-gray-700">{pkg.game.name}</span>
+                        </p>
                       </div>
-                      <h3 className="font-bold text-gray-900 text-lg">{pkg.name}</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Game: <span className="font-medium text-gray-700">{pkg.game.name}</span>
-                      </p>
                     </div>
 
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <div className="text-xl font-extrabold text-pink-600">${pkg.priceUsd.toFixed(2)}</div>
                       <button
                         onClick={() => handleToggleActive(pkg)}
@@ -1072,6 +1116,77 @@ export default function AdminLuckyWheelPage() {
                   <label htmlFor="packageActiveCheckbox" className="text-xs font-bold text-gray-800 cursor-pointer">
                     Enable Package on Storefront
                   </label>
+                </div>
+              </div>
+
+              {/* Package Logo / Image Upload */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Package Logo / Image (រូបតំណាងកញ្ចប់)
+                </label>
+                <div className="flex items-center gap-4 p-3 bg-gray-50/80 rounded-xl border border-gray-200">
+                  <div className="relative w-16 h-16 rounded-xl border border-dashed border-gray-300 bg-white flex items-center justify-center overflow-hidden shrink-0 group">
+                    {packageImageUrl ? (
+                      <>
+                        <img
+                          src={packageImageUrl}
+                          alt="Package Logo"
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPackageImageUrl("")}
+                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white cursor-pointer"
+                          title="Remove Image"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </>
+                    ) : (
+                      <Sparkles className="w-6 h-6 text-gray-300" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-50 hover:bg-pink-100 text-pink-700 border border-pink-200 text-xs font-semibold cursor-pointer transition-colors">
+                        {uploadingPackageImage ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Upload Image</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleUploadPackageImage}
+                          disabled={uploadingPackageImage}
+                        />
+                      </label>
+                      {packageImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setPackageImageUrl("")}
+                          className="text-xs text-red-500 hover:text-red-700 font-medium cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      value={packageImageUrl}
+                      onChange={(e) => setPackageImageUrl(e.target.value)}
+                      placeholder="Or paste image URL (e.g. /uploads/... or https://...)"
+                      className="w-full px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs focus:border-pink-500 outline-none text-gray-700"
+                    />
+                  </div>
                 </div>
               </div>
 
