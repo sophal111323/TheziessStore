@@ -161,8 +161,8 @@ export default function LuckyWheel({
         const displayLabel = slot.label.replace(/^💎\s*/, "");
         ctx.fillText(displayLabel, textX, 0);
 
-        // Icon near rim
-        if (slot.icon) {
+        // Icon near rim (only emoji / text icon, not image URLs)
+        if (slot.icon && !slot.icon.startsWith("http") && !slot.icon.startsWith("/")) {
           ctx.font = `${numSlots > 10 ? 14 : 18}px system-ui`;
           ctx.fillText(slot.icon, radius - 18, 0);
         }

@@ -533,7 +533,7 @@ export default function CheckoutClient() {
   useEffect(() => {
     if (isPaid && order?.isRandomSpin && order.orderNumber) {
       const timer = setTimeout(() => {
-        window.location.href = `/spin/${encodeURIComponent(order.orderNumber)}`;
+        window.location.replace(`/spin/${encodeURIComponent(order.orderNumber)}`);
       }, 1500);
       return () => clearTimeout(timer);
     }

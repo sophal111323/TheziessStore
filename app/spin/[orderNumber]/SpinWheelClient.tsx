@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import LuckyWheel, { WheelSlot } from "@/components/LuckyWheel";
 import Link from "next/link";
 import {
@@ -263,7 +263,7 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
     (wonSlot ? wonSlot.label : "Diamond Reward");
 
   // Image configured in admin panel: slice custom icon -> data.slots match -> package logo -> game logo
-  const wonRewardImage = useMemo(() => {
+  const wonRewardImage = (() => {
     if (wonSlot?.icon && (wonSlot.icon.startsWith("http") || wonSlot.icon.startsWith("/"))) {
       return wonSlot.icon;
     }
@@ -284,7 +284,7 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
       return data.game.imageUrl;
     }
     return null;
-  }, [wonSlot, data]);
+  })();
 
   return (
     <div className="relative min-h-[85vh] overflow-hidden px-4 py-8 sm:py-12 sm:px-6">
