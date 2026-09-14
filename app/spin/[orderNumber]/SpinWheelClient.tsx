@@ -13,9 +13,6 @@ import {
   Check,
   RotateCcw,
   ChevronRight,
-  Package,
-  User,
-  Gamepad2,
 } from "lucide-react";
 
 interface SpinPageData {
@@ -58,7 +55,6 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
   const [spinning, setSpinning] = useState(false);
   const [targetIndex, setTargetIndex] = useState<number | null>(null);
   const [wonSlot, setWonSlot] = useState<WheelSlot | null>(null);
-  const [showWinModal, setShowWinModal] = useState(false);
 
   const [claiming, setClaiming] = useState(false);
   const [claimSuccess, setClaimSuccess] = useState(false);
@@ -101,11 +97,6 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
             fulfillmentRef: json.fulfillmentRef || prev.fulfillmentRef,
           };
         });
-
-        // Keep celebration modal visible briefly to show success, then transition to expired certificate
-        window.setTimeout(() => {
-          setShowWinModal(false);
-        }, 2800);
       } catch (err: any) {
         setClaimError(err.message || "មិនអាចផ្ញើរង្វាន់បានទេ សូមចុចសាកល្បងម្ដងទៀត");
       } finally {
@@ -143,7 +134,6 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
         const found = json.slots?.find((s: WheelSlot) => s.id === json.winningSlotId);
         if (found) {
           setWonSlot(found);
-          setShowWinModal(true);
           if (!autoClaimTriggeredRef.current) {
             autoClaimTriggeredRef.current = true;
             void executeAutoClaim(found);
@@ -188,13 +178,23 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
     }
   };
 
-  // Wheel animation complete: immediately show celebration and auto-claim!
+  // Wheel animation complete: transition to completed receipt and auto-claim
   const handleSpinEnd = (slot: WheelSlot) => {
     setSpinning(false);
     setWonSlot(slot);
-    setShowWinModal(true);
 
-    // 🔥 AUTOMATICALLY CALL CLAIM API (NO BUTTON CLICK NEEDED)
+    // Transition immediately to the completed view
+    setData((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        status: "COMPLETED",
+        winningRewardLabel: slot.label,
+        winningRewardAmount: slot.rewardAmount,
+      };
+    });
+
+    // Automatically call claim API
     if (!autoClaimTriggeredRef.current) {
       autoClaimTriggeredRef.current = true;
       void executeAutoClaim(slot);
@@ -369,13 +369,44 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
               <span>បានប្រើប្រាស់រួចរាល់ (EXPIRED - 1/1 USE)</span>
             </div>
 
-            <h2 className="mt-3 font-display text-2xl sm:text-4xl font-black text-gray-900">
-              Diamond ត្រូវបានបញ្ចូលជោគជ័យ!
-            </h2>
+            {claiming && (
+              <div className="my-4 mx-auto max-w-md rounded-2xl border border-amber-300 bg-amber-50 p-4 flex items-center justify-center gap-3 text-amber-800">
+                <Loader2 className="h-5 w-5 animate-spin text-amber-600 shrink-0" />
+                <div className="text-left text-xs font-bold leading-tight">
+                  <p className="text-amber-900">កំពុងផ្ញើរង្វាន់ពេជ្រដោយស្វ័យប្រវត្តិ...</p>
+                  <p className="text-[11px] text-amber-700 font-normal">
+                    បញ្ចូលត្រង់ទៅកាន់ UID: {data.playerUid}
+                  </p>
+                </div>
+              </div>
+            )}
 
-            <p className="mt-2 text-xs sm:text-sm font-bold text-emerald-700 max-w-lg mx-auto">
-              ✅ ពេជ្រត្រូវបានបញ្ចូលទៅក្នុងគណនីហ្គេមរបស់អ្នកដោយស្វ័យប្រវត្តរួចរាល់ហើយ។
-            </p>
+            {claimError && (
+              <div className="my-4 mx-auto max-w-md">
+                <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-xs text-red-700 font-bold mb-3 text-center">
+                  {claimError}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => executeAutoClaim(wonSlot)}
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 py-3.5 text-xs font-black uppercase text-white shadow-lg hover:brightness-110 active:scale-95 cursor-pointer"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <span>ព្យាយាមផ្ញើរង្វាន់ម្តងទៀត (Retry Delivery)</span>
+                </button>
+              </div>
+            )}
+
+            {!claiming && !claimError && (
+              <>
+                <h2 className="mt-3 font-display text-2xl sm:text-4xl font-black text-gray-900">
+                  Diamond ត្រូវបានបញ្ចូលជោគជ័យ!
+                </h2>
+                <p className="mt-2 text-xs sm:text-sm font-bold text-emerald-700 max-w-lg mx-auto">
+                  ✅ ពេជ្រត្រូវបានបញ្ចូលទៅក្នុងគណនីហ្គេមរបស់អ្នកដោយស្វ័យប្រវត្តរួចរាល់ហើយ។
+                </p>
+              </>
+            )}
 
             <div className="mt-1 text-xs font-medium text-gray-500">
               កងបង្វិលលើការបញ្ជាទិញនេះត្រូវបានប្រើប្រាស់រួចរាល់ មិនអាចបង្វិលបានទៀតឡើយ។
@@ -522,151 +553,6 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
           </div>
         )}
 
-        {/* ── 3. CELEBRATION WIN MODAL WITH AUTOMATIC API CLAIM ── */}
-        {showWinModal && wonSlot && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-fade-in">
-            <div className="relative w-full max-w-md overflow-hidden rounded-3xl border-2 border-yellow-400 bg-gradient-to-b from-[#1c0e35] via-[#120824] to-[#1c0e35] p-6 sm:p-8 text-center text-white shadow-[0_20px_70px_rgba(234,179,8,0.35)] animate-scale-up">
-              {/* Ambient gold glow */}
-              <div className="pointer-events-none absolute -top-16 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-yellow-400/30 blur-3xl" />
-
-              {/* Sparkle / Reward Icon (Configured from Admin Panel) */}
-              <div className="mx-auto flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-3xl bg-gradient-to-tr from-yellow-400 via-amber-300 to-yellow-500 text-purple-950 shadow-2xl shadow-yellow-400/60 ring-8 ring-yellow-400/20 mb-4 animate-bounce overflow-hidden p-3 bg-white/95">
-                {wonRewardImage ? (
-                  <img
-                    src={wonRewardImage}
-                    alt={wonSlot.label}
-                    className="w-full h-full object-contain drop-shadow-md"
-                  />
-                ) : (
-                  <Sparkles className="h-12 w-12 text-purple-950" />
-                )}
-              </div>
-
-              <span className="rounded-full bg-yellow-400/20 px-3.5 py-1 text-xs font-black uppercase text-yellow-300 border border-yellow-400/40">
-                🎉 CONGRATULATIONS!
-              </span>
-
-              <h2 className="mt-3 font-display text-2xl sm:text-3xl font-black text-white drop-shadow">
-                អបអរសាទរ! អ្នកបានឈ្នះ
-              </h2>
-
-              {/* Won Reward Card */}
-              <div className="my-5 overflow-hidden rounded-2xl border border-yellow-400/50 bg-gradient-to-b from-white/[0.12] via-white/[0.06] to-white/[0.03] p-5 backdrop-blur-md shadow-2xl text-center relative">
-                {/* Top gold shine accent */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500" />
-
-                {/* Won Reward Highlight */}
-                <div className="mb-4">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-yellow-400/20 border border-yellow-400/40 text-[11px] font-black uppercase text-yellow-300 tracking-wider">
-                    <Sparkles className="h-3 w-3 text-yellow-300" />
-                    រង្វាន់ឈ្នះ (Won Reward)
-                  </span>
-                  <p className="mt-2 text-3xl sm:text-4xl font-black bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-400 bg-clip-text text-transparent drop-shadow-[0_2px_14px_rgba(251,191,36,0.5)]">
-                    {wonSlot.label}
-                  </p>
-                  <p className="mt-1 text-[11px] font-semibold text-white/70">
-                    ឱកាសឈ្នះ: <span className="text-yellow-300 font-bold">{wonSlot.probability}%</span> · Game: <span className="text-white font-bold">{data.game.name}</span>
-                  </p>
-                </div>
-
-                {/* Info Card: Name package, player name, player id */}
-                <div className="border-t border-white/10 pt-3 space-y-2 text-left text-xs">
-                  {/* 1. Name Package */}
-                  <div className="flex items-center justify-between gap-3 rounded-xl bg-white/[0.06] px-3.5 py-2.5 border border-white/10 hover:border-yellow-400/30 transition-colors">
-                    <div className="flex items-center gap-2 text-amber-200/90 font-semibold text-xs">
-                      <div className="w-6 h-6 rounded-lg bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-300 shrink-0">
-                        <Package className="h-3.5 w-3.5" />
-                      </div>
-                      <span>Package:</span>
-                    </div>
-                    <div className="text-right flex items-center gap-1.5 truncate">
-                      <span className="font-black text-white text-xs sm:text-sm truncate">
-                        {data.package.name}
-                      </span>
-                      {data.package.badge && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-pink-500/30 text-pink-200 border border-pink-400/30 font-bold shrink-0">
-                          {data.package.badge}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 2. Player Name */}
-                  <div className="flex items-center justify-between gap-3 rounded-xl bg-white/[0.06] px-3.5 py-2.5 border border-white/10 hover:border-pink-400/30 transition-colors">
-                    <div className="flex items-center gap-2 text-pink-200/90 font-semibold text-xs">
-                      <div className="w-6 h-6 rounded-lg bg-pink-400/20 border border-pink-400/30 flex items-center justify-center text-pink-300 shrink-0">
-                        <User className="h-3.5 w-3.5" />
-                      </div>
-                      <span>Player Name:</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-black text-pink-300 text-xs sm:text-sm">
-                        {data.playerNickname || "—"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 3. Player ID (UID) */}
-                  <div className="flex items-center justify-between gap-3 rounded-xl bg-white/[0.06] px-3.5 py-2.5 border border-white/10 hover:border-cyan-400/30 transition-colors">
-                    <div className="flex items-center gap-2 text-cyan-200/90 font-semibold text-xs">
-                      <div className="w-6 h-6 rounded-lg bg-cyan-400/20 border border-cyan-400/30 flex items-center justify-center text-cyan-300 shrink-0">
-                        <Gamepad2 className="h-3.5 w-3.5" />
-                      </div>
-                      <span>Player ID:</span>
-                    </div>
-                    <div className="text-right font-mono font-black text-cyan-200 text-xs sm:text-sm flex items-center gap-1.5">
-                      <span>{data.playerUid}</span>
-                      {data.serverId && (
-                        <span className="text-cyan-400/70 text-[11px] font-normal">({data.serverId})</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* ⚡ AUTOMATIC DELIVERY STATUS (NO CLAIM BUTTON NEEDED) */}
-              {claiming && (
-                <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 mb-2 flex items-center justify-center gap-3 text-amber-200">
-                  <Loader2 className="h-5 w-5 animate-spin text-yellow-400 shrink-0" />
-                  <div className="text-left text-xs font-bold leading-tight">
-                    <p className="text-yellow-300">កំពុងផ្ញើរង្វាន់ពេជ្រដោយស្វ័យប្រវត្តិ...</p>
-                    <p className="text-[11px] text-white/70 font-normal">
-                      បញ្ចូលត្រង់ទៅកាន់ UID: {data.playerUid}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {claimSuccess && (
-                <div className="rounded-2xl border border-emerald-400/40 bg-emerald-500/20 p-4 mb-2 flex items-center justify-center gap-3 text-emerald-200 animate-scale-up">
-                  <CheckCircle2 className="h-6 w-6 text-emerald-400 shrink-0" />
-                  <div className="text-left text-xs font-bold leading-tight">
-                    <p className="text-emerald-300">បានផ្ញើរង្វាន់ពេជ្រជោគជ័យ!</p>
-                    <p className="text-[11px] text-emerald-100/80 font-normal">
-                      ពេជ្រត្រូវបានបញ្ចូលទៅក្នុងគណនីរបស់អ្នករួចរាល់
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {claimError && (
-                <div className="mb-4">
-                  <div className="rounded-xl border border-red-500/50 bg-red-500/20 p-3 text-xs text-red-200 font-bold mb-3">
-                    {claimError}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => executeAutoClaim(wonSlot)}
-                    className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 py-3.5 text-xs font-black uppercase text-purple-950 shadow-lg hover:brightness-110 active:scale-95"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    <span>ព្យាយាមផ្ញើរង្វាន់ម្តងទៀត (Retry Delivery)</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
