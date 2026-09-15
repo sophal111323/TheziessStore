@@ -1,0 +1,38 @@
+# robots.txt for TheziessStore (https://theziessstore.store)
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /checkout/
+Disallow: /order/
+
+# Explicitly grant access to Googlebot and major search crawlers
+User-agent: Googlebot
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /checkout/
+Disallow: /order/
+
+User-agent: Googlebot-Image
+Allow: /
+Allow: /icon-512.png
+Allow: /theziessstore-logo.png
+Allow: /api/uploads/
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /checkout/
+Disallow: /order/
+
+User-agent: Applebot
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://theziessstore.store/sitemap.xml

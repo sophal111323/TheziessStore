@@ -235,3 +235,4 @@ export function parseKhqrpayWebhookEvent(payload: any): KhqrpayWebhookEvent | nu
     time: payload.time ? String(payload.time) : undefined,
   };
 }
+
