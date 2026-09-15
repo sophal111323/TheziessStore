@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { generateOrderNumber, isValidUid, calcKhr } from "@/lib/utils";
-import { initiatePayment } from "@/lib/payment";
+import { initiatePayment, getActivePaymentProvider } from "@/lib/payment";
 import { startBackgroundPaymentTracker } from "@/lib/order-tracker";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -49,7 +49,7 @@ const createOrderSchema = z
     serverId: z.string().optional(),
     customerEmail: z.string().email().optional(),
     customerPhone: z.string().optional(),
-    paymentMethod: z.enum(["TOLASAINT", "ABA", "ACLEDA", "WING"]),
+    paymentMethod: z.enum(["TOLASAINT", "ABA", "ACLEDA", "WING", "KHQR", "KHQRPAY"]),
     promoCode: z.string().optional(),
     playerNickname: z.string().max(100).optional(),
     turnstileToken: z.string().min(1),
@@ -336,6 +336,8 @@ export async function POST(req: NextRequest) {
     // so webhooks actually reach us. Falls back to baseUrl; the payment lib
     // strips localhost URLs automatically (the gateway refuses private IPs).
     const publicUrl = (process.env.PUBLIC_APP_URL || baseUrl).replace(/\/+$/, "");
+    const activeProvider = getActivePaymentProvider();
+    const webhookPath = activeProvider === "khqrpay" ? "khqrpay" : "tolasaint";
     const init = await initiatePayment({
       orderNumber: order.orderNumber,
       amountUsd: order.amountUsd,
@@ -343,7 +345,7 @@ export async function POST(req: NextRequest) {
       method: data.paymentMethod as any,
       returnUrl: `${publicUrl}/order?number=${order.orderNumber}`,
       cancelUrl: `${publicUrl}/games/${game.slug}`,
-      callbackUrl: `${publicUrl}/api/payment/webhook/tolasaint`,
+      callbackUrl: `${publicUrl}/api/payment/webhook/${webhookPath}`,
       note: randomPackage
         ? `TheziessStore · ${game.name} · ${randomPackage.name}`
         : `TheziessStore · ${game.name} · ${product.name}`,

@@ -204,6 +204,7 @@ export function assertProductionPaymentConfig(): void {
   const isProduction = process.env.NODE_ENV === "production";
   const simulationMode = cleanEnv(process.env.PAYMENT_SIMULATION_MODE).toLowerCase() === "true";
   const tolaSaintApiKey = cleanEnv(process.env.TOLA_SAINT_API_KEY);
+  const khqrpayApiKey = cleanEnv(process.env.KHQRPAY_API_KEY);
 
   if (isProduction && simulationMode) {
     logSecurityEvent({
@@ -213,12 +214,27 @@ export function assertProductionPaymentConfig(): void {
     throw new Error("PAYMENT_SIMULATION_MODE=true is not allowed in production.");
   }
 
-  if (isProduction && !tolaSaintApiKey) {
+  if (isProduction && !tolaSaintApiKey && !khqrpayApiKey) {
     logSecurityEvent({
       event: "payment_config_error",
-      detail: "Missing TOLA_SAINT_API_KEY in production",
+      detail: "Missing KHQRPAY_API_KEY or TOLA_SAINT_API_KEY in production",
     });
-    throw new Error("TOLA_SAINT_API_KEY is required in production.");
+    throw new Error("A payment gateway API key (KHQRPAY_API_KEY or TOLA_SAINT_API_KEY) is required in production.");
+  }
+}
+
+export function assertRealKhqrpayConfig(): void {
+  assertProductionPaymentConfig();
+
+  const khqrpayApiKey = cleanEnv(process.env.KHQRPAY_API_KEY);
+  if (!khqrpayApiKey) {
+    logSecurityEvent({
+      event: "payment_config_error",
+      detail: "Missing KHQRPAY_API_KEY while real KHQR Pay mode was requested",
+    });
+    throw new Error(
+      "KHQRPAY_API_KEY is required for real KHQR Pay payments. Please configure KHQRPAY_API_KEY."
+    );
   }
 }
 

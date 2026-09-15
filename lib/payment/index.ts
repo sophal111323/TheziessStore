@@ -1,7 +1,8 @@
 // lib/payment/index.ts
 //
 // Generic payment API. The rest of the app calls ONLY these functions —
-// never the provider directly. Uses Tola Saint (https://tolasaint.com).
+// never the provider directly. Supports KHQR Pay (https://khqrpay.site)
+// and Tola Saint (https://tolasaint.com).
 
 import crypto from "crypto";
 import { assertProductionPaymentConfig } from "@/lib/payment-validation";
@@ -11,10 +12,20 @@ import {
   verifyTolaSaintWebhookSignature,
   parseTolaSaintWebhookEvent,
 } from "./providers/tola-saint";
+import {
+  initiateKhqrpayPayment,
+  fetchKhqrpayStatus,
+  verifyKhqrpayWebhookSignature,
+  parseKhqrpayWebhookEvent,
+  isKhqrpayConfigured,
+} from "./providers/khqrpay";
 
 // Re-export provider helpers used by route handlers (webhook parsing).
 export { parseTolaSaintWebhookEvent } from "./providers/tola-saint";
 export type { TolaSaintWebhookEvent } from "./providers/tola-saint";
+export { parseKhqrpayWebhookEvent, fetchKhqrpayStatus } from "./providers/khqrpay";
+export type { KhqrpayWebhookEvent } from "./providers/khqrpay";
+
 import type {
   InitiatePaymentArgs,
   PaymentInitResult,
@@ -35,6 +46,21 @@ function cleanEnv(value?: string): string {
 
 function cleanBaseUrl(value?: string): string {
   return cleanEnv(value).replace(/\/+$/, "");
+}
+
+/**
+ * Determine the active payment gateway provider.
+ * Priority:
+ * 1. Explicit PAYMENT_PROVIDER env var ("khqrpay" or "tolasaint")
+ * 2. If KHQRPAY_API_KEY is configured -> "khqrpay"
+ * 3. Default -> "tolasaint"
+ */
+export function getActivePaymentProvider(): "khqrpay" | "tolasaint" {
+  const configured = cleanEnv(process.env.PAYMENT_PROVIDER).toLowerCase();
+  if (configured === "khqrpay") return "khqrpay";
+  if (configured === "tolasaint") return "tolasaint";
+  if (isKhqrpayConfigured()) return "khqrpay";
+  return "tolasaint";
 }
 
 // ── Simulation mode (local development only) ─────────────────────────────────
@@ -84,12 +110,13 @@ export async function initiatePayment(
 
   if (isPaymentSimulationMode()) return simulatePayment(args);
 
-  if (args.method !== "TOLASAINT") {
-    throw new Error(
-      `Payment method ${args.method} is not supported for real payments yet. Use TOLASAINT or enable PAYMENT_SIMULATION_MODE=true only in local development.`
-    );
+  const provider = getActivePaymentProvider();
+
+  if (provider === "khqrpay") {
+    return initiateKhqrpayPayment(args);
   }
 
+  // Otherwise route to Tola Saint
   return initiateTolaSaintPayment(args);
 }
 
@@ -104,6 +131,15 @@ export async function fetchPaymentStatus(
   assertProductionPaymentConfig();
 
   if (!transactionId || transactionId.startsWith("SIM-")) return null;
+
+  const isNumericRef = /^\d{6,20}$/.test(transactionId);
+  const provider = getActivePaymentProvider();
+
+  if (provider === "khqrpay" || isNumericRef) {
+    const res = await fetchKhqrpayStatus(transactionId);
+    if (res) return res;
+    if (provider === "khqrpay") return null;
+  }
 
   return fetchTolaSaintStatus(transactionId);
 }
@@ -120,11 +156,25 @@ export function verifyWebhook(
 ): boolean {
   const norm = String(method || "").toUpperCase();
   const isSupported =
+    norm === "KHQRPAY" ||
     norm === "TOLASAINT" ||
     norm === "ABA" ||
     norm === "BAKONG" ||
     norm === "KHQR" ||
     norm === "1";
+
   if (!isSupported) return false;
+
+  const hasKhqrpayHeader = Boolean(
+    headers["x-webhook-event"] ||
+    headers["X-Webhook-Event"] ||
+    headers["x-webhook-delivery"] ||
+    headers["X-Webhook-Delivery"]
+  );
+
+  if (norm === "KHQRPAY" || hasKhqrpayHeader || getActivePaymentProvider() === "khqrpay") {
+    return verifyKhqrpayWebhookSignature(headers, rawBody);
+  }
+
   return verifyTolaSaintWebhookSignature(headers, rawBody);
 }

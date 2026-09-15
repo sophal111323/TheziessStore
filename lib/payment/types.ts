@@ -3,7 +3,7 @@
 // Shared payment provider types. Provider-specific details live in
 // lib/payment/providers/* — the rest of the app only uses these shapes.
 
-export type PaymentMethod = "TOLASAINT" | "MANUAL" | "ABA" | "ACLEDA" | "WING";
+export type PaymentMethod = "TOLASAINT" | "MANUAL" | "ABA" | "ACLEDA" | "WING" | "KHQR" | "KHQRPAY";
 
 export interface InitiatePaymentArgs {
   orderNumber: string;

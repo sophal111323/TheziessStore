@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { initiatePayment } from "@/lib/payment";
+import { initiatePayment, getActivePaymentProvider } from "@/lib/payment";
 import { applyRateLimit } from "@/lib/rateLimit";
 import { getClientIp } from "@/lib/getIp";
 import { safeJson } from "@/lib/apiSecurity";
@@ -91,15 +91,17 @@ export async function POST(
     req.nextUrl.origin
   ).replace(/\/$/, "");
 
+  const activeProvider = getActivePaymentProvider();
+  const webhookPath = activeProvider === "khqrpay" ? "khqrpay" : "tolasaint";
   const returnUrl = `${baseUrl}/checkout/${encodeURIComponent(order.orderNumber)}`;
   const cancelUrl = `${baseUrl}/games/${encodeURIComponent(order.game.slug)}`;
-  const callbackUrl = `${baseUrl}/api/payment/webhook/tolasaint`;
+  const callbackUrl = `${baseUrl}/api/payment/webhook/${webhookPath}`;
 
   const payment = await initiatePayment({
     orderNumber: order.orderNumber,
     amountUsd: order.amountUsd,
     currency: order.currency,
-    method: order.paymentMethod as "TOLASAINT",
+    method: order.paymentMethod as any,
     returnUrl,
     cancelUrl,
     callbackUrl,

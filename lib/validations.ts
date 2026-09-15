@@ -6,7 +6,7 @@ export const CreateOrderSchema = z.object({
   productId:     z.string().uuid("Invalid product ID"),
   playerUid:     z.string().min(1).max(100).regex(/^[a-zA-Z0-9_\-\.]+$/, "Invalid player UID"),
   serverId:      z.string().max(50).regex(/^[a-zA-Z0-9_\-]*$/).optional().nullable(),
-  paymentMethod: z.enum(["KHQR", "ABA", "ACLEDA", "WING"]),
+  paymentMethod: z.enum(["KHQR", "ABA", "ACLEDA", "WING", "TOLASAINT", "KHQRPAY"]),
   promoCode:     z.string().max(30).optional().nullable(),
 });
 
