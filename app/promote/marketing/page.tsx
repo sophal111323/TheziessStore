@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Download, Copy, Check, Sparkles, Megaphone } from "lucide-react";
-import { MARKETING_ASSETS } from "@/lib/affiliate/store";
+import { MARKETING_ASSETS } from "@/lib/affiliate/constants";
 import { Affiliate } from "@/lib/affiliate/types";
 
 export default function CreatorMarketingPage() {
