@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
+import { Sparkles, ArrowRight, AlertCircle, Loader2, ShieldAlert } from "lucide-react";
 
 export default function CreatorLoginPage() {
   const router = useRouter();
@@ -12,9 +12,29 @@ export default function CreatorLoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState<number>(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const interval = setInterval(() => {
+      setCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [cooldown]);
+
+  function formatTime(seconds: number): string {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins > 0) {
+      return `${mins}m ${secs.toString().padStart(2, "0")}s`;
+    }
+    return `${secs}s`;
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    if (cooldown > 0) return;
+
     setError(null);
     setLoading(true);
 
@@ -29,7 +49,17 @@ export default function CreatorLoginPage() {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 429) {
+        const retryHeader = res.headers.get("Retry-After");
+        const retrySecs = retryHeader ? parseInt(retryHeader, 10) : (data?.retryAfter || 900);
+        setCooldown(retrySecs > 0 ? retrySecs : 900);
+        setError(data.error || "Too many login attempts. Please wait before trying again.");
+        setLoading(false);
+        return;
+      }
+
       if (!res.ok || !data.success) {
         setError(data.error || "Invalid username or password");
         setLoading(false);
@@ -80,12 +110,25 @@ export default function CreatorLoginPage() {
         </div>
 
         <div className="bg-purple-900/60 backdrop-blur-2xl border border-purple-400/25 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-purple-950/80">
-          {error && (
+          {cooldown > 0 ? (
+            <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-amber-400/40 bg-amber-500/20 p-3.5 text-xs text-amber-200 shadow-lg shadow-amber-900/30">
+              <ShieldAlert className="h-5 w-5 shrink-0 text-amber-300 mt-0.5" />
+              <div>
+                <p className="font-bold text-amber-100 text-sm">Security Rate Limit Active</p>
+                <p className="mt-1 text-amber-200/90">{error}</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="font-mono font-black text-amber-300 bg-black/40 px-2 py-0.5 rounded-lg border border-amber-400/30">
+                    ⏳ Cooldown: {formatTime(cooldown)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : error ? (
             <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-red-400/40 bg-red-500/20 p-3.5 text-xs text-red-200">
               <AlertCircle className="h-4 w-4 shrink-0 text-red-300 mt-0.5" />
               <span>{error}</span>
             </div>
-          )}
+          ) : null}
 
           <form onSubmit={(e) => handleLogin(e)} className="space-y-4">
             <div>
@@ -95,10 +138,11 @@ export default function CreatorLoginPage() {
               <input
                 type="text"
                 required
-                placeholder="e.g. davin"
+                disabled={cooldown > 0}
+                placeholder="e.g. sokphal"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className="w-full rounded-xl bg-purple-950/60 border border-purple-400/30 px-3.5 py-2.5 text-sm text-white placeholder-purple-400/50 focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-500/30 transition-all"
+                className="w-full rounded-xl bg-purple-950/60 border border-purple-400/30 px-3.5 py-2.5 text-sm text-white placeholder-purple-400/50 focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -109,22 +153,28 @@ export default function CreatorLoginPage() {
               <input
                 type="password"
                 required
+                disabled={cooldown > 0}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl bg-purple-950/60 border border-purple-400/30 px-3.5 py-2.5 text-sm text-white placeholder-purple-400/50 focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-500/30 transition-all"
+                className="w-full rounded-xl bg-purple-950/60 border border-purple-400/30 px-3.5 py-2.5 text-sm text-white placeholder-purple-400/50 focus:border-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full mt-2 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 py-3 text-sm font-extrabold text-white shadow-lg shadow-pink-500/25 hover:from-pink-600 hover:to-indigo-600 hover:shadow-pink-500/40 transition-all duration-300 active:scale-[0.99] disabled:opacity-50"
+              disabled={loading || cooldown > 0}
+              className="w-full mt-2 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 py-3 text-sm font-extrabold text-white shadow-lg shadow-pink-500/25 hover:from-pink-600 hover:to-indigo-600 hover:shadow-pink-500/40 transition-all duration-300 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span>Logging in…</span>
+                </>
+              ) : cooldown > 0 ? (
+                <>
+                  <span>🔒</span>
+                  <span>Locked ({formatTime(cooldown)})</span>
                 </>
               ) : (
                 <>

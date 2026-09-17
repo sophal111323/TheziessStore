@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { getClientIp } from "@/lib/getIp";
+import { checkRateLimitDb, checkRateLimitMemory } from "@/lib/rateLimit";
+import { logSecurityEvent } from "@/lib/secureLogger";
 import {
   authenticateAffiliate,
   registerAffiliate,
@@ -32,6 +35,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { action } = body;
+    const ip = getClientIp(req);
 
     // ── 1. Login ──────────────────────────────────────────────
     if (action === "login") {
@@ -40,6 +44,79 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           { success: false, error: "Please provide username/email and password" },
           { status: 400 }
+        );
+      }
+
+      // Fast in-memory flood protection (max 20 requests per minute)
+      const isBurstAllowed = checkRateLimitMemory(`promote-login-flood:${ip}`, 20, 60 * 1000);
+      if (!isBurstAllowed) {
+        logSecurityEvent({
+          event: "rate_limit_exceeded",
+          detail: `promote_login_burst_flood: identifier=${identifier}`,
+          ip,
+        });
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Too many login attempts. Please slow down and wait a minute.",
+            retryAfter: 60,
+          },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": "60",
+              "Cache-Control": "no-store",
+            },
+          }
+        );
+      }
+
+      // Persistent IP Rate Limit (max 10 login attempts per 15 minutes)
+      const isIpAllowed = await checkRateLimitDb(`promote-login-ip:${ip}`, 10, 15 * 60 * 1000, ip);
+      if (!isIpAllowed) {
+        logSecurityEvent({
+          event: "rate_limit_exceeded",
+          detail: `promote_login_ip_limit: ip=${ip}, identifier=${identifier}`,
+          ip,
+        });
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Too many login attempts from this network. Please try again in 15 minutes.",
+            retryAfter: 900,
+          },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": "900",
+              "Cache-Control": "no-store",
+            },
+          }
+        );
+      }
+
+      // Per-Account Brute Force Defense (max 5 attempts per 15 minutes per username/email)
+      const normIdentifier = String(identifier).toLowerCase().trim();
+      const isTargetAllowed = await checkRateLimitDb(`promote-login-target:${normIdentifier}`, 5, 15 * 60 * 1000, ip);
+      if (!isTargetAllowed) {
+        logSecurityEvent({
+          event: "rate_limit_exceeded",
+          detail: `promote_login_target_limit: target=${normIdentifier}`,
+          ip,
+        });
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Too many failed attempts for this account. Please wait 15 minutes before trying again.",
+            retryAfter: 900,
+          },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": "900",
+              "Cache-Control": "no-store",
+            },
+          }
         );
       }
 
@@ -76,6 +153,20 @@ export async function POST(req: NextRequest) {
 
     // ── 2. Register ───────────────────────────────────────────
     if (action === "register") {
+      // Limit registration to max 5 accounts per hour per IP
+      const isRegAllowed = await checkRateLimitDb(`promote-register-ip:${ip}`, 5, 60 * 60 * 1000, ip);
+      if (!isRegAllowed) {
+        logSecurityEvent({
+          event: "rate_limit_exceeded",
+          detail: `promote_register_ip_limit: ip=${ip}`,
+          ip,
+        });
+        return NextResponse.json(
+          { success: false, error: "Too many accounts registered from this device. Please try again later.", retryAfter: 3600 },
+          { status: 429, headers: { "Retry-After": "3600", "Cache-Control": "no-store" } }
+        );
+      }
+
       const { name, username, email, phone, telegram, facebook, tiktok, youtube, password, confirmPassword, agree } = body;
 
       if (!agree) {
