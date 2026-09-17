@@ -9,6 +9,8 @@ import {
   getAffiliateStats,
   getAffiliateNotifications,
   markNotificationsAsRead,
+  getAffiliateSettings,
+  getAllAffiliates,
 } from "@/lib/affiliate/store";
 import { CREATOR_COOKIE_NAME, getCurrentCreator } from "@/lib/affiliate/session";
 
@@ -153,6 +155,31 @@ export async function POST(req: NextRequest) {
 
     // ── 2. Register ───────────────────────────────────────────
     if (action === "register") {
+      const settings = getAffiliateSettings();
+      const currentAffiliates = getAllAffiliates();
+
+      // Check if admin closed registration
+      if (!settings.registrationOpen) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: settings.closedMessageKh || "ការចុះឈ្មោះជា Promoter ត្រូវបានបិទបណ្ដោះអាសន្ន។",
+          },
+          { status: 403 }
+        );
+      }
+
+      // Check if registration limit / quota is reached
+      if (currentAffiliates.length >= settings.maxPromoters) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `កម្មវិធី Promoter បានពេញកូតាកំណត់ចំនួន ${settings.maxPromoters} នាក់រួចរាល់ហើយ (${currentAffiliates.length}/${settings.maxPromoters})។ សូមរង់ចាំជុំបន្ទាប់!`,
+          },
+          { status: 403 }
+        );
+      }
+
       // Limit registration to max 5 accounts per hour per IP
       const isRegAllowed = await checkRateLimitDb(`promote-register-ip:${ip}`, 5, 60 * 60 * 1000, ip);
       if (!isRegAllowed) {

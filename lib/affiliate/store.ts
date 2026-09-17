@@ -7,6 +7,7 @@ import {
   AffiliatePayout,
   AffiliateNotification,
   MarketingAsset,
+  AffiliateSettings,
 } from "./types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -696,3 +697,48 @@ export function getAffiliateStats(affiliateId: string): AffiliateStats {
     paidCommission,
   };
 }
+
+// ── Registration & Quota Settings ──────────────────────────────────────
+const DEFAULT_AFFILIATE_SETTINGS: AffiliateSettings = {
+  registrationOpen: true,
+  maxPromoters: 100,
+  closedMessageKh: "ការចុះឈ្មោះជា Promoter ត្រូវបានបិទបណ្ដោះអាសន្ន ឬបានពេញចំនួនកំណត់ (100 នាក់)។",
+  closedMessageEn: "Promoter registration is currently closed or has reached capacity.",
+  updatedAt: new Date().toISOString(),
+};
+
+export function getAffiliateSettings(): AffiliateSettings {
+  ensureDataDir();
+  const file = path.join(DATA_DIR, "affiliate-settings.json");
+  try {
+    if (fs.existsSync(file)) {
+      const content = fs.readFileSync(file, "utf-8");
+      const parsed = JSON.parse(content);
+      if (typeof parsed.registrationOpen === "boolean" && typeof parsed.maxPromoters === "number") {
+        return {
+          ...DEFAULT_AFFILIATE_SETTINGS,
+          ...parsed,
+        };
+      }
+    }
+  } catch {}
+  return { ...DEFAULT_AFFILIATE_SETTINGS };
+}
+
+export function updateAffiliateSettings(partial: Partial<AffiliateSettings>): AffiliateSettings {
+  ensureDataDir();
+  const current = getAffiliateSettings();
+  const updated: AffiliateSettings = {
+    ...current,
+    ...partial,
+    updatedAt: new Date().toISOString(),
+  };
+  const file = path.join(DATA_DIR, "affiliate-settings.json");
+  try {
+    fs.writeFileSync(file, JSON.stringify(updated, null, 2), "utf-8");
+  } catch (e) {
+    console.error("Failed to save affiliate settings:", e);
+  }
+  return updated;
+}
+

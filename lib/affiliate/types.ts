@@ -87,3 +87,12 @@ export interface MarketingAsset {
   captionKh: string;
   captionEn?: string;
 }
+
+export interface AffiliateSettings {
+  registrationOpen: boolean;
+  maxPromoters: number;
+  closedMessageKh?: string;
+  closedMessageEn?: string;
+  updatedAt: string;
+}
+

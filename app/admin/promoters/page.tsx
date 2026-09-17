@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Affiliate, AffiliateStats } from "@/lib/affiliate/types";
+import { Affiliate, AffiliateStats, AffiliateSettings } from "@/lib/affiliate/types";
 
 interface PromoterWithStats extends Affiliate {
   stats: AffiliateStats;
@@ -11,6 +11,13 @@ interface PromoterWithStats extends Affiliate {
 
 export default function AdminPromotersPage() {
   const [promoters, setPromoters] = useState<PromoterWithStats[]>([]);
+  const [settings, setSettings] = useState<AffiliateSettings>({
+    registrationOpen: true,
+    maxPromoters: 100,
+    updatedAt: "",
+  });
+  const [targetMaxPromoters, setTargetMaxPromoters] = useState<number>(100);
+  const [savingSettings, setSavingSettings] = useState(false);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "SUSPENDED">("ALL");
@@ -24,6 +31,10 @@ export default function AdminPromotersPage() {
       if (res.ok) {
         const data = await res.json();
         setPromoters(data.promoters || []);
+        if (data.settings) {
+          setSettings(data.settings);
+          setTargetMaxPromoters(data.settings.maxPromoters ?? 100);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -35,6 +46,45 @@ export default function AdminPromotersPage() {
   useEffect(() => {
     load();
   }, []);
+
+  async function handleSaveSettings(newOpen?: boolean, newMax?: number) {
+    setSavingSettings(true);
+    const openVal = typeof newOpen === "boolean" ? newOpen : settings.registrationOpen;
+    const maxVal = typeof newMax === "number" ? newMax : targetMaxPromoters;
+
+    try {
+      const res = await fetch("/api/admin/promoters", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_settings",
+          registrationOpen: openVal,
+          maxPromoters: maxVal,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings) {
+          setSettings(data.settings);
+          setTargetMaxPromoters(data.settings.maxPromoters);
+        }
+        setToast(
+          openVal
+            ? `Registration is now OPEN (Quota: ${maxVal} promoters)`
+            : `Registration is now CLOSED (Quota: ${maxVal} promoters)`
+        );
+        setTimeout(() => setToast(null), 3500);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Failed to update registration settings");
+      }
+    } catch (err: any) {
+      alert(`Network error: ${err.message}`);
+    } finally {
+      setSavingSettings(false);
+    }
+  }
 
   async function handleToggleStatus(promoter: PromoterWithStats) {
     const nextStatus = promoter.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
@@ -136,6 +186,149 @@ export default function AdminPromotersPage() {
           <button onClick={() => setToast(null)} className="text-xs opacity-70 hover:opacity-100">✕</button>
         </div>
       )}
+
+      {/* Registration Settings & Quota Card */}
+      <div className="rounded-3xl border border-purple-500/25 bg-gradient-to-r from-purple-950/50 via-fox-surface/85 to-indigo-950/40 p-6 shadow-xl backdrop-blur-xl relative overflow-hidden">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="text-xl">⚙️</span>
+              <h2 className="text-lg font-bold text-white font-display">Promoter Registration & Quota</h2>
+              <span
+                className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border ${
+                  settings.registrationOpen && promoters.length < settings.maxPromoters
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/30"
+                    : "bg-red-500/20 text-red-300 border-red-400/30"
+                }`}
+              >
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    settings.registrationOpen && promoters.length < settings.maxPromoters
+                      ? "bg-emerald-400 animate-pulse"
+                      : "bg-red-400"
+                  }`}
+                />
+                {settings.registrationOpen && promoters.length < settings.maxPromoters
+                  ? "Registration Open"
+                  : !settings.registrationOpen
+                  ? "Registration Closed"
+                  : "Quota Full"}
+              </span>
+            </div>
+            <p className="text-xs text-fox-muted">
+              Turn public registration on or off and set the maximum number of promoters allowed to register.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Open / Close Toggle Button */}
+            <button
+              type="button"
+              onClick={() => handleSaveSettings(!settings.registrationOpen)}
+              disabled={savingSettings}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 border transition-all shadow-md active:scale-95 ${
+                settings.registrationOpen
+                  ? "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-400/40"
+                  : "bg-red-500/20 hover:bg-red-500/30 text-red-300 border-red-400/40"
+              }`}
+            >
+              <span>{settings.registrationOpen ? "🟢" : "🔴"}</span>
+              <span>{settings.registrationOpen ? "Close Registration" : "Open Registration"}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-5 pt-5 border-t border-purple-500/20 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+          {/* Quota Setting Form */}
+          <div className="space-y-3">
+            <label className="block text-xs font-bold text-purple-200 uppercase tracking-wider">
+              Maximum Promoter Registration Limit
+            </label>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 max-w-[180px]">
+                <input
+                  type="number"
+                  min="1"
+                  max="10000"
+                  value={targetMaxPromoters}
+                  onChange={(e) => setTargetMaxPromoters(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="input text-sm font-mono font-bold w-full bg-purple-950/60 border-purple-400/30 text-white"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-fox-muted font-bold">
+                  Slots
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleSaveSettings(settings.registrationOpen, targetMaxPromoters)}
+                disabled={savingSettings || targetMaxPromoters === settings.maxPromoters}
+                className="btn-primary text-xs px-4 py-2.5 rounded-xl disabled:opacity-40"
+              >
+                {savingSettings ? "Saving..." : "Save Limit"}
+              </button>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] uppercase font-bold text-fox-muted mr-1">Presets:</span>
+              {[50, 100, 200, 500, 1000].map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => {
+                    setTargetMaxPromoters(num);
+                    handleSaveSettings(settings.registrationOpen, num);
+                  }}
+                  className={`px-2.5 py-1 text-[11px] font-mono font-bold rounded-lg border transition-all ${
+                    settings.maxPromoters === num
+                      ? "bg-pink-500/25 border-pink-400/50 text-pink-300"
+                      : "bg-purple-950/40 border-purple-800/40 text-purple-300/80 hover:text-white"
+                  }`}
+                >
+                  {num}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Progress / Capacity Bar */}
+          <div className="rounded-2xl bg-black/30 border border-white/10 p-4 space-y-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-fox-muted font-medium">Capacity Used</span>
+              <span className="font-mono font-bold text-white">
+                {promoters.length} / {settings.maxPromoters} ({Math.min(100, Math.round((promoters.length / Math.max(1, settings.maxPromoters)) * 100))}%)
+              </span>
+            </div>
+            <div className="w-full bg-purple-950/80 h-3 rounded-full overflow-hidden border border-purple-800/40">
+              <div
+                style={{
+                  width: `${Math.min(100, Math.round((promoters.length / Math.max(1, settings.maxPromoters)) * 100))}%`,
+                }}
+                className={`h-full rounded-full transition-all duration-500 ${
+                  promoters.length >= settings.maxPromoters
+                    ? "bg-gradient-to-r from-red-500 to-rose-600"
+                    : promoters.length / settings.maxPromoters >= 0.8
+                    ? "bg-gradient-to-r from-amber-500 to-orange-500"
+                    : "bg-gradient-to-r from-purple-500 via-pink-500 to-emerald-400"
+                }`}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-fox-muted">
+              <span>Remaining slots: <strong className="text-emerald-300 font-mono">{Math.max(0, settings.maxPromoters - promoters.length)}</strong></span>
+              <Link
+                href="/promote/register"
+                target="_blank"
+                className="text-pink-400 hover:text-pink-300 font-semibold flex items-center gap-1"
+              >
+                <span>Preview Register Page</span>
+                <span>↗</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
 
       {/* Metric Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

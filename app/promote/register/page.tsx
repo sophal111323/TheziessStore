@@ -1,13 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles, Shield, ArrowRight, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Sparkles, Shield, ArrowRight, CheckCircle2, AlertCircle, Loader2, Lock } from "lucide-react";
+
+interface PromoSettings {
+  registrationOpen: boolean;
+  rawRegistrationOpen: boolean;
+  maxPromoters: number;
+  currentPromoters: number;
+  isFull: boolean;
+  closedMessageKh?: string;
+  closedMessageEn?: string;
+}
 
 export default function CreatorRegisterPage() {
   const router = useRouter();
+  const [settings, setSettings] = useState<PromoSettings | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+
   const [form, setForm] = useState({
     name: "",
     username: "",
@@ -24,9 +37,26 @@ export default function CreatorRegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    fetch("/api/promote/settings")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && typeof data.maxPromoters === "number") {
+          setSettings(data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setSettingsLoading(false));
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (settings && (!settings.registrationOpen || settings.isFull)) {
+      setError(settings.closedMessageKh || "Registration is currently closed.");
+      return;
+    }
 
     if (form.password !== form.confirmPassword) {
       setError("Passwords do not match");
@@ -66,6 +96,7 @@ export default function CreatorRegisterPage() {
   }
 
   const previewSlug = form.username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+  const isRegistrationClosed = settings ? (!settings.registrationOpen || settings.isFull) : false;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-950 via-purple-900 to-indigo-950 text-white flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
@@ -98,19 +129,83 @@ export default function CreatorRegisterPage() {
             Become a Content Creator
           </h1>
           <p className="mt-2 text-sm text-purple-200/80 max-w-md mx-auto">
-            Earn <span className="text-emerald-400 font-bold">$0.04 commission</span> on every order when gamers top up through your personal link. Instant auto-approval!
+            Earn <span className="text-emerald-400 font-bold">$0.04 commission</span> on every order when gamers top up through your personal link.
           </p>
         </div>
 
-        <div className="bg-purple-900/60 backdrop-blur-2xl border border-purple-400/25 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-purple-950/80">
-          {error && (
-            <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-red-400/40 bg-red-500/20 p-3.5 text-xs text-red-200">
-              <AlertCircle className="h-4 w-4 shrink-0 text-red-300 mt-0.5" />
-              <span>{error}</span>
+        {/* Closed or Limit Reached Banner / Screen */}
+        {isRegistrationClosed && settings ? (
+          <div className="bg-purple-900/60 backdrop-blur-2xl border border-purple-400/25 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-purple-950/80 text-center space-y-5">
+            <div className="mx-auto h-16 w-16 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-3xl shadow-lg">
+              <Lock className="h-8 w-8 text-amber-300" />
             </div>
-          )}
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-white font-display">
+                {settings.isFull ? "Promoter Capacity Reached" : "Registration Temporarily Closed"}
+              </h2>
+              <p className="text-xs sm:text-sm text-purple-200/90 mt-2 font-khmer leading-relaxed">
+                {settings.closedMessageKh}
+              </p>
+            </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="rounded-2xl bg-purple-950/70 border border-purple-400/20 p-4">
+              <div className="flex items-center justify-between text-xs text-purple-300 font-semibold mb-2">
+                <span>Program Quota</span>
+                <span className="font-mono font-bold text-pink-300">
+                  {settings.currentPromoters} / {settings.maxPromoters} Promoters
+                </span>
+              </div>
+              <div className="w-full bg-purple-900/60 h-3 rounded-full overflow-hidden border border-purple-700/40">
+                <div
+                  style={{ width: `${Math.min(100, Math.round((settings.currentPromoters / Math.max(1, settings.maxPromoters)) * 100))}%` }}
+                  className="h-full bg-gradient-to-r from-pink-500 to-amber-400 rounded-full transition-all duration-500"
+                />
+              </div>
+              <p className="text-[11px] text-purple-400 mt-2">
+                {settings.isFull
+                  ? `The program has reached its maximum limit of ${settings.maxPromoters} promoters. Stay tuned for future slots!`
+                  : "New promoter registrations are currently paused by administration."}
+              </p>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                href="/promote/login"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 px-6 py-3 text-xs font-extrabold text-white shadow-lg shadow-pink-500/25 hover:from-pink-600 hover:to-indigo-600 transition-all"
+              >
+                <span>Already a Promoter? Log In</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-purple-400/30 bg-purple-950/50 hover:bg-purple-900/50 px-6 py-3 text-xs font-bold text-purple-200 transition-all"
+              >
+                <span>Back to Store</span>
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-purple-900/60 backdrop-blur-2xl border border-purple-400/25 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-purple-950/80">
+            {settings && (
+              <div className="mb-5 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3.5 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 text-emerald-300 font-semibold">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Registration Open</span>
+                </div>
+                <span className="font-mono font-bold text-emerald-200 bg-emerald-950/50 px-2 py-0.5 rounded-lg border border-emerald-500/30">
+                  {settings.currentPromoters} / {settings.maxPromoters} spots registered
+                </span>
+              </div>
+            )}
+
+            {error && (
+              <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-red-400/40 bg-red-500/20 p-3.5 text-xs text-red-200">
+                <AlertCircle className="h-4 w-4 shrink-0 text-red-300 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-purple-200 uppercase tracking-wider mb-1.5">
@@ -282,6 +377,7 @@ export default function CreatorRegisterPage() {
             </Link>
           </div>
         </div>
+        )}
       </div>
     </div>
   );
