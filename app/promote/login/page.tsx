@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles, ArrowRight, AlertCircle, Loader2, UserCheck } from "lucide-react";
+import { Sparkles, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
 
 export default function CreatorLoginPage() {
   const router = useRouter();
@@ -12,13 +12,10 @@ export default function CreatorLoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleLogin(e?: React.FormEvent, customUser?: string, customPass?: string) {
-    if (e) e.preventDefault();
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
     setError(null);
     setLoading(true);
-
-    const userToSubmit = customUser || identifier;
-    const passToSubmit = customPass || password;
 
     try {
       const res = await fetch("/api/promote/auth", {
@@ -26,8 +23,8 @@ export default function CreatorLoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "login",
-          identifier: userToSubmit,
-          password: passToSubmit,
+          identifier,
+          password,
         }),
       });
 
@@ -44,12 +41,6 @@ export default function CreatorLoginPage() {
       setError("Network error logging in. Please try again.");
       setLoading(false);
     }
-  }
-
-  function fillDemo(username: string) {
-    setIdentifier(username);
-    setPassword("password123");
-    handleLogin(undefined, username, "password123");
   }
 
   return (
@@ -127,31 +118,6 @@ export default function CreatorLoginPage() {
               )}
             </button>
           </form>
-
-          {/* Quick Demo Logins for Localhost UI Testing */}
-          <div className="mt-6 pt-5 border-t border-purple-400/20">
-            <span className="block text-[11px] font-bold uppercase tracking-wider text-purple-300/80 mb-2.5 text-center">
-              ⚡ Quick Demo Testing (Localhost)
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => fillDemo("davin")}
-                className="flex items-center justify-center gap-1.5 rounded-xl border border-pink-400/30 bg-pink-500/10 px-3 py-2 text-xs font-semibold text-pink-300 hover:bg-pink-500/20 transition-all"
-              >
-                <UserCheck className="h-3.5 w-3.5" />
-                <span>Davin (87 Orders)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => fillDemo("somnang")}
-                className="flex items-center justify-center gap-1.5 rounded-xl border border-purple-400/30 bg-purple-500/10 px-3 py-2 text-xs font-semibold text-purple-300 hover:bg-purple-500/20 transition-all"
-              >
-                <UserCheck className="h-3.5 w-3.5" />
-                <span>Somnang (143 Orders)</span>
-              </button>
-            </div>
-          </div>
 
           <div className="mt-6 text-center text-xs text-purple-300/70 pt-4 border-t border-purple-400/20">
             Don&apos;t have a creator account yet?{" "}
