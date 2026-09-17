@@ -6,18 +6,36 @@ import TopUpForm from "@/components/TopUpForm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Zap } from "lucide-react";
+import { getAffiliateBySlug } from "@/lib/affiliate/store";
+import AffiliateCookieTracker from "@/components/AffiliateCookieTracker";
 
 export const dynamic = "force-dynamic";
 
-export default async function GamePage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function GamePage({ params }: { params: Promise<{ slug: string[] }> }) {
   const { slug } = await params;
-  const game = await getPublicGameBySlug(slug);
+  const segments = Array.isArray(slug) ? slug : [slug];
 
+  let affiliateSlug: string | null = null;
+  let gameSlug: string;
+
+  if (segments.length === 1) {
+    gameSlug = segments[0];
+  } else if (segments.length === 2) {
+    affiliateSlug = segments[0];
+    gameSlug = segments[1];
+  } else {
+    notFound();
+  }
+
+  const game = await getPublicGameBySlug(gameSlug);
   if (!game || !game.active) notFound();
+
+  const affiliate = affiliateSlug ? getAffiliateBySlug(affiliateSlug) : null;
 
   return (
     <>
-      <PublicDataRefresh scope="game" slug={slug} intervalMs={15000} />
+      {affiliate && <AffiliateCookieTracker slug={affiliate.slug} />}
+      <PublicDataRefresh scope="game" slug={gameSlug} intervalMs={15000} />
       <Header />
 
       {/* Game banner */}
@@ -34,7 +52,7 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
 
         <div className="relative mx-auto max-w-6xl px-4 pt-4 pb-3 sm:pt-6 sm:pb-5 sm:px-6 lg:px-8">
           <Link
-            href="/#games"
+            href={affiliate ? `/${affiliate.slug}#games` : "/#games"}
             className="inline-flex items-center gap-2 text-xs sm:text-sm text-fox-muted hover:text-fox-primary transition-colors mb-2 sm:mb-3"
           >
             <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2} />
@@ -81,8 +99,20 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
             uidLabel: game.uidLabel,
             uidExample: game.uidExample,
             requiresServer: game.requiresServer,
-            servers: (() => { try { return JSON.parse(game.servers || "[]"); } catch { return []; } })(),
-            categoryOrder: (() => { try { return JSON.parse((game as any).categoryOrder || "[]"); } catch { return []; } })(),
+            servers: (() => {
+              try {
+                return JSON.parse(game.servers || "[]");
+              } catch {
+                return [];
+              }
+            })(),
+            categoryOrder: (() => {
+              try {
+                return JSON.parse((game as any).categoryOrder || "[]");
+              } catch {
+                return [];
+              }
+            })(),
             checkIdGameCode: game.checkIdGameCode ?? null,
           }}
           products={game.products.map((p) => ({
