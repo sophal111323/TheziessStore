@@ -275,6 +275,17 @@ function getStoredAffiliates(): Affiliate[] {
       const content = fs.readFileSync(file, "utf-8");
       const list = JSON.parse(content);
       if (Array.isArray(list) && list.length > 0) {
+        let changed = false;
+        for (const aff of list) {
+          if (aff.commissionRate !== 0.04 || aff.commissionType !== "FIXED") {
+            aff.commissionType = "FIXED";
+            aff.commissionRate = 0.04;
+            changed = true;
+          }
+        }
+        if (changed) {
+          saveStoredAffiliates(list);
+        }
         return list;
       }
     }
