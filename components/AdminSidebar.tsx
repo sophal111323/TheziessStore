@@ -17,7 +17,7 @@ const ADMIN_NAV_ITEMS = [
   { href: "/admin/faqs", label: "FAQ", icon: "❓" },
   { href: "/admin/blog", label: "Blog", icon: "📝" },
   { href: "/admin/customers", label: "Customers", icon: "👥" },
-  { href: "/admin/promoters", label: "Promoters", icon: "🤝" },
+  { href: "/admin/All-promoters", label: "All Promoters", icon: "🤝" },
   { href: "/admin/banlist", label: "Banlist", icon: "🚫" },
   { href: "/admin/security", label: "Security", icon: "🛡️" },
   { href: "/admin/audit-logs", label: "Audit Log", icon: "📜" },
@@ -25,14 +25,27 @@ const ADMIN_NAV_ITEMS = [
 ];
 
 function getActiveIndex(pathname: string | null, optimisticHref: string | null) {
-  const currentPath = optimisticHref || pathname || "/admin";
+  const currentPath = (optimisticHref || pathname || "/admin").toLowerCase();
 
-  const exactIndex = ADMIN_NAV_ITEMS.findIndex((item) => item.href === currentPath);
+  const exactIndex = ADMIN_NAV_ITEMS.findIndex((item) => {
+    const itemHref = item.href.toLowerCase();
+    if (itemHref === currentPath) return true;
+    if (
+      item.href === "/admin/All-promoters" &&
+      (currentPath === "/admin/promoters" || currentPath === "/admin/all-promoters")
+    ) {
+      return true;
+    }
+    return false;
+  });
   if (exactIndex !== -1) return exactIndex;
 
   const nestedIndex = ADMIN_NAV_ITEMS.findIndex((item) => {
     if (item.href === "/admin") return false;
-    return currentPath.startsWith(`${item.href}/`);
+    const itemHref = item.href.toLowerCase();
+    if (currentPath.startsWith(`${itemHref}/`)) return true;
+    if (item.href === "/admin/All-promoters" && currentPath.startsWith("/admin/promoters/")) return true;
+    return false;
   });
 
   return nestedIndex === -1 ? 0 : nestedIndex;

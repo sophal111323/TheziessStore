@@ -36,6 +36,15 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  async rewrites() {
+    return [
+      {
+        source: "/admin/all-promoters",
+        destination: "/admin/All-promoters",
+      },
+    ];
+  },
+
   async headers() {
     return [
       {

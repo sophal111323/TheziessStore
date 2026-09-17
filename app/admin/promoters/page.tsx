@@ -232,13 +232,21 @@ export default function AdminPromotersPage() {
                             {initials}
                           </div>
                           <div className="min-w-0">
-                            <Link
-                              href={`/admin/promoters/${p.id}`}
-                              className="font-bold text-fox-text hover:text-fox-primary transition-colors text-sm truncate block"
-                            >
-                              {promoterName}
-                            </Link>
+                            <div className="flex items-center gap-1.5">
+                              <Link
+                                href={`/admin/promoters/${p.id}`}
+                                className="font-bold text-fox-text hover:text-fox-primary transition-colors text-sm truncate block"
+                              >
+                                {promoterName}
+                              </Link>
+                              <span className="text-[10px] text-purple-400 font-mono">@{p.username || p.slug}</span>
+                            </div>
                             <div className="text-xs text-fox-muted truncate font-mono">{p.email}</div>
+                            {p.createdAt && (
+                              <div className="text-[10px] text-fox-muted/70 mt-0.5">
+                                Joined {new Date(p.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -287,6 +295,18 @@ export default function AdminPromotersPage() {
                             <div className="text-pink-400 font-mono flex items-center gap-1">
                               <span>🎵</span>
                               <span>{p.tiktok}</span>
+                            </div>
+                          )}
+                          {p.youtube && (
+                            <div className="text-red-400 font-mono flex items-center gap-1">
+                              <span>▶️</span>
+                              <span>{p.youtube}</span>
+                            </div>
+                          )}
+                          {p.facebook && (
+                            <div className="text-blue-400 font-mono flex items-center gap-1">
+                              <span>📘</span>
+                              <span>{p.facebook}</span>
                             </div>
                           )}
                         </div>
