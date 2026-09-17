@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import {
   Affiliate,
   AffiliateStats,
@@ -7,8 +9,16 @@ import {
   MarketingAsset,
 } from "./types";
 
-// ── In-Memory Store for Localhost Development ──────────────────────────
-// Preserved across HMR within the server runtime process
+const DATA_DIR = path.join(process.cwd(), "data");
+
+function ensureDataDir() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+  } catch {}
+}
+
 const globalAffiliateStore = globalThis as unknown as {
   __affiliates?: Affiliate[];
   __affiliateOrders?: AffiliateOrder[];
@@ -74,7 +84,7 @@ const SEED_AFFILIATES: Affiliate[] = [
     name: "Sokphal",
     username: "sokphal",
     slug: "sokphal",
-    email: "sokphal@gmail.com",
+    email: "akubluetooth030511@gmail.com",
     phone: "088998877",
     telegram: "@sokphal_gaming",
     tiktok: "@sokphal.topup",
@@ -290,47 +300,79 @@ export const MARKETING_ASSETS: MarketingAsset[] = [
   },
 ];
 
-// Initialize store if not already initialized
-if (!globalAffiliateStore.__affiliates) {
-  globalAffiliateStore.__affiliates = [...SEED_AFFILIATES];
+function getStoredAffiliates(): Affiliate[] {
+  ensureDataDir();
+  const file = path.join(DATA_DIR, "affiliates.json");
+  try {
+    if (fs.existsSync(file)) {
+      const content = fs.readFileSync(file, "utf-8");
+      const list = JSON.parse(content);
+      if (Array.isArray(list) && list.length > 0) {
+        return list;
+      }
+    }
+  } catch {}
+  return [...SEED_AFFILIATES];
 }
-if (!globalAffiliateStore.__affiliateOrders) {
-  globalAffiliateStore.__affiliateOrders = [...SEED_ORDERS_DAVIN];
-}
-if (!globalAffiliateStore.__affiliatePayouts) {
-  globalAffiliateStore.__affiliatePayouts = [...SEED_PAYOUTS];
-}
-if (!globalAffiliateStore.__affiliateNotifications) {
-  globalAffiliateStore.__affiliateNotifications = [...SEED_NOTIFICATIONS];
+
+function saveStoredAffiliates(list: Affiliate[]) {
+  ensureDataDir();
+  const file = path.join(DATA_DIR, "affiliates.json");
+  try {
+    fs.writeFileSync(file, JSON.stringify(list, null, 2), "utf-8");
+  } catch (e) {
+    console.error("Failed to save affiliates:", e);
+  }
 }
 
 // ── Store Access Methods ────────────────────────────────────────────────
 export function getAllAffiliates(): Affiliate[] {
-  return globalAffiliateStore.__affiliates || [];
+  return getStoredAffiliates();
 }
 
 export function getAffiliateById(id: string): Affiliate | null {
-  return (globalAffiliateStore.__affiliates || []).find((a) => a.id === id) || null;
+  return getStoredAffiliates().find((a) => a.id === id) || null;
 }
 
 export function getAffiliateBySlug(slug: string): Affiliate | null {
   const clean = (slug || "").trim().toLowerCase();
-  return (globalAffiliateStore.__affiliates || []).find((a) => a.slug.toLowerCase() === clean) || null;
+  return getStoredAffiliates().find((a) => a.slug.toLowerCase() === clean) || null;
 }
 
 export function getAffiliateByUsername(username: string): Affiliate | null {
   const clean = (username || "").trim().toLowerCase();
-  return (globalAffiliateStore.__affiliates || []).find((a) => a.username.toLowerCase() === clean) || null;
+  return getStoredAffiliates().find((a) => a.username.toLowerCase() === clean) || null;
 }
 
 export function authenticateAffiliate(identifier: string, pass: string): Affiliate | null {
   const clean = (identifier || "").trim().toLowerCase();
-  const aff = (globalAffiliateStore.__affiliates || []).find(
-    (a) =>
-      (a.username.toLowerCase() === clean || a.email.toLowerCase() === clean) &&
-      (a.passwordHash === pass || pass === "password123" || pass === "davin123")
+  const list = getStoredAffiliates();
+  const aff = list.find(
+    (a) => a.username.toLowerCase() === clean || a.email.toLowerCase() === clean
   );
-  return aff || null;
+  if (!aff) return null;
+
+  // 1. Password matches exactly
+  if (aff.passwordHash && aff.passwordHash === pass) {
+    return aff;
+  }
+
+  // 2. Common fallback passwords for testing
+  if (pass === "password123" || pass === "davin123") {
+    return aff;
+  }
+
+  // 3. If account was seeded or password is empty, allow user to set their password on login
+  if (!aff.passwordHash || aff.passwordHash === "password123") {
+    if (pass && pass.length >= 6) {
+      aff.passwordHash = pass;
+      aff.updatedAt = new Date().toISOString();
+      saveStoredAffiliates(list);
+      return aff;
+    }
+  }
+
+  return null;
 }
 
 export function registerAffiliate(data: {
@@ -349,18 +391,29 @@ export function registerAffiliate(data: {
     return { success: false, error: "Invalid username" };
   }
 
-  const existing = (globalAffiliateStore.__affiliates || []).find(
+  const list = getStoredAffiliates();
+
+  // If email already registered (e.g. pre-seeded or previously created), update their credentials so they can login immediately!
+  const existingEmailIndex = list.findIndex(
+    (a) => a.email.toLowerCase() === data.email.trim().toLowerCase()
+  );
+  if (existingEmailIndex !== -1) {
+    list[existingEmailIndex].name = data.name.trim();
+    list[existingEmailIndex].username = cleanUsername;
+    list[existingEmailIndex].slug = cleanUsername;
+    list[existingEmailIndex].passwordHash = data.password || list[existingEmailIndex].passwordHash;
+    if (data.phone) list[existingEmailIndex].phone = data.phone.trim();
+    if (data.telegram) list[existingEmailIndex].telegram = data.telegram.trim();
+    list[existingEmailIndex].updatedAt = new Date().toISOString();
+    saveStoredAffiliates(list);
+    return { success: true, affiliate: list[existingEmailIndex] };
+  }
+
+  const existing = list.find(
     (a) => a.username.toLowerCase() === cleanUsername || a.slug.toLowerCase() === cleanUsername
   );
   if (existing) {
     return { success: false, error: "Username or slug already taken" };
-  }
-
-  const existingEmail = (globalAffiliateStore.__affiliates || []).find(
-    (a) => a.email.toLowerCase() === data.email.trim().toLowerCase()
-  );
-  if (existingEmail) {
-    return { success: false, error: "Email already registered" };
   }
 
   const newAffiliate: Affiliate = {
@@ -382,7 +435,8 @@ export function registerAffiliate(data: {
     updatedAt: new Date().toISOString(),
   };
 
-  globalAffiliateStore.__affiliates?.push(newAffiliate);
+  list.push(newAffiliate);
+  saveStoredAffiliates(list);
   return { success: true, affiliate: newAffiliate };
 }
 
@@ -390,18 +444,22 @@ export function updateAffiliateProfile(
   id: string,
   data: Partial<Pick<Affiliate, "name" | "phone" | "telegram" | "facebook" | "tiktok" | "youtube">>
 ): Affiliate | null {
-  const aff = getAffiliateById(id);
+  const list = getStoredAffiliates();
+  const aff = list.find((a) => a.id === id);
   if (!aff) return null;
 
   Object.assign(aff, data, { updatedAt: new Date().toISOString() });
+  saveStoredAffiliates(list);
   return aff;
 }
 
 export function updateAffiliateStatus(id: string, status: "ACTIVE" | "SUSPENDED"): Affiliate | null {
-  const aff = getAffiliateById(id);
+  const list = getStoredAffiliates();
+  const aff = list.find((a) => a.id === id);
   if (!aff) return null;
   aff.status = status;
   aff.updatedAt = new Date().toISOString();
+  saveStoredAffiliates(list);
   return aff;
 }
 
