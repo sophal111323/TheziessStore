@@ -208,10 +208,10 @@ export default function CreatorDashboardPage() {
           </div>
           <div className="mt-2 flex items-center justify-between">
             <Link
-              href="/promote/payouts"
+              href="/promote/earnings"
               className="text-xs font-bold text-white hover:text-pink-300 underline inline-flex items-center gap-1"
             >
-              <span>Withdraw</span>
+              <span>View Earnings</span>
               <ArrowUpRight className="h-3 w-3" />
             </Link>
           </div>

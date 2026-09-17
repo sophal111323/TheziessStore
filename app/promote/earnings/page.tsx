@@ -28,17 +28,9 @@ export default function CreatorEarningsPage() {
         <div>
           <h1 className="text-2xl font-black text-white font-display">Earnings Breakdown</h1>
           <p className="text-xs text-purple-300/80 mt-0.5">
-            Transparent revenue tracking across all referred sales and withdrawals
+            Transparent revenue tracking across all referred sales
           </p>
         </div>
-
-        <Link
-          href="/promote/payouts"
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-pink-500 hover:bg-pink-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-pink-500/25 transition-all"
-        >
-          <span>Request Payout</span>
-          <ArrowRight className="h-4 w-4" />
-        </Link>
       </div>
 
       {/* 4 Financial Cards */}

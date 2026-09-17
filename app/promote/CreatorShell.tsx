@@ -26,7 +26,6 @@ const NAV_ITEMS = [
   { href: "/promote/orders", label: "Orders", icon: ShoppingBag },
   { href: "/promote/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/promote/earnings", label: "Earnings", icon: Coins },
-  { href: "/promote/payouts", label: "Payouts", icon: CreditCard },
   { href: "/promote/marketing", label: "Marketing", icon: Megaphone },
   { href: "/promote/profile", label: "Profile", icon: User },
 ];
