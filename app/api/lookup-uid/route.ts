@@ -6,6 +6,7 @@ import {
   getGameLookupConfig,
   lookupBay2GameNickname,
 } from "@/lib/gameLookup/bay2game";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +53,21 @@ export async function POST(req: NextRequest) {
   const { gameSlug, uid, server } = parsed.data;
   const cfg = getGameLookupConfig(gameSlug);
 
-  if (!cfg) {
+  let checkIdCode = cfg?.bay2GameCode;
+  let needsServer = cfg?.needsServer;
+
+  if (!checkIdCode && !cfg?.useRoblox) {
+    const game = await prisma.game.findUnique({
+      where: { slug: gameSlug },
+      select: { checkIdGameCode: true, requiresServer: true },
+    });
+    if (game?.checkIdGameCode) {
+      checkIdCode = game.checkIdGameCode;
+      needsServer = game.requiresServer;
+    }
+  }
+
+  if (!checkIdCode && !cfg?.useRoblox) {
     return NextResponse.json({
       nickname: null,
       verified: false,
@@ -60,7 +75,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  if (cfg.needsServer && !server?.trim()) {
+  if (needsServer && !server?.trim()) {
     return NextResponse.json(
       { nickname: null, verified: false, error: "Server ID is required" },
       { status: 400 },
@@ -70,7 +85,8 @@ export async function POST(req: NextRequest) {
   const result = await lookupBay2GameNickname(
     gameSlug,
     uid.trim(),
-    cfg.needsServer ? server?.trim() : undefined,
+    needsServer ? server?.trim() : undefined,
+    checkIdCode,
   );
 
   return NextResponse.json({

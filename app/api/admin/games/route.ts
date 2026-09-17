@@ -38,6 +38,8 @@ const gameSchema = z.object({
   sortOrder: z.number().int().default(0),
   seoTitle: z.string().optional().nullable(),
   seoDescription: z.string().optional().nullable(),
+  checkIdGameCode: z.string().max(100).optional().nullable(),
+  topupGameCode: z.string().max(100).optional().nullable(),
 });
 
 // Explicit admin allowlist. Game has no secret columns; listing fields
@@ -61,6 +63,8 @@ const ADMIN_GAME_SELECT = {
   sortOrder: true,
   seoTitle: true,
   seoDescription: true,
+  checkIdGameCode: true,
+  topupGameCode: true,
   createdAt: true,
   updatedAt: true,
   _count: { select: { products: true, orders: true } },

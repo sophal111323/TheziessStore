@@ -30,6 +30,8 @@ export const GameSchema = z.object({
   imageUrl:    z.string().url().optional().nullable(),
   active:      z.boolean().optional(),
   sortOrder:   z.number().int().min(0).optional(),
+  checkIdGameCode: z.string().max(100).optional().nullable(),
+  topupGameCode:   z.string().max(100).optional().nullable(),
 });
 
 // ── Product create/update ─────────────────────────────────────────────────────

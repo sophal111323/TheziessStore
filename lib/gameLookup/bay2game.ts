@@ -230,14 +230,24 @@ async function lookupRoblox(uid: string): Promise<GameLookupResult> {
 export async function lookupBay2GameNickname(
   gameSlug: string,
   uid: string,
-  serverId?: string
+  serverId?: string,
+  overrideGameCode?: string | null
 ): Promise<GameLookupResult> {
   const cleanSlug = (gameSlug || "").trim().toLowerCase();
   const cleanUid = (uid || "").trim();
   const cleanServerId = (serverId || "").trim();
+  const explicitCode = (overrideGameCode || "").trim();
 
   const cfg = getGameLookupConfig(cleanSlug);
-  if (!cfg) {
+
+  // Roblox uses official Roblox API
+  if (cfg?.useRoblox) {
+    return lookupRoblox(cleanUid);
+  }
+
+  const effectiveCode = explicitCode || cfg?.bay2GameCode;
+
+  if (!effectiveCode) {
     return {
       success: false,
       username: null,
@@ -245,12 +255,8 @@ export async function lookupBay2GameNickname(
     };
   }
 
-  // Roblox uses official Roblox API
-  if (cfg.useRoblox) {
-    return lookupRoblox(cleanUid);
-  }
-
-  if (cfg.needsServer && !cleanServerId) {
+  const needsServer = cfg ? cfg.needsServer : Boolean(cleanServerId);
+  if (needsServer && !cleanServerId) {
     return {
       success: false,
       username: null,
@@ -258,19 +264,11 @@ export async function lookupBay2GameNickname(
     };
   }
 
-  if (!cfg.bay2GameCode) {
-    return {
-      success: false,
-      username: null,
-      error: "Unsupported game",
-    };
-  }
-
   try {
     const url = new URL(`${BAY2GAME_CHECKID_BASE}/check_id`);
-    url.searchParams.set("game", cfg.bay2GameCode);
+    url.searchParams.set("game", effectiveCode);
     url.searchParams.set("userid", cleanUid);
-    if (cfg.needsServer && cleanServerId) {
+    if (cleanServerId) {
       url.searchParams.set("serverid", cleanServerId);
     }
 
@@ -331,7 +329,7 @@ export async function lookupBay2GameNickname(
         game:
           typeof data.game_title === "string" && data.game_title.trim() && data.game_title !== "null"
             ? data.game_title.trim()
-            : cfg.gameTitle,
+            : cfg?.gameTitle || effectiveCode,
       };
     }
 

@@ -184,6 +184,7 @@ const getCachedPublicGameBySlug = unstable_cache(
         active: true,
         seoTitle: true,
         seoDescription: true,
+        checkIdGameCode: true,
         updatedAt: true,
         products: {
           where: { active: true },

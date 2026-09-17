@@ -36,3 +36,4 @@ Disallow: /api/
 
 # Sitemap location
 Sitemap: https://theziessstore.store/sitemap.xml
+

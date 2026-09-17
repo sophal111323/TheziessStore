@@ -38,6 +38,7 @@ interface Game {
   requiresServer: boolean;
   servers: string[];
   categoryOrder?: string[];
+  checkIdGameCode?: string | null;
 }
 
 export default function TopUpForm({ game, products }: { game: Game; products: Product[] }) {
@@ -154,7 +155,7 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
 
-  const supportsLookup = LOOKUP_SLUGS.has(game.slug);
+  const supportsLookup = LOOKUP_SLUGS.has(game.slug) || Boolean(game.checkIdGameCode);
   const useZoneField = ZONE_ID_SLUGS.has(game.slug);
 
   type NicknameStatus = "idle" | "checking" | "verified" | "not_found";

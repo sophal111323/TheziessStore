@@ -126,7 +126,23 @@ export default function AdminGamesPage() {
                         <span>{g.name}</span>
                       </div>
                     </td>
-                    <td className="px-5 py-3 font-mono text-xs text-fox-muted">{g.slug}</td>
+                    <td className="px-5 py-3">
+                      <div className="font-mono text-xs text-fox-muted">{g.slug}</div>
+                      {(g.checkIdGameCode || g.topupGameCode) && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {g.checkIdGameCode && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-500/15 text-blue-400 border border-blue-500/30" title="Check ID API Game Code">
+                              ID: {g.checkIdGameCode}
+                            </span>
+                          )}
+                          {g.topupGameCode && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" title="Topup API Game Code">
+                              Topup: {g.topupGameCode}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-5 py-3 text-fox-muted">{g.publisher}</td>
                     <td className="px-5 py-3 text-right font-mono">{g._count.products}</td>
                     <td className="px-5 py-3 text-right font-mono">{g._count.orders}</td>
@@ -174,6 +190,8 @@ function GameForm({ initial, onCancel, onSaved }: { initial: any; onCancel: () =
     featured: initial?.featured || false,
     active: initial?.active ?? true,
     sortOrder: initial?.sortOrder || 0,
+    checkIdGameCode: initial?.checkIdGameCode || "",
+    topupGameCode: initial?.topupGameCode || "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -188,6 +206,8 @@ function GameForm({ initial, onCancel, onSaved }: { initial: any; onCancel: () =
       bannerUrl: form.bannerUrl || undefined,
       description: form.description || undefined,
       uidExample: form.uidExample || undefined,
+      checkIdGameCode: form.checkIdGameCode.trim() || undefined,
+      topupGameCode: form.topupGameCode.trim() || undefined,
     };
     const url = initial ? `/api/admin/games/${initial.id}` : "/api/admin/games";
     const method = initial ? "PATCH" : "POST";
@@ -258,6 +278,47 @@ function GameForm({ initial, onCancel, onSaved }: { initial: any; onCancel: () =
         <div className="md:col-span-2">
           <label className="label">Description</label>
           <input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+        </div>
+
+        <div className="md:col-span-2 p-4 rounded-xl bg-fox-surface/80 border border-fox-border space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <span className="text-sm font-semibold text-fox-text">🔌 API Integration Codes</span>
+            <span className="text-xs text-fox-muted">Auto-check player ID & automated top-up</span>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="label flex items-center justify-between">
+                <span>Code Game for Check ID (Player Lookup)</span>
+                <span className="text-[10px] text-blue-400 font-mono font-medium">checkIdGameCode</span>
+              </label>
+              <input
+                className="input font-mono text-sm"
+                placeholder="e.g. freefire_sgmy, mlbb, pubgm, hok, bloodstrike"
+                value={form.checkIdGameCode}
+                onChange={(e) => setForm({ ...form, checkIdGameCode: e.target.value })}
+              />
+              <p className="mt-1 text-[11px] text-fox-muted">
+                API code to check & display player in-game username automatically.
+              </p>
+            </div>
+
+            <div>
+              <label className="label flex items-center justify-between">
+                <span>Code Game for Topup (Supplier API)</span>
+                <span className="text-[10px] text-emerald-400 font-mono font-medium">topupGameCode</span>
+              </label>
+              <input
+                className="input font-mono text-sm"
+                placeholder="e.g. freefire_sg, pubgm, mlbb_exclusive"
+                value={form.topupGameCode}
+                onChange={(e) => setForm({ ...form, topupGameCode: e.target.value })}
+              />
+              <p className="mt-1 text-[11px] text-fox-muted">
+                API code for supplier product catalog & automated top-up delivery.
+              </p>
+            </div>
+          </div>
         </div>
         <div>
           <label className="label">Servers (comma-separated, leave blank if not needed)</label>

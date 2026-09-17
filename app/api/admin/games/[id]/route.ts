@@ -37,6 +37,8 @@ const updateSchema = z.object({
   sortOrder: z.number().int().optional(),
   seoTitle: z.string().optional().nullable(),
   seoDescription: z.string().optional().nullable(),
+  checkIdGameCode: z.string().max(100).optional().nullable(),
+  topupGameCode: z.string().max(100).optional().nullable(),
 });
 
 export const GET = withAdminAuth(

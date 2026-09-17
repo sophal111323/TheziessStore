@@ -37,6 +37,8 @@ model Game {
   sortOrder      Int             @default(0)
   seoTitle       String?
   seoDescription String?
+  checkIdGameCode String?
+  topupGameCode   String?
   products       Product[]
   orders         Order[]
   randomPackages RandomPackage[]
