@@ -3,6 +3,7 @@ import { notifyTelegram, escapeHtml } from "@/lib/telegram";
 import { fulfillPaidOrder } from "@/lib/fulfillment";
 import { getSupplier } from "@/lib/topup";
 import { startBackgroundOrderTracker } from "@/lib/order-tracker";
+import { markAffiliateOrderCompleted } from "@/lib/affiliate/store";
 
 /**
  * Runs post-payment work after an order safely transitions to PAID.
@@ -17,6 +18,13 @@ export async function notifyAndMaybeDeliverPaidOrder(orderId: string) {
   });
 
   if (!fullOrder) return null;
+
+  // ── Promoter attribution: mark affiliate order completed ($0.04 credited)
+  try {
+    markAffiliateOrderCompleted(fullOrder.orderNumber);
+  } catch (err) {
+    console.error("Failed to mark affiliate order completed:", err);
+  }
 
   // ── Random Spin / Mystery Box Order ────────────────────────────────────────
   // When an order is a random spin, payment is confirmed, but reward delivery

@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { isPaymentSimulationAllowed } from "@/lib/payment";
+import { markAffiliateOrderCompleted } from "@/lib/affiliate/store";
 
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const RATE_LIMIT_MAX = 10; // 10 requests per minute
@@ -197,6 +198,10 @@ export async function GET(req: NextRequest) {
         paidAt: new Date(),
       },
     });
+
+    try {
+      markAffiliateOrderCompleted(order.orderNumber);
+    } catch {}
 
     // In real life you'd trigger fulfillment here using a queue job.
     // For simulation, mark DELIVERED right away:

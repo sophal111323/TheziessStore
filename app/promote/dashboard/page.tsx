@@ -182,7 +182,7 @@ export default function CreatorDashboardPage() {
           <div className="text-xl sm:text-3xl font-black text-pink-400 font-mono">
             ${stats ? stats.totalCommission.toFixed(2) : "0.00"}
           </div>
-          <p className="text-[11px] text-purple-300/70 mt-1">5% lifetime earnings</p>
+          <p className="text-[11px] text-purple-300/70 mt-1">$0.04 per successful order</p>
         </div>
 
         {/* 5. Pending Commission */}

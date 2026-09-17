@@ -99,7 +99,7 @@ export default function CreatorEarningsPage() {
                 <th className="px-5 py-3.5">Order</th>
                 <th className="px-5 py-3.5">Game</th>
                 <th className="px-5 py-3.5 text-right">Sale Amount</th>
-                <th className="px-5 py-3.5 text-right">Commission (5%)</th>
+                <th className="px-5 py-3.5 text-right">Commission ($0.04)</th>
                 <th className="px-5 py-3.5 text-center">Status</th>
               </tr>
             </thead>

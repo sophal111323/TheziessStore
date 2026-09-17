@@ -93,7 +93,7 @@ export default function CreatorOrdersPage() {
                 <th className="px-5 py-3.5">Game</th>
                 <th className="px-5 py-3.5">Package</th>
                 <th className="px-5 py-3.5 text-right">Order Total</th>
-                <th className="px-5 py-3.5 text-right">Your Commission (5%)</th>
+                <th className="px-5 py-3.5 text-right">Your Commission ($0.04)</th>
                 <th className="px-5 py-3.5 text-center">Status</th>
                 <th className="px-5 py-3.5 text-right">Date</th>
               </tr>

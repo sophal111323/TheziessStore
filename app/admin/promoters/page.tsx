@@ -148,7 +148,7 @@ export default function AdminPromotersPage() {
           <div className="text-2xl font-black font-display text-pink-400 font-mono mt-1">
             ${totalCommission.toFixed(2)}
           </div>
-          <div className="text-xs text-fox-muted mt-1">Fixed 5% creator share</div>
+          <div className="text-xs text-fox-muted mt-1">Fixed $0.04 per order</div>
         </div>
       </div>
 
@@ -192,7 +192,7 @@ export default function AdminPromotersPage() {
                 <th className="text-left px-5 py-3">Contact</th>
                 <th className="text-right px-5 py-3">Orders</th>
                 <th className="text-right px-5 py-3">Total Sales</th>
-                <th className="text-right px-5 py-3">Commission</th>
+                <th className="text-right px-5 py-3">Commission ($0.04/order)</th>
                 <th className="text-right px-5 py-3">Available</th>
                 <th className="text-center px-5 py-3">Status</th>
                 <th className="text-right px-5 py-3">Actions</th>

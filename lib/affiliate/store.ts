@@ -40,8 +40,8 @@ const SEED_AFFILIATES: Affiliate[] = [
     tiktok: "@davin.game",
     youtube: "Davin Official",
     status: "ACTIVE",
-    commissionType: "PERCENT",
-    commissionRate: 0.05, // 5%
+    commissionType: "FIXED",
+    commissionRate: 0.04, // $0.04 per order
     passwordHash: "password123",
     createdAt: "2026-08-01T10:00:00.000Z",
     updatedAt: "2026-09-17T08:00:00.000Z",
@@ -57,8 +57,8 @@ const SEED_AFFILIATES: Affiliate[] = [
     facebook: "Somnang MLBB",
     tiktok: "@somnang.esports",
     status: "ACTIVE",
-    commissionType: "PERCENT",
-    commissionRate: 0.05,
+    commissionType: "FIXED",
+    commissionRate: 0.04,
     passwordHash: "password123",
     createdAt: "2026-08-10T12:00:00.000Z",
     updatedAt: "2026-09-17T08:00:00.000Z",
@@ -73,8 +73,8 @@ const SEED_AFFILIATES: Affiliate[] = [
     telegram: "@sokha_freefire",
     tiktok: "@sokha.ff",
     status: "ACTIVE",
-    commissionType: "PERCENT",
-    commissionRate: 0.05,
+    commissionType: "FIXED",
+    commissionRate: 0.04,
     passwordHash: "password123",
     createdAt: "2026-08-20T14:00:00.000Z",
     updatedAt: "2026-09-17T08:00:00.000Z",
@@ -89,8 +89,8 @@ const SEED_AFFILIATES: Affiliate[] = [
     telegram: "@sokphal_gaming",
     tiktok: "@sokphal.topup",
     status: "ACTIVE",
-    commissionType: "PERCENT",
-    commissionRate: 0.05,
+    commissionType: "FIXED",
+    commissionRate: 0.04,
     passwordHash: "password123",
     createdAt: "2026-09-01T10:00:00.000Z",
     updatedAt: "2026-09-17T08:00:00.000Z",
@@ -395,8 +395,8 @@ export function registerAffiliate(data: {
     tiktok: data.tiktok?.trim() || "",
     youtube: data.youtube?.trim() || "",
     status: "ACTIVE", // Auto-activated per requirements
-    commissionType: "PERCENT",
-    commissionRate: 0.05,
+    commissionType: "FIXED",
+    commissionRate: 0.04, // Fixed $0.04 per order
     passwordHash: data.password || "password123",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -430,38 +430,192 @@ export function updateAffiliateStatus(id: string, status: "ACTIVE" | "SUSPENDED"
   return aff;
 }
 
+// ── Persistent Order, Payout, Notification Storage ─────────────────────
+function getStoredOrders(): AffiliateOrder[] {
+  ensureDataDir();
+  const file = path.join(DATA_DIR, "affiliate-orders.json");
+  try {
+    if (fs.existsSync(file)) {
+      const content = fs.readFileSync(file, "utf-8");
+      const list = JSON.parse(content);
+      if (Array.isArray(list)) {
+        return list;
+      }
+    }
+  } catch {}
+  return [];
+}
+
+function saveStoredOrders(list: AffiliateOrder[]) {
+  ensureDataDir();
+  const file = path.join(DATA_DIR, "affiliate-orders.json");
+  try {
+    fs.writeFileSync(file, JSON.stringify(list, null, 2), "utf-8");
+  } catch (e) {
+    console.error("Failed to save affiliate orders:", e);
+  }
+}
+
+function getStoredPayouts(): AffiliatePayout[] {
+  ensureDataDir();
+  const file = path.join(DATA_DIR, "affiliate-payouts.json");
+  try {
+    if (fs.existsSync(file)) {
+      const content = fs.readFileSync(file, "utf-8");
+      const list = JSON.parse(content);
+      if (Array.isArray(list)) {
+        return list;
+      }
+    }
+  } catch {}
+  return [];
+}
+
+function saveStoredPayouts(list: AffiliatePayout[]) {
+  ensureDataDir();
+  const file = path.join(DATA_DIR, "affiliate-payouts.json");
+  try {
+    fs.writeFileSync(file, JSON.stringify(list, null, 2), "utf-8");
+  } catch (e) {
+    console.error("Failed to save affiliate payouts:", e);
+  }
+}
+
+function getStoredNotifications(): AffiliateNotification[] {
+  ensureDataDir();
+  const file = path.join(DATA_DIR, "affiliate-notifications.json");
+  try {
+    if (fs.existsSync(file)) {
+      const content = fs.readFileSync(file, "utf-8");
+      const list = JSON.parse(content);
+      if (Array.isArray(list)) {
+        return list;
+      }
+    }
+  } catch {}
+  return [];
+}
+
+function saveStoredNotifications(list: AffiliateNotification[]) {
+  ensureDataDir();
+  const file = path.join(DATA_DIR, "affiliate-notifications.json");
+  try {
+    fs.writeFileSync(file, JSON.stringify(list, null, 2), "utf-8");
+  } catch (e) {
+    console.error("Failed to save affiliate notifications:", e);
+  }
+}
+
+export const FIXED_COMMISSION_PER_ORDER = 0.04;
+
+export function recordAffiliateOrder(data: {
+  orderNumber: string;
+  affiliateSlug: string;
+  gameName: string;
+  gameSlug: string;
+  productName: string;
+  amountUsd: number;
+}): AffiliateOrder | null {
+  const aff = getAffiliateBySlug(data.affiliateSlug);
+  if (!aff || aff.status !== "ACTIVE") return null;
+
+  const orders = getStoredOrders();
+  const existing = orders.find((o) => o.orderNumber === data.orderNumber);
+  if (existing) return existing;
+
+  // Fixed commission $0.04 per order
+  const commissionUsd = FIXED_COMMISSION_PER_ORDER;
+
+  const newOrder: AffiliateOrder = {
+    id: `aff-ord-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    orderNumber: data.orderNumber,
+    affiliateId: aff.id,
+    affiliateSlug: aff.slug,
+    gameName: data.gameName,
+    gameSlug: data.gameSlug,
+    productName: data.productName,
+    amountUsd: data.amountUsd,
+    commissionRate: FIXED_COMMISSION_PER_ORDER,
+    commissionUsd,
+    status: "PENDING",
+    createdAt: new Date().toISOString(),
+  };
+
+  orders.unshift(newOrder);
+  saveStoredOrders(orders);
+  return newOrder;
+}
+
+export function markAffiliateOrderCompleted(orderNumber: string): boolean {
+  const orders = getStoredOrders();
+  const order = orders.find((o) => o.orderNumber === orderNumber);
+  if (!order) return false;
+
+  if (order.status === "COMPLETED") return true;
+
+  order.status = "COMPLETED";
+  saveStoredOrders(orders);
+
+  // Add notification to promoter
+  const notifs = getStoredNotifications();
+  notifs.unshift({
+    id: `notif-${Date.now()}`,
+    affiliateId: order.affiliateId,
+    title: `Commission Earned: $${FIXED_COMMISSION_PER_ORDER.toFixed(2)}`,
+    message: `$${FIXED_COMMISSION_PER_ORDER.toFixed(2)} credited from successful Order #${orderNumber} (${order.gameName} - ${order.productName}).`,
+    type: "commission",
+    read: false,
+    createdAt: new Date().toISOString(),
+  });
+  saveStoredNotifications(notifs);
+
+  return true;
+}
+
+export function markAffiliateOrderCancelled(orderNumber: string): boolean {
+  const orders = getStoredOrders();
+  const order = orders.find((o) => o.orderNumber === orderNumber);
+  if (!order) return false;
+
+  order.status = "CANCELLED";
+  saveStoredOrders(orders);
+  return true;
+}
+
 export function getAllAffiliateOrders(): AffiliateOrder[] {
-  return (globalAffiliateStore.__affiliateOrders || [])
-    .slice()
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return getStoredOrders().sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 }
 
 export function getAffiliateOrderByOrderNumber(orderNumber: string): AffiliateOrder | undefined {
-  return (globalAffiliateStore.__affiliateOrders || []).find((o) => o.orderNumber === orderNumber);
+  return getStoredOrders().find((o) => o.orderNumber === orderNumber);
 }
 
 export function getAffiliateOrders(affiliateId: string): AffiliateOrder[] {
-  return (globalAffiliateStore.__affiliateOrders || [])
+  return getStoredOrders()
     .filter((o) => o.affiliateId === affiliateId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export function getAffiliatePayouts(affiliateId: string): AffiliatePayout[] {
-  return (globalAffiliateStore.__affiliatePayouts || [])
+  return getStoredPayouts()
     .filter((p) => p.affiliateId === affiliateId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export function getAffiliateNotifications(affiliateId: string): AffiliateNotification[] {
-  return (globalAffiliateStore.__affiliateNotifications || [])
+  return getStoredNotifications()
     .filter((n) => n.affiliateId === affiliateId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export function markNotificationsAsRead(affiliateId: string): void {
-  (globalAffiliateStore.__affiliateNotifications || []).forEach((n) => {
+  const list = getStoredNotifications();
+  list.forEach((n) => {
     if (n.affiliateId === affiliateId) n.read = true;
   });
+  saveStoredNotifications(list);
 }
 
 export function requestPayout(
@@ -494,62 +648,13 @@ export function requestPayout(
     createdAt: new Date().toISOString(),
   };
 
-  globalAffiliateStore.__affiliatePayouts?.unshift(newPayout);
+  const payouts = getStoredPayouts();
+  payouts.unshift(newPayout);
+  saveStoredPayouts(payouts);
   return { success: true, payout: newPayout };
 }
 
 export function getAffiliateStats(affiliateId: string): AffiliateStats {
-  const aff = getAffiliateById(affiliateId);
-  // If Davin, return the full demo metrics requested
-  if (aff?.username === "davin") {
-    return {
-      clicks: 1284,
-      visitors: 982,
-      orders: 87,
-      successfulOrders: 82,
-      cancelledOrders: 5,
-      conversionRate: 8.35,
-      totalSales: 384.50,
-      totalCommission: 19.23,
-      pendingCommission: 4.50,
-      availableBalance: 14.73,
-      paidCommission: 130.00,
-    };
-  }
-
-  if (aff?.username === "somnang") {
-    return {
-      clicks: 1840,
-      visitors: 1420,
-      orders: 143,
-      successfulOrders: 138,
-      cancelledOrders: 5,
-      conversionRate: 9.72,
-      totalSales: 592.10,
-      totalCommission: 29.60,
-      pendingCommission: 6.20,
-      availableBalance: 23.40,
-      paidCommission: 80.00,
-    };
-  }
-
-  if (aff?.username === "sokha") {
-    return {
-      clicks: 520,
-      visitors: 410,
-      orders: 41,
-      successfulOrders: 39,
-      cancelledOrders: 2,
-      conversionRate: 9.51,
-      totalSales: 82.30,
-      totalCommission: 4.12,
-      pendingCommission: 1.10,
-      availableBalance: 3.02,
-      paidCommission: 0.00,
-    };
-  }
-
-  // Generic calculated stats for newly registered creators
   const orders = getAffiliateOrders(affiliateId);
   const completed = orders.filter((o) => o.status === "COMPLETED");
   const pending = orders.filter((o) => o.status === "PENDING");

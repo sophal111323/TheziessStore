@@ -230,7 +230,7 @@ export default function AdminPromoterDetailPage({ params }: { params: Promise<{ 
           <div className="text-2xl font-black font-display text-pink-400 font-mono mt-1">
             ${stats.totalCommission.toFixed(2)}
           </div>
-          <div className="text-[11px] text-pink-400/80 mt-1 font-semibold">5% rate</div>
+          <div className="text-[11px] text-pink-400/80 mt-1 font-semibold">$0.04 per order</div>
         </div>
 
         <div className="card p-4">

@@ -8,6 +8,7 @@ import { applyRateLimit } from "@/lib/rateLimit";
 import { getClientIp } from "@/lib/getIp";
 import { withAdminAuth } from "@/lib/withAdminAuth";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { recordAffiliateOrder } from "@/lib/affiliate/store";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -329,6 +330,23 @@ export async function POST(req: NextRequest) {
         discountUsd,
       },
     });
+
+    // ── Track affiliate promoter attribution ($0.04 fixed commission) ──────
+    const affiliateCookie = req.cookies.get("theziess_affiliate")?.value;
+    if (affiliateCookie) {
+      try {
+        recordAffiliateOrder({
+          orderNumber: order.orderNumber,
+          affiliateSlug: decodeURIComponent(affiliateCookie),
+          gameName: game.name,
+          gameSlug: game.slug,
+          productName: randomPackage ? randomPackage.name : product.name,
+          amountUsd: order.amountUsd,
+        });
+      } catch (affErr) {
+        console.error("Failed to record affiliate order:", affErr);
+      }
+    }
 
     // Initiate payment with the gateway
     const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")).replace(/\/+$/, "");
