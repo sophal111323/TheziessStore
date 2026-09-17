@@ -83,6 +83,7 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
             requiresServer: game.requiresServer,
             servers: (() => { try { return JSON.parse(game.servers || "[]"); } catch { return []; } })(),
             categoryOrder: (() => { try { return JSON.parse((game as any).categoryOrder || "[]"); } catch { return []; } })(),
+            checkIdGameCode: game.checkIdGameCode ?? null,
           }}
           products={game.products.map((p) => ({
             id: p.id,
