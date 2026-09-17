@@ -567,12 +567,12 @@ export function getAffiliateStats(affiliateId: string): AffiliateStats {
   const availableBalance = Math.max(0, totalCommission - paidCommission);
 
   return {
-    clicks: 12,
-    visitors: 8,
+    clicks: 0,
+    visitors: 0,
     orders: orders.length,
     successfulOrders: completed.length,
     cancelledOrders: cancelled.length,
-    conversionRate: orders.length > 0 ? Number(((completed.length / Math.max(1, 8)) * 100).toFixed(2)) : 0,
+    conversionRate: orders.length > 0 ? Number(((completed.length / Math.max(1, orders.length)) * 100).toFixed(2)) : 0,
     totalSales,
     totalCommission,
     pendingCommission,

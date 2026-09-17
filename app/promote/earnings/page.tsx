@@ -42,7 +42,7 @@ export default function CreatorEarningsPage() {
             <Coins className="h-4 w-4 text-pink-400" />
           </div>
           <div className="text-xl sm:text-2xl font-black text-white font-mono">
-            ${stats ? (stats.totalCommission + 39.19).toFixed(2) : "58.42"}
+            ${stats ? stats.totalCommission.toFixed(2) : "0.00"}
           </div>
           <p className="text-[10px] text-purple-400/80 mt-1">Lifetime commission generated</p>
         </div>
@@ -54,7 +54,7 @@ export default function CreatorEarningsPage() {
             <Clock className="h-4 w-4 text-amber-400" />
           </div>
           <div className="text-xl sm:text-2xl font-black text-amber-400 font-mono">
-            ${stats ? (stats.pendingCommission + 7.85).toFixed(2) : "12.35"}
+            ${stats ? stats.pendingCommission.toFixed(2) : "0.00"}
           </div>
           <p className="text-[10px] text-purple-400/80 mt-1">Pending order fulfillment</p>
         </div>
@@ -66,7 +66,7 @@ export default function CreatorEarningsPage() {
             <Wallet className="h-4 w-4 text-emerald-400" />
           </div>
           <div className="text-xl sm:text-2xl font-black text-emerald-400 font-mono">
-            ${stats ? (stats.availableBalance + 31.34).toFixed(2) : "46.07"}
+            ${stats ? stats.availableBalance.toFixed(2) : "0.00"}
           </div>
           <p className="text-[10px] text-emerald-300/80 mt-1">Ready for withdrawal</p>
         </div>
@@ -78,7 +78,7 @@ export default function CreatorEarningsPage() {
             <CheckCircle2 className="h-4 w-4 text-purple-400" />
           </div>
           <div className="text-xl sm:text-2xl font-black text-white font-mono">
-            ${stats ? stats.paidCommission.toFixed(2) : "120.00"}
+            ${stats ? stats.paidCommission.toFixed(2) : "0.00"}
           </div>
           <p className="text-[10px] text-purple-400/80 mt-1">Transferred to bank</p>
         </div>

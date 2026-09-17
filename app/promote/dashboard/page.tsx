@@ -144,7 +144,7 @@ export default function CreatorDashboardPage() {
             <Users className="h-4 w-4 text-pink-400" />
           </div>
           <div className="text-xl sm:text-3xl font-black text-white font-mono">
-            {stats ? stats.visitors.toLocaleString() : "982"}
+            {stats ? stats.visitors.toLocaleString() : "0"}
           </div>
           <p className="text-[11px] text-purple-300/70 mt-1">Unique visitors via link</p>
         </div>
@@ -156,7 +156,7 @@ export default function CreatorDashboardPage() {
             <ShoppingBag className="h-4 w-4 text-purple-400" />
           </div>
           <div className="text-xl sm:text-3xl font-black text-white font-mono">
-            {stats ? stats.orders : "87"}
+            {stats ? stats.orders : 0}
           </div>
           <p className="text-[11px] text-purple-300/70 mt-1">Total referred orders</p>
         </div>
@@ -168,7 +168,7 @@ export default function CreatorDashboardPage() {
             <DollarSign className="h-4 w-4 text-indigo-400" />
           </div>
           <div className="text-xl sm:text-3xl font-black text-white font-mono">
-            ${stats ? stats.totalSales.toFixed(2) : "384.50"}
+            ${stats ? stats.totalSales.toFixed(2) : "0.00"}
           </div>
           <p className="text-[11px] text-purple-300/70 mt-1">Gross merchandise volume</p>
         </div>
@@ -180,7 +180,7 @@ export default function CreatorDashboardPage() {
             <Coins className="h-4 w-4 text-pink-400" />
           </div>
           <div className="text-xl sm:text-3xl font-black text-pink-400 font-mono">
-            ${stats ? stats.totalCommission.toFixed(2) : "19.23"}
+            ${stats ? stats.totalCommission.toFixed(2) : "0.00"}
           </div>
           <p className="text-[11px] text-purple-300/70 mt-1">5% lifetime earnings</p>
         </div>
@@ -192,7 +192,7 @@ export default function CreatorDashboardPage() {
             <Clock className="h-4 w-4 text-amber-400" />
           </div>
           <div className="text-xl sm:text-3xl font-black text-amber-400 font-mono">
-            ${stats ? stats.pendingCommission.toFixed(2) : "4.50"}
+            ${stats ? stats.pendingCommission.toFixed(2) : "0.00"}
           </div>
           <p className="text-[11px] text-purple-300/70 mt-1">Awaiting order delivery</p>
         </div>
@@ -204,7 +204,7 @@ export default function CreatorDashboardPage() {
             <Wallet className="h-4 w-4 text-emerald-400" />
           </div>
           <div className="text-xl sm:text-3xl font-black text-emerald-400 font-mono">
-            ${stats ? stats.availableBalance.toFixed(2) : "14.73"}
+            ${stats ? stats.availableBalance.toFixed(2) : "0.00"}
           </div>
           <div className="mt-2 flex items-center justify-between">
             <Link
