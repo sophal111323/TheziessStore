@@ -7,12 +7,14 @@ interface GameCardProps {
   currencyName: string;
   imageUrl: string;
   featured?: boolean;
+  href?: string;
 }
 
-export default function GameCard({ slug, name, publisher, currencyName, imageUrl, featured }: GameCardProps) {
+export default function GameCard({ slug, name, publisher, currencyName, imageUrl, featured, href }: GameCardProps) {
+  const linkHref = href || `/games/${slug}`;
   return (
     <Link
-      href={`/games/${slug}`}
+      href={linkHref}
       className="game-card group relative block rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400"
     >
       {/* Glow border on hover */}

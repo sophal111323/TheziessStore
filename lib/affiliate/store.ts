@@ -69,6 +69,22 @@ const SEED_AFFILIATES: Affiliate[] = [
     createdAt: "2026-08-20T14:00:00.000Z",
     updatedAt: "2026-09-17T08:00:00.000Z",
   },
+  {
+    id: "aff-sokphal",
+    name: "Sokphal",
+    username: "sokphal",
+    slug: "sokphal",
+    email: "sokphal@gmail.com",
+    phone: "088998877",
+    telegram: "@sokphal_gaming",
+    tiktok: "@sokphal.topup",
+    status: "ACTIVE",
+    commissionType: "PERCENT",
+    commissionRate: 0.05,
+    passwordHash: "password123",
+    createdAt: "2026-09-01T10:00:00.000Z",
+    updatedAt: "2026-09-17T08:00:00.000Z",
+  },
 ];
 
 // Seed Orders for Davin: 87 orders total, $384.50 sales, $19.23 commission
