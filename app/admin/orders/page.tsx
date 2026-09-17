@@ -18,6 +18,8 @@ const PILL_COLORS: Record<string, string> = {
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [status, setStatus] = useState("ALL");
+  const [promoter, setPromoter] = useState("ALL");
+  const [promoters, setPromoters] = useState<{ id: string; slug: string; displayName: string }[]>([]);
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -27,14 +29,24 @@ export default function AdminOrdersPage() {
   const [bulkCalling, setBulkCalling] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  useEffect(() => {
+    fetch("/api/admin/promoters")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.promoters) setPromoters(d.promoters);
+      })
+      .catch(() => {});
+  }, []);
+
   async function load() {
     setLoading(true);
     const params = new URLSearchParams({ status, page: String(page) });
     if (q) params.set("q", q);
+    if (promoter && promoter !== "ALL") params.set("promoter", promoter);
     const res = await fetch(`/api/admin/orders?${params}`);
     const data = await res.json();
-    setOrders(data.orders);
-    setTotalPages(data.totalPages);
+    setOrders(data.orders || []);
+    setTotalPages(data.totalPages || 1);
     setLoading(false);
 
     // Always fetch count of orders that need fulfillment (PAID)
@@ -158,7 +170,7 @@ export default function AdminOrdersPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, page]);
+  }, [status, promoter, page]);
 
   return (
     <div className="p-8">
@@ -240,8 +252,8 @@ export default function AdminOrdersPage() {
         </div>
       )}
 
-      <div className="card p-4 mb-6 flex flex-wrap gap-3">
-        <div className="flex gap-1 flex-wrap">
+      <div className="card p-4 mb-6 flex flex-wrap gap-3 items-center justify-between">
+        <div className="flex gap-1 flex-wrap items-center">
           {STATUSES.map((s) => (
             <button
               key={s}
@@ -258,23 +270,46 @@ export default function AdminOrdersPage() {
           ))}
         </div>
 
-        <form
-          className="flex gap-2 flex-1 min-w-[300px]"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setPage(1);
-            load();
-          }}
-        >
-          <input
-            type="text"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search order #, UID, or email"
-            className="input text-sm flex-1"
-          />
-          <button type="submit" className="btn-ghost text-sm px-4 py-2">Search</button>
-        </form>
+        <div className="flex gap-2 flex-wrap items-center">
+          <div className="flex items-center gap-1.5 bg-fox-surface border border-fox-border rounded-lg px-2 py-1">
+            <span className="text-xs text-fox-muted">🤝 Promoter:</span>
+            <select
+              value={promoter}
+              onChange={(e) => {
+                setPromoter(e.target.value);
+                setPage(1);
+              }}
+              aria-label="Filter orders by promoter"
+              className="bg-transparent text-xs text-fox-text focus:outline-none cursor-pointer"
+            >
+              <option value="ALL" className="bg-zinc-900 text-white">All Orders</option>
+              <option value="NONE" className="bg-zinc-900 text-white">Direct (No Promoter)</option>
+              {promoters.map((p) => (
+                <option key={p.id} value={p.slug} className="bg-zinc-900 text-white">
+                  {p.displayName} (@{p.slug})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <form
+            className="flex gap-2 min-w-[240px]"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setPage(1);
+              load();
+            }}
+          >
+            <input
+              type="text"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search order #, UID, or email"
+              className="input text-sm flex-1"
+            />
+            <button type="submit" className="btn-ghost text-sm px-4 py-2">Search</button>
+          </form>
+        </div>
       </div>
 
       <div className="card overflow-hidden">
@@ -287,6 +322,7 @@ export default function AdminOrdersPage() {
                 <th className="text-left px-5 py-3">Product</th>
                 <th className="text-left px-5 py-3">UID</th>
                 <th className="text-right px-5 py-3">Amount</th>
+                <th className="text-left px-5 py-3">Promoter</th>
                 <th className="text-left px-5 py-3">Payment</th>
                 <th className="text-left px-5 py-3">Status</th>
                 <th className="text-left px-5 py-3">Created</th>
@@ -296,16 +332,16 @@ export default function AdminOrdersPage() {
             <tbody className="divide-y divide-fox-border">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-5 py-12 text-center text-fox-muted">
+                  <td colSpan={10} className="px-5 py-12 text-center text-fox-muted">
                     Loading...
                   </td>
                 </tr>
               ) : orders.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-5 py-16 text-center">
+                  <td colSpan={10} className="px-5 py-16 text-center">
                     <div className="text-4xl mb-3">📦</div>
                     <p className="text-fox-muted mb-1">No orders match these filters</p>
-                    <p className="text-xs text-fox-muted/60">Try adjusting the status filter or check back later.</p>
+                    <p className="text-xs text-fox-muted/60">Try adjusting the status or promoter filter.</p>
                   </td>
                 </tr>
               ) : (
@@ -319,10 +355,26 @@ export default function AdminOrdersPage() {
                         {o.orderNumber}
                       </Link>
                     </td>
-                    <td className="px-5 py-3">{o.game.name}</td>
-                    <td className="px-5 py-3 text-fox-muted">{o.product.name}</td>
+                    <td className="px-5 py-3">{o.game?.name || "Game"}</td>
+                    <td className="px-5 py-3 text-fox-muted">{o.product?.name || "Product"}</td>
                     <td className="px-5 py-3 font-mono text-xs">{o.playerUid}</td>
-                    <td className="px-5 py-3 text-right font-mono">${o.amountUsd.toFixed(2)}</td>
+                    <td className="px-5 py-3 text-right font-mono">${o.amountUsd?.toFixed(2) || "0.00"}</td>
+                    <td className="px-5 py-3">
+                      {o.promoter ? (
+                        <Link
+                          href={`/admin/promoters/${o.promoter.id}`}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-300 text-xs font-semibold hover:bg-purple-500/25 transition-colors"
+                        >
+                          <span>🤝</span>
+                          <span className="font-bold">{o.promoter.slug}</span>
+                          {o.promoter.commissionUsd !== undefined && (
+                            <span className="text-[10px] text-pink-400 font-mono">(${o.promoter.commissionUsd.toFixed(2)})</span>
+                          )}
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-fox-muted/40">—</span>
+                      )}
+                    </td>
                     <td className="px-5 py-3 text-xs text-fox-muted">{o.paymentMethod.replace("_", " ")}</td>
                     <td className="px-5 py-3">
                       <span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${PILL_COLORS[o.status]}`}>

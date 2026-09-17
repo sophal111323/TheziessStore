@@ -17,6 +17,7 @@ const ADMIN_NAV_ITEMS = [
   { href: "/admin/faqs", label: "FAQ", icon: "❓" },
   { href: "/admin/blog", label: "Blog", icon: "📝" },
   { href: "/admin/customers", label: "Customers", icon: "👥" },
+  { href: "/admin/promoters", label: "Promoters", icon: "🤝" },
   { href: "/admin/banlist", label: "Banlist", icon: "🚫" },
   { href: "/admin/security", label: "Security", icon: "🛡️" },
   { href: "/admin/audit-logs", label: "Audit Log", icon: "📜" },

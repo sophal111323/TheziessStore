@@ -10,10 +10,13 @@ function normalizeStatus(value?: string | null) {
   return upper === "COMPLETED" ? "DELIVERED" : upper;
 }
 
+import { getAffiliateOrderByOrderNumber, getAllAffiliates } from "@/lib/affiliate/store";
+
 export const GET = withAdminAuth(
   async (req) => {
     const { searchParams } = req.nextUrl;
     const status = normalizeStatus(searchParams.get("status"));
+    const promoter = searchParams.get("promoter")?.trim();
     const q = searchParams.get("q")?.trim();
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
     const perPage = Math.min(100, Math.max(1, parseInt(searchParams.get("perPage") || "25", 10)));
@@ -46,8 +49,35 @@ export const GET = withAdminAuth(
       prisma.order.count({ where }),
     ]);
 
+    // Attach promoter info from affiliate store
+    const affiliates = getAllAffiliates();
+    const enrichedOrders = orders.map((order) => {
+      const affOrder = getAffiliateOrderByOrderNumber(order.orderNumber);
+      let promoterInfo = null;
+      if (affOrder) {
+        const aff = affiliates.find((a) => a.id === affOrder.affiliateId);
+        promoterInfo = {
+          id: affOrder.affiliateId,
+          slug: affOrder.affiliateSlug,
+          name: aff?.name || aff?.displayName || affOrder.affiliateSlug,
+          commissionUsd: affOrder.commissionUsd,
+        };
+      }
+      return {
+        ...order,
+        promoter: promoterInfo,
+      };
+    });
+
+    const filteredOrders = promoter && promoter !== "ALL"
+      ? enrichedOrders.filter((o) => {
+          if (promoter === "NONE") return !o.promoter;
+          return o.promoter?.slug?.toLowerCase() === promoter.toLowerCase();
+        })
+      : enrichedOrders;
+
     return NextResponse.json({
-      orders,
+      orders: filteredOrders,
       total,
       page,
       perPage,
