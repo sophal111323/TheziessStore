@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Affiliate, AffiliateStats } from "@/lib/affiliate/types";
 
 interface PromoterWithStats extends Affiliate {
@@ -89,26 +90,43 @@ export default function AdminPromotersPage() {
 
   return (
     <div className="p-4 sm:p-8 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold flex items-center gap-2.5">
-            <span>🤝</span>
-            <span>Promoters & Content Creators</span>
-          </h1>
-          <p className="text-fox-muted text-sm mt-1">
-            Manage creator referral storefronts, sales attribution, and commission balances.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => load()}
-            disabled={loading}
-            className="btn-ghost text-xs px-3 py-2 flex items-center gap-1.5"
-          >
-            <span>🔄</span>
-            <span>Refresh</span>
-          </button>
+      {/* Header with official transparent logo */}
+      <div className="relative overflow-hidden rounded-3xl border border-purple-500/20 bg-gradient-to-r from-purple-950/50 via-fox-surface/90 to-pink-950/40 p-6 backdrop-blur-xl shadow-xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="relative h-16 w-16 rounded-2xl bg-black/40 border border-white/10 p-2 shadow-inner flex items-center justify-center shrink-0">
+              <Image
+                src="/theziessstore-logo-transparent.png"
+                alt="Theziess Store Logo"
+                width={52}
+                height={52}
+                className="object-contain drop-shadow-[0_0_12px_rgba(168,85,247,0.6)]"
+              />
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                  Promoters & Content Creators
+                </h1>
+                <span className="rounded-full border border-purple-400/40 bg-purple-500/20 px-3 py-0.5 text-xs font-bold text-purple-200 font-mono shadow-sm">
+                  $0.04 / Order
+                </span>
+              </div>
+              <p className="text-fox-muted text-xs sm:text-sm mt-1">
+                Manage creator referral storefronts, sales attribution, and automated commission payouts.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => load()}
+              disabled={loading}
+              className="btn-ghost text-xs px-3.5 py-2.5 flex items-center gap-2 rounded-xl border border-white/10 hover:border-purple-500/40 hover:bg-purple-500/10 transition-all"
+            >
+              <span className={loading ? "animate-spin" : ""}>🔄</span>
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -121,34 +139,40 @@ export default function AdminPromotersPage() {
 
       {/* Metric Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="card p-4">
-          <div className="text-xs text-fox-muted uppercase tracking-wider font-semibold">Total Promoters</div>
-          <div className="text-2xl font-black font-display text-fox-text mt-1">{promoters.length}</div>
-          <div className="text-xs text-green-400 mt-1">{activeCount} active</div>
+        <div className="rounded-2xl bg-fox-surface/80 border border-purple-500/20 p-5 shadow-lg backdrop-blur-md relative overflow-hidden group hover:border-purple-500/40 transition-all">
+          <div className="text-xs text-purple-300/80 uppercase tracking-wider font-semibold">Total Promoters</div>
+          <div className="text-3xl font-black font-display text-white mt-1.5">{promoters.length}</div>
+          <div className="text-xs text-emerald-400 font-semibold mt-1 flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>{activeCount} active storefronts</span>
+          </div>
         </div>
 
-        <div className="card p-4">
-          <div className="text-xs text-fox-muted uppercase tracking-wider font-semibold">Total Orders Driven</div>
-          <div className="text-2xl font-black font-display text-purple-400 mt-1">
+        <div className="rounded-2xl bg-fox-surface/80 border border-purple-500/20 p-5 shadow-lg backdrop-blur-md relative overflow-hidden group hover:border-purple-500/40 transition-all">
+          <div className="text-xs text-purple-300/80 uppercase tracking-wider font-semibold">Orders Driven</div>
+          <div className="text-3xl font-black font-display text-purple-300 mt-1.5">
             {promoters.reduce((acc, p) => acc + (p.stats?.orders || 0), 0)}
           </div>
-          <div className="text-xs text-fox-muted mt-1">Across all creators</div>
+          <div className="text-xs text-purple-300/60 mt-1">Across all creators</div>
         </div>
 
-        <div className="card p-4">
-          <div className="text-xs text-fox-muted uppercase tracking-wider font-semibold">Total Sales Driven</div>
-          <div className="text-2xl font-black font-display text-emerald-400 font-mono mt-1">
+        <div className="rounded-2xl bg-fox-surface/80 border border-purple-500/20 p-5 shadow-lg backdrop-blur-md relative overflow-hidden group hover:border-purple-500/40 transition-all">
+          <div className="text-xs text-emerald-300/80 uppercase tracking-wider font-semibold">Sales Driven</div>
+          <div className="text-3xl font-black font-display text-emerald-400 font-mono mt-1.5">
             ${totalSales.toFixed(2)}
           </div>
-          <div className="text-xs text-fox-muted mt-1">Gross GMV</div>
+          <div className="text-xs text-emerald-400/60 mt-1">Gross merchandise volume</div>
         </div>
 
-        <div className="card p-4">
-          <div className="text-xs text-fox-muted uppercase tracking-wider font-semibold">Total Commission</div>
-          <div className="text-2xl font-black font-display text-pink-400 font-mono mt-1">
+        <div className="rounded-2xl bg-gradient-to-br from-pink-950/40 to-purple-950/60 border border-pink-500/30 p-5 shadow-lg backdrop-blur-md relative overflow-hidden group hover:border-pink-500/50 transition-all">
+          <div className="text-xs text-pink-300/80 uppercase tracking-wider font-semibold">Total Commission</div>
+          <div className="text-3xl font-black font-display text-pink-300 font-mono mt-1.5">
             ${totalCommission.toFixed(2)}
           </div>
-          <div className="text-xs text-fox-muted mt-1">Fixed $0.04 per order</div>
+          <div className="text-xs text-pink-300/80 mt-1 font-semibold flex items-center gap-1">
+            <span>✨</span>
+            <span>Fixed $0.04 per order</span>
+          </div>
         </div>
       </div>
 

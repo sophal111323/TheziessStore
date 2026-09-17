@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { User, Shield, Check, AlertCircle, Save, Loader2, Link2 } from "lucide-react";
 import { Affiliate } from "@/lib/affiliate/types";
 
@@ -84,14 +85,27 @@ export default function CreatorProfilePage() {
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-black text-white font-display flex items-center gap-2">
-          <User className="h-6 w-6 text-pink-400" />
-          <span>Creator Profile</span>
-        </h1>
-        <p className="text-xs text-purple-300/80 mt-0.5">
-          Manage your creator contact information and social channels
-        </p>
+      <div className="flex items-center gap-3.5">
+        <div className="h-12 w-12 rounded-2xl bg-black/40 border border-purple-500/30 p-2 shadow-inner flex items-center justify-center shrink-0">
+          <Image
+            src="/theziessstore-logo-transparent.png"
+            alt="Theziess Store Logo"
+            width={38}
+            height={38}
+            className="object-contain drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]"
+          />
+        </div>
+        <div>
+          <h1 className="text-2xl font-black text-white font-display flex items-center gap-2">
+            <span>Creator Profile</span>
+            <span className="rounded-full border border-pink-400/40 bg-pink-500/20 px-2.5 py-0.5 text-[11px] font-bold text-pink-200 font-mono">
+              $0.04 / Order
+            </span>
+          </h1>
+          <p className="text-xs text-purple-300/80 mt-0.5">
+            Manage your creator contact information and social channels
+          </p>
+        </div>
       </div>
 
       {feedback && (
@@ -131,7 +145,7 @@ export default function CreatorProfilePage() {
 
           <div className="p-3 rounded-xl bg-purple-950/60 border border-purple-800/40">
             <span className="text-[10px] uppercase font-bold text-purple-400 block mb-1">Commission Rate</span>
-            <span className="font-bold text-pink-300 font-mono">5.0% Fixed</span>
+            <span className="font-bold text-pink-300 font-mono">$0.04 / Order</span>
           </div>
 
           <div className="p-3 rounded-xl bg-purple-950/60 border border-purple-800/40">

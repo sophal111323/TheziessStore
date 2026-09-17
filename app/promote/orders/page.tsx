@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { ShoppingBag, Search, Filter, Calendar, ShieldAlert } from "lucide-react";
 import { AffiliateOrder } from "@/lib/affiliate/types";
 
@@ -37,15 +38,31 @@ export default function CreatorOrdersPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-black text-white font-display">Referred Orders</h1>
-          <p className="text-xs text-purple-300/80 mt-0.5">
-            Only orders completed through your personal referral link appear here.
-          </p>
+        <div className="flex items-center gap-3.5">
+          <div className="h-12 w-12 rounded-2xl bg-black/40 border border-purple-500/30 p-2 shadow-inner flex items-center justify-center shrink-0">
+            <Image
+              src="/theziessstore-logo-transparent.png"
+              alt="Theziess Store Logo"
+              width={38}
+              height={38}
+              className="object-contain drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]"
+            />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-black text-white font-display">Referred Orders</h1>
+              <span className="rounded-full border border-purple-400/40 bg-purple-500/20 px-2.5 py-0.5 text-[11px] font-bold text-purple-200 font-mono">
+                $0.04 / Order
+              </span>
+            </div>
+            <p className="text-xs text-purple-300/80 mt-0.5">
+              Only orders completed through your personal referral link appear here.
+            </p>
+          </div>
         </div>
 
         {/* Security badge */}
-        <div className="inline-flex items-center gap-1.5 rounded-xl bg-purple-900/40 border border-purple-700/40 px-3 py-1.5 text-xs text-purple-300">
+        <div className="inline-flex items-center gap-1.5 rounded-xl bg-purple-900/40 border border-purple-700/40 px-3 py-1.5 text-xs text-purple-300 shrink-0">
           <ShieldAlert className="h-3.5 w-3.5 text-pink-400" />
           <span>Customer PII Protected</span>
         </div>

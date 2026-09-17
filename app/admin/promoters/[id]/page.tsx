@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Affiliate, AffiliateStats, AffiliateOrder, AffiliatePayout } from "@/lib/affiliate/types";
 
 interface PromoterDetailData {
@@ -130,17 +131,26 @@ export default function AdminPromoterDetailPage({ params }: { params: Promise<{ 
       )}
 
       {/* Hero card */}
-      <div className="card p-6 border-purple-500/20 bg-gradient-to-r from-purple-950/30 via-fox-surface to-fox-surface">
+      <div className="card p-6 border-purple-500/20 bg-gradient-to-r from-purple-950/40 via-fox-surface/90 to-pink-950/30 backdrop-blur-xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="flex items-start sm:items-center gap-4">
-            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-600 via-pink-600 to-rose-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-purple-900/40 shrink-0">
-              {initials}
+            <div className="relative h-16 w-16 rounded-2xl bg-black/40 border border-white/10 p-2 shadow-inner flex items-center justify-center shrink-0">
+              <Image
+                src="/theziessstore-logo-transparent.png"
+                alt="Theziess Store Logo"
+                width={50}
+                height={50}
+                className="object-contain drop-shadow-[0_0_12px_rgba(168,85,247,0.5)]"
+              />
             </div>
             <div>
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-2xl font-black font-display text-fox-text">
                   {displayName}
                 </h1>
+                <span className="rounded-full border border-purple-400/40 bg-purple-500/20 px-2.5 py-0.5 text-xs font-bold text-purple-200 font-mono">
+                  $0.04 / Order
+                </span>
                 <span
                   className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${
                     affiliate.status === "ACTIVE"
@@ -288,7 +298,7 @@ export default function AdminPromoterDetailPage({ params }: { params: Promise<{ 
                   <th className="text-left px-5 py-3">Game</th>
                   <th className="text-left px-5 py-3">Product</th>
                   <th className="text-right px-5 py-3">Order Amount</th>
-                  <th className="text-right px-5 py-3">Commission (5%)</th>
+                  <th className="text-right px-5 py-3">Commission ($0.04/order)</th>
                   <th className="text-center px-5 py-3">Status</th>
                   <th className="text-right px-5 py-3">Date</th>
                 </tr>

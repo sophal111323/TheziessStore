@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   Users,
@@ -81,17 +82,28 @@ export default function CreatorDashboardPage() {
 
         <div className="relative z-10">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-            <div>
-              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-pink-400">
-                Your Exclusive Referral Link
-              </span>
-              <h2 className="text-xl sm:text-2xl font-black text-white font-display mt-0.5">
-                Share & Earn 5% Commission
-              </h2>
+            <div className="flex items-center gap-3.5">
+              <div className="p-2 rounded-2xl bg-white/10 border border-white/20 shadow-md shrink-0">
+                <Image
+                  src="/theziessstore-logo-transparent.png"
+                  alt="TheziessStore Logo"
+                  width={42}
+                  height={42}
+                  className="h-9 w-auto object-contain"
+                />
+              </div>
+              <div>
+                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-pink-400">
+                  Your Exclusive Referral Link
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black text-white font-display mt-0.5">
+                  Share & Earn $0.04 Commission
+                </h2>
+              </div>
             </div>
             <span className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-xs font-bold text-emerald-300">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-              Active 5% Commission
+              Active $0.04 / Order
             </span>
           </div>
 

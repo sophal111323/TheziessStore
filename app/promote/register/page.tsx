@@ -75,15 +75,30 @@ export default function CreatorRegisterPage() {
 
       <div className="sm:mx-auto sm:w-full sm:max-w-xl relative z-10">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-1.5 border border-purple-400/30 backdrop-blur-md mb-4 shadow-lg shadow-purple-900/40">
-            <Sparkles className="h-4 w-4 text-pink-400 animate-pulse" />
-            <span className="text-xs font-bold uppercase tracking-wider text-purple-200">TheziessStore Creator Program</span>
+          <Link href="/" className="inline-block mb-3 group">
+            <div className="relative inline-flex items-center justify-center p-3 rounded-3xl bg-gradient-to-br from-white/15 to-white/5 border border-white/20 shadow-2xl backdrop-blur-xl group-hover:scale-105 transition-transform duration-300">
+              <Image
+                src="/theziessstore-logo-transparent.png"
+                alt="TheziessStore Logo"
+                width={90}
+                height={55}
+                className="h-12 w-auto object-contain drop-shadow-lg"
+                priority
+              />
+            </div>
+          </Link>
+
+          <div className="flex justify-center mb-3">
+            <div className="inline-flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-1.5 border border-purple-400/30 backdrop-blur-md shadow-lg shadow-purple-900/40">
+              <Sparkles className="h-4 w-4 text-pink-400 animate-pulse" />
+              <span className="text-xs font-bold uppercase tracking-wider text-purple-200">TheziessStore Creator Program</span>
+            </div>
           </div>
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white font-display">
             Become a Content Creator
           </h1>
           <p className="mt-2 text-sm text-purple-200/80 max-w-md mx-auto">
-            Earn 5% commission on every order when gamers top up through your personal link. Instant auto-approval!
+            Earn <span className="text-emerald-400 font-bold">$0.04 commission</span> on every order when gamers top up through your personal link. Instant auto-approval!
           </p>
         </div>
 

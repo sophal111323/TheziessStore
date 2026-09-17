@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Sparkles, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
@@ -51,9 +52,24 @@ export default function CreatorLoginPage() {
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-1.5 border border-purple-400/30 backdrop-blur-md mb-4 shadow-lg shadow-purple-900/40">
-            <Sparkles className="h-4 w-4 text-pink-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-purple-200">TheziessStore Creator</span>
+          <Link href="/" className="inline-block mb-3 group">
+            <div className="relative inline-flex items-center justify-center p-3 rounded-3xl bg-gradient-to-br from-white/15 to-white/5 border border-white/20 shadow-2xl backdrop-blur-xl group-hover:scale-105 transition-transform duration-300">
+              <Image
+                src="/theziessstore-logo-transparent.png"
+                alt="TheziessStore Logo"
+                width={90}
+                height={55}
+                className="h-12 w-auto object-contain drop-shadow-lg"
+                priority
+              />
+            </div>
+          </Link>
+
+          <div className="flex justify-center mb-3">
+            <div className="inline-flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-1.5 border border-purple-400/30 backdrop-blur-md shadow-lg shadow-purple-900/40">
+              <Sparkles className="h-4 w-4 text-pink-400" />
+              <span className="text-xs font-bold uppercase tracking-wider text-purple-200">TheziessStore Creator</span>
+            </div>
           </div>
           <h1 className="text-3xl font-black tracking-tight text-white font-display">
             Creator Portal

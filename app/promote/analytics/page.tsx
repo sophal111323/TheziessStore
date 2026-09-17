@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import {
   MousePointerClick,
   Users,
@@ -37,7 +38,7 @@ export default function CreatorAnalyticsPage() {
   const displayCancelled = stats ? Math.max(0, Math.round(stats.cancelledOrders * factor)) : 5;
   const displayConversion = stats ? stats.conversionRate : 8.35;
   const displaySales = stats ? stats.totalSales * factor : 384.50;
-  const displayCommission = stats ? stats.totalCommission * factor : 19.23;
+  const displayCommission = stats ? (stats.orders * 0.04 * factor) : (displayOrders * 0.04);
 
   // Chart data simulation
   const chartDays = [
@@ -56,11 +57,22 @@ export default function CreatorAnalyticsPage() {
     <div className="space-y-6">
       {/* Header and Filter */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-white font-display">Performance Analytics</h1>
-          <p className="text-xs text-purple-300/80 mt-0.5">
-            Real-time traffic, conversion rate, and commission performance
-          </p>
+        <div className="flex items-center gap-3.5">
+          <div className="h-12 w-12 rounded-2xl bg-black/40 border border-purple-500/30 p-2 shadow-inner flex items-center justify-center shrink-0">
+            <Image
+              src="/theziessstore-logo-transparent.png"
+              alt="Theziess Store Logo"
+              width={38}
+              height={38}
+              className="object-contain drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]"
+            />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-white font-display">Performance Analytics</h1>
+            <p className="text-xs text-purple-300/80 mt-0.5">
+              Real-time traffic, conversion rate, and commission performance ($0.04/order)
+            </p>
+          </div>
         </div>
 
         {/* Period Filter Buttons */}
@@ -172,16 +184,16 @@ export default function CreatorAnalyticsPage() {
           <p className="text-[10px] text-purple-400/80 mt-1">Gross merchandise volume</p>
         </div>
 
-        {/* Your 5% Commission */}
+        {/* Your Fixed $0.04 Commission */}
         <div className="rounded-2xl bg-gradient-to-br from-purple-900/80 to-emerald-950/60 border border-emerald-500/30 p-4 shadow-lg backdrop-blur-md">
           <div className="flex items-center justify-between text-emerald-300 text-xs font-semibold mb-2">
-            <span>Commission (5%)</span>
+            <span>Commission ($0.04/order)</span>
             <Coins className="h-4 w-4 text-emerald-400" />
           </div>
           <div className="text-xl sm:text-2xl font-black text-emerald-400 font-mono">
             ${displayCommission.toFixed(2)}
           </div>
-          <p className="text-[10px] text-emerald-300/70 mt-1">Your net revenue</p>
+          <p className="text-[10px] text-emerald-300/70 mt-1">Fixed $0.04 earned per order</p>
         </div>
       </div>
 
@@ -195,7 +207,7 @@ export default function CreatorAnalyticsPage() {
             </h3>
             <p className="text-xs text-purple-300/70">Daily performance breakdown over the selected period</p>
           </div>
-          <span className="text-xs font-mono font-bold text-pink-400">Rate: 5% Fixed</span>
+          <span className="text-xs font-mono font-bold text-pink-400">Fixed $0.04 / Order</span>
         </div>
 
         {/* CSS/SVG Bar Chart with purple gradient & glow */}

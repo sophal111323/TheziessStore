@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { Coins, Clock, Wallet, CheckCircle2, ArrowRight } from "lucide-react";
+import { Coins, Clock, Wallet, CheckCircle2, ArrowRight, Sparkles } from "lucide-react";
 import { AffiliateStats, AffiliateOrder } from "@/lib/affiliate/types";
 
 export default function CreatorEarningsPage() {
@@ -23,20 +24,40 @@ export default function CreatorEarningsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-white font-display">Earnings Breakdown</h1>
-          <p className="text-xs text-purple-300/80 mt-0.5">
-            Transparent revenue tracking across all referred sales
-          </p>
+      {/* Header Banner with Official Logo */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-purple-950/80 via-purple-900/60 to-pink-950/70 border border-purple-800/40 p-5 sm:p-6 shadow-2xl backdrop-blur-xl">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-pink-500/20 blur-3xl" />
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="p-2.5 rounded-2xl bg-white/10 border border-white/20 shadow-lg shrink-0">
+              <Image
+                src="/theziessstore-logo-transparent.png"
+                alt="TheziessStore Logo"
+                width={48}
+                height={48}
+                className="h-10 w-auto object-contain"
+              />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-black text-white font-display">Earnings Breakdown</h1>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-black text-emerald-300 font-mono">
+                  <span>⚡</span>
+                  <span>$0.04 / Order</span>
+                </span>
+              </div>
+              <p className="text-xs text-purple-300/80 mt-0.5">
+                Transparent revenue tracking across all referred sales
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* 4 Financial Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Total Earnings */}
-        <div className="rounded-2xl bg-purple-950/60 border border-purple-800/40 p-4 sm:p-5 shadow-lg backdrop-blur-md">
+        <div className="rounded-2xl bg-gradient-to-br from-purple-950/70 to-purple-900/50 border border-purple-700/40 p-4 sm:p-5 shadow-xl backdrop-blur-md hover:border-pink-500/40 transition-colors">
           <div className="flex items-center justify-between text-purple-300 text-xs font-semibold mb-2">
             <span>Total Earnings</span>
             <Coins className="h-4 w-4 text-pink-400" />
@@ -48,7 +69,7 @@ export default function CreatorEarningsPage() {
         </div>
 
         {/* Pending */}
-        <div className="rounded-2xl bg-purple-950/60 border border-purple-800/40 p-4 sm:p-5 shadow-lg backdrop-blur-md">
+        <div className="rounded-2xl bg-gradient-to-br from-purple-950/70 to-purple-900/50 border border-purple-700/40 p-4 sm:p-5 shadow-xl backdrop-blur-md hover:border-amber-500/40 transition-colors">
           <div className="flex items-center justify-between text-purple-300 text-xs font-semibold mb-2">
             <span>Pending</span>
             <Clock className="h-4 w-4 text-amber-400" />
@@ -60,7 +81,7 @@ export default function CreatorEarningsPage() {
         </div>
 
         {/* Available */}
-        <div className="rounded-2xl bg-gradient-to-br from-purple-900/80 to-emerald-950/70 border border-emerald-500/40 p-4 sm:p-5 shadow-lg backdrop-blur-md">
+        <div className="rounded-2xl bg-gradient-to-br from-purple-900/80 via-purple-900/60 to-emerald-950/70 border border-emerald-500/50 p-4 sm:p-5 shadow-xl backdrop-blur-md hover:shadow-emerald-500/10 transition-all">
           <div className="flex items-center justify-between text-emerald-300 text-xs font-semibold mb-2">
             <span>Available Balance</span>
             <Wallet className="h-4 w-4 text-emerald-400" />
@@ -72,7 +93,7 @@ export default function CreatorEarningsPage() {
         </div>
 
         {/* Paid */}
-        <div className="rounded-2xl bg-purple-950/60 border border-purple-800/40 p-4 sm:p-5 shadow-lg backdrop-blur-md">
+        <div className="rounded-2xl bg-gradient-to-br from-purple-950/70 to-purple-900/50 border border-purple-700/40 p-4 sm:p-5 shadow-xl backdrop-blur-md hover:border-purple-500/40 transition-colors">
           <div className="flex items-center justify-between text-purple-300 text-xs font-semibold mb-2">
             <span>Paid Out</span>
             <CheckCircle2 className="h-4 w-4 text-purple-400" />

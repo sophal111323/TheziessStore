@@ -110,35 +110,37 @@ export default function CreatorShell({ children }: { children: ReactNode }) {
       {/* ── DESKTOP SIDEBAR ────────────────────────────────────────── */}
       <aside className="hidden md:flex flex-col w-64 shrink-0 bg-purple-950/80 border-r border-purple-800/40 backdrop-blur-xl relative z-20">
         <div className="p-5 border-b border-purple-800/30 flex items-center gap-3">
-          <Image
-            src="/theziessstore-logo.png"
-            alt="TheziessStore"
-            width={40}
-            height={40}
-            className="h-8 w-auto object-contain"
-          />
-          <div>
-            <div className="font-display font-black text-sm text-white leading-tight">
-              Theziess<span className="text-pink-400">Store</span>
+          <Link href="/promote/dashboard" className="flex items-center gap-2.5 group">
+            <Image
+              src="/theziessstore-logo-transparent.png"
+              alt="TheziessStore Logo"
+              width={42}
+              height={42}
+              className="h-8 w-auto object-contain drop-shadow-md transition-transform duration-300 group-hover:scale-105"
+            />
+            <div>
+              <div className="font-display font-black text-sm text-white leading-tight">
+                Theziess<span className="text-pink-400">Store</span>
+              </div>
+              <div className="text-[10px] uppercase font-bold tracking-widest text-pink-400">
+                Creator Portal
+              </div>
             </div>
-            <div className="text-[10px] uppercase font-bold tracking-widest text-pink-400">
-              Creator Portal
-            </div>
-          </div>
+          </Link>
         </div>
 
         {/* Creator Info Snippet */}
         {creator && (
-          <div className="p-4 mx-3 mt-4 rounded-2xl bg-purple-900/40 border border-purple-700/30 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-md shadow-pink-500/20">
+          <div className="p-4 mx-3 mt-4 rounded-2xl bg-gradient-to-br from-purple-900/60 to-purple-950/80 border border-purple-700/40 flex items-center gap-3 shadow-lg shadow-purple-950/40 backdrop-blur-md">
+            <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-pink-500 via-rose-500 to-purple-600 flex items-center justify-center font-black text-white shadow-md shadow-pink-500/30">
               {creator.name.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-xs font-bold text-white truncate">{creator.name}</div>
               <div className="text-[11px] font-mono text-purple-300 truncate">@{creator.username}</div>
             </div>
-            <span className="inline-flex items-center rounded-full bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">
-              5%
+            <span className="inline-flex items-center rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[10px] font-black text-emerald-300 font-mono">
+              $0.04
             </span>
           </div>
         )}
@@ -195,14 +197,29 @@ export default function CreatorShell({ children }: { children: ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0 pb-20 md:pb-6">
         {/* Top Navbar */}
         <header className="sticky top-0 z-30 h-16 bg-purple-950/70 backdrop-blur-xl border-b border-purple-800/30 px-4 sm:px-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 text-purple-200 hover:text-white rounded-lg hover:bg-purple-900/40"
+              className="md:hidden p-2 text-purple-200 hover:text-white rounded-xl hover:bg-purple-900/50 border border-purple-800/40 transition-colors"
+              aria-label="Toggle navigation menu"
             >
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {mobileMenuOpen ? <X className="h-5 w-5 text-pink-400" /> : <Menu className="h-5 w-5" />}
             </button>
-            <div className="font-display font-bold text-sm sm:text-base text-white truncate">
+
+            {/* Mobile Logo Branding */}
+            <Link href="/promote/dashboard" className="flex items-center gap-2 md:hidden group">
+              <Image
+                src="/theziessstore-logo-transparent.png"
+                alt="TheziessStore Logo"
+                width={36}
+                height={36}
+                className="h-7 w-auto object-contain drop-shadow"
+              />
+            </Link>
+
+            <div className="hidden sm:block h-4 w-px bg-purple-800/60" />
+
+            <div className="font-display font-black text-sm sm:text-base text-white tracking-wide truncate">
               {NAV_ITEMS.find((n) => n.href === pathname)?.label || "Creator Portal"}
             </div>
           </div>
