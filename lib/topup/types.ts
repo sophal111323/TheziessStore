@@ -33,6 +33,8 @@ export interface TopUpResult {
   unknown?: boolean;
   /** Raw response from the supplier API. */
   rawResponse?: unknown;
+  /** Extracted voucher / gift code / PIN for digital codes (e.g. Roblox) */
+  redeemCode?: string;
 }
 
 export interface TopUpStatusResult {
@@ -45,6 +47,8 @@ export interface TopUpStatusResult {
   error?: string;
   /** Raw response from the supplier API. */
   rawResponse?: unknown;
+  /** Extracted voucher / gift code / PIN for digital codes (e.g. Roblox) */
+  redeemCode?: string;
 }
 
 export interface TopupBalanceResult {
@@ -67,6 +71,8 @@ export interface TopupSupplier {
     playerId: string;
     serverId?: string;
     orderReference: string;
+    gameCode?: string;
+    gameSlug?: string;
   }): Promise<TopUpResult>;
 
   checkOrder?(

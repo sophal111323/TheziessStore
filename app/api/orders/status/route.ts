@@ -7,6 +7,7 @@ import {
   safeJson,
 } from "@/lib/apiSecurity";
 import { refreshTopupStatus } from "@/lib/fulfillment";
+import { extractRedeemCode } from "@/lib/redeem";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -56,6 +57,8 @@ export async function GET(req: NextRequest) {
       deliveredAt: true,
       paymentExpiresAt: true,
       topupProviderRef: true,
+      deliveryNote: true,
+      supplierResponse: true,
       game: { select: { name: true, slug: true } },
       product: { select: { name: true } },
     },
@@ -99,6 +102,8 @@ export async function GET(req: NextRequest) {
               deliveredAt: true,
               paymentExpiresAt: true,
               topupProviderRef: true,
+              deliveryNote: true,
+              supplierResponse: true,
               game: { select: { name: true, slug: true } },
               product: { select: { name: true } },
             },
@@ -113,6 +118,8 @@ export async function GET(req: NextRequest) {
 
   const isPending = order.status === "PENDING";
   const isExpired = order.paymentExpiresAt ? order.paymentExpiresAt < new Date() : false;
+  const isCompletedOrDelivered = ["PAID", "PROCESSING", "DELIVERED"].includes(order.status);
+  const redeemCode = isCompletedOrDelivered ? extractRedeemCode(order) : null;
 
   return safeJson(
     {
@@ -131,6 +138,7 @@ export async function GET(req: NextRequest) {
       createdAt: order.createdAt.toISOString(),
       paidAt: order.paidAt?.toISOString() ?? null,
       deliveredAt: order.deliveredAt?.toISOString() ?? null,
+      redeemCode: redeemCode,
       payment: {
         canPay: isPending && !isExpired,
         expiresAt: order.paymentExpiresAt?.toISOString() ?? null,

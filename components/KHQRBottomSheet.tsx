@@ -24,6 +24,10 @@ type OrderPayment = {
   amountUsd: number;
   qrString: string | null;
 
+  redeemCode?: string | null;
+  deliveryNote?: string | null;
+  gameSlug?: string | null;
+  gameName?: string | null;
   isRandomSpin?: boolean;
   expiresAt?: string | null;
   paymentExpiresAt?: string | null;
@@ -62,6 +66,7 @@ export default function KHQRBottomSheet({
   const [now, setNow] = useState(Date.now());
   const [refreshing, setRefreshing] = useState(false);
   const [copiedOrder, setCopiedOrder] = useState(false);
+  const [copiedRedeemCode, setCopiedRedeemCode] = useState(false);
 
   const paymentPollBusyRef = useRef(false);
   const paymentPollStartedAtRef = useRef(Date.now());
@@ -123,6 +128,26 @@ export default function KHQRBottomSheet({
 
     setCopiedOrder(true);
     window.setTimeout(() => setCopiedOrder(false), 1800);
+  }
+
+  async function copyRedeemCode(code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch {
+      const input = document.createElement("input");
+      input.value = code;
+      input.setAttribute("readonly", "true");
+      input.style.position = "absolute";
+      input.style.left = "-9999px";
+
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+    }
+
+    setCopiedRedeemCode(true);
+    window.setTimeout(() => setCopiedRedeemCode(false), 2000);
   }
 
   // ✅ Generate QR locally
@@ -187,19 +212,28 @@ export default function KHQRBottomSheet({
 
   // ✅ Safe payment polling for the bottom-sheet flow
   useEffect(() => {
-    if (isPaid(currentOrder.status)) return;
+    // If order is terminal, delivered with code, or mystery spin redirecting, stop polling
+    const isFinished =
+      (currentOrder.status === "DELIVERED" && (currentOrder.redeemCode || currentOrder.deliveryNote)) ||
+      (isPaid(currentOrder.status) && Boolean(currentOrder.redeemCode)) ||
+      (isPaid(currentOrder.status) && currentOrder.isRandomSpin) ||
+      ["FAILED", "REFUNDED", "CANCELLED"].includes(currentOrder.status);
+
+    if (isFinished) return;
 
     async function pollPaymentStatus() {
       if (paymentPollBusyRef.current) return;
       paymentPollBusyRef.current = true;
 
       try {
-        await fetch(
-          `/api/orders/${encodeURIComponent(
-            currentOrder.orderNumber
-          )}/sync-payment`,
-          { method: "POST", cache: "no-store" }
-        ).catch(() => null);
+        if (!isPaid(currentOrder.status)) {
+          await fetch(
+            `/api/orders/${encodeURIComponent(
+              currentOrder.orderNumber
+            )}/sync-payment`,
+            { method: "POST", cache: "no-store" }
+          ).catch(() => null);
+        }
 
         const res = await fetch(
           `/api/orders/${encodeURIComponent(currentOrder.orderNumber)}`,
@@ -219,6 +253,9 @@ export default function KHQRBottomSheet({
 
     void pollPaymentStatus();
 
+    // Poll faster (3.5s) when payment is confirmed and we're waiting for auto-fulfillment/redeem code
+    const pollInterval = isPaid(currentOrder.status) ? 3500 : 8000;
+
     const timer = setInterval(() => {
       const pollingTooLong =
         Date.now() - paymentPollStartedAtRef.current > 10 * 60 * 1000;
@@ -229,10 +266,10 @@ export default function KHQRBottomSheet({
       }
 
       void pollPaymentStatus();
-    }, 10000);
+    }, pollInterval);
 
     return () => clearInterval(timer);
-  }, [currentOrder.orderNumber, currentOrder.status]);
+  }, [currentOrder.orderNumber, currentOrder.status, currentOrder.redeemCode, currentOrder.deliveryNote, currentOrder.isRandomSpin]);
 
   async function downloadKHQRCard() {
     if (!currentOrder.qrString || expired) return;
@@ -425,30 +462,121 @@ export default function KHQRBottomSheet({
               </div>
             </div>
           ) : (
-            <div key="paid" className="animate-slide-up px-7 py-10 text-center">
-              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
-                <CheckCircle2 className="h-12 w-12 text-green-500" />
+            <div key="paid" className="animate-slide-up px-6 sm:px-7 py-8 text-center">
+              <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+                <CheckCircle2 className="h-10 w-10 text-green-500" />
               </div>
 
               <h3 className="text-2xl font-black text-gray-900">
                 ការទូទាត់បានជោគជ័យ!
               </h3>
 
-              <div className="mt-5 rounded-2xl border border-pink-100 bg-pink-50 px-4 py-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-pink-500">
+              {/* 🎟️ VIP Redeem Code Card */}
+              {currentOrder.redeemCode ? (
+                <div className="mt-4 rounded-2xl border-2 border-emerald-400 bg-gradient-to-b from-emerald-50 via-teal-50/50 to-emerald-50 p-4 shadow-lg shadow-emerald-200/50 text-left animate-scale-in">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600 text-white text-xs font-black tracking-wide shadow-sm">
+                      <span>🎟️</span> REDEEM CODE
+                    </div>
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                      រួចរាល់សម្រាប់ប្រើប្រាស់
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-gray-600 mb-2 font-medium">
+                    លេខកូដ Redeem របស់អ្នកត្រូវបានបង្កើតដោយជោគជ័យ៖
+                  </p>
+
+                  {/* Code box */}
+                  <div className="flex items-center justify-between gap-2 bg-white p-3 rounded-xl border border-emerald-300 shadow-inner">
+                    <span className="font-mono text-base sm:text-lg font-black text-emerald-800 tracking-wider break-all select-all">
+                      {currentOrder.redeemCode}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => copyRedeemCode(currentOrder.redeemCode!)}
+                      className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 text-xs font-extrabold shadow-sm transition active:scale-95 cursor-pointer"
+                    >
+                      {copiedRedeemCode ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-emerald-200" />
+                          <span>បានចម្លង!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5 text-white" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Full-width 1-Click copy button */}
+                  <button
+                    type="button"
+                    onClick={() => copyRedeemCode(currentOrder.redeemCode!)}
+                    className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white py-3 px-4 text-sm font-black shadow-md shadow-emerald-300/40 transition active:scale-[0.98] cursor-pointer"
+                  >
+                    {copiedRedeemCode ? (
+                      <>
+                        <Check className="h-4 w-4 text-emerald-200" />
+                        <span>✓ បានចម្លងលេខកូដរួចរាល់ (Copied!)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 text-white" />
+                        <span>ចម្លងលេខកូដ (Copy Redeem Code)</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Instructions */}
+                  <div className="mt-3 pt-3 border-t border-emerald-200/80 text-xs text-emerald-950 space-y-1">
+                    <div className="font-bold flex items-center justify-between">
+                      <span>📖 របៀប Redeem លើ Roblox:</span>
+                      <a
+                        href="https://www.roblox.com/redeem"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-700 hover:text-emerald-900 font-extrabold underline inline-flex items-center gap-1"
+                      >
+                        roblox.com/redeem <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                    <ol className="list-decimal list-inside text-[11px] text-emerald-800 space-y-0.5">
+                      <li>ចុចប៊ូតុង &quot;Copy&quot; ខាងលើដើម្បីចម្លងលេខកូដ</li>
+                      <li>ចូលទៅកាន់ <a href="https://www.roblox.com/redeem" target="_blank" rel="noopener noreferrer" className="underline font-bold">roblox.com/redeem</a></li>
+                      <li>បិទភ្ជាប់ (Paste) លេខកូដ រួចចុច Redeem ដើម្បីទទួលបាន Robux ភ្លាមៗ</li>
+                    </ol>
+                  </div>
+                </div>
+              ) : currentOrder.status === "PROCESSING" ? (
+                <div className="mt-4 rounded-2xl border border-pink-200 bg-pink-50/70 p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 text-pink-700 text-sm font-bold">
+                    <Loader2 className="h-4 w-4 animate-spin text-pink-600" />
+                    <span>កំពុងទាញយកលេខកូដ Redeem Code...</span>
+                  </div>
+                  <p className="text-xs text-pink-600/80 mt-1">
+                    ប្រព័ន្ធកំពុងដំណើរការទាញយកកូដជូនលោកអ្នក សូមរង់ចាំបន្តិច...
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="mt-4 rounded-2xl border border-pink-100 bg-pink-50 px-4 py-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-pink-500">
                   Order Number
                 </p>
 
-                <p className="mt-1 break-all font-mono text-base font-black text-gray-900">
+                <p className="mt-0.5 break-all font-mono text-sm font-black text-gray-900">
                   {currentOrder.orderNumber}
                 </p>
               </div>
 
-              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <button
                   type="button"
                   onClick={copyOrderNumber}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-extrabold text-pink-600 shadow-sm transition hover:bg-pink-50 active:scale-[0.99]"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-pink-200 bg-white px-4 py-2.5 text-sm font-extrabold text-pink-600 shadow-sm transition hover:bg-pink-50 active:scale-[0.99] cursor-pointer"
                 >
                   {copiedOrder ? (
                     <Check className="h-4 w-4 text-green-500" />
@@ -456,12 +584,12 @@ export default function KHQRBottomSheet({
                     <Copy className="h-4 w-4" />
                   )}
 
-                  {copiedOrder ? "Copied" : "Copy Order"}
+                  {copiedOrder ? "Copied" : "Copy Order #"}
                 </button>
 
                 <a
                   href={orderPageUrl}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-600 to-pink-500 px-4 py-3 text-sm font-extrabold text-white shadow-lg shadow-pink-200 transition hover:scale-[1.01] active:scale-[0.99]"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-600 to-pink-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-pink-200 transition hover:scale-[1.01] active:scale-[0.99]"
                 >
                   Go to Order
                   <ExternalLink className="h-4 w-4" />

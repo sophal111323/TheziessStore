@@ -13,6 +13,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSupplier, getTopupStatus } from "@/lib/topup";
 import { notifyTelegram, escapeHtml } from "@/lib/telegram";
+import { extractRedeemCode, extractRedeemCodeFromResponse } from "@/lib/redeem";
 
 export interface FulfillmentResult {
   success: boolean;
@@ -125,12 +126,17 @@ export async function fulfillPaidOrder(
     const remote = await getTopupStatus(order.topupProviderRef, order.topupProvider || supplier.name);
     if (remote.found && (remote.status === "success" || remote.status === "completed")) {
       const rawResp = remote.rawResponse ? JSON.stringify(remote.rawResponse) : null;
+      const extractedCode = remote.redeemCode || extractRedeemCodeFromResponse(remote.rawResponse);
+      const deliveryNote = extractedCode
+        ? `Redeem Code: ${extractedCode}`
+        : `Auto-delivered via ${supplier.displayName}. Ref: ${remote.transactionId ?? order.topupProviderRef}`;
+
       await prisma.order.updateMany({
         where: { id: order.id, status: { in: ["PROCESSING", "PAID"] } },
         data: {
           status: "DELIVERED",
           deliveredAt: new Date(),
-          deliveryNote: `Auto-delivered via ${supplier.displayName}. Ref: ${remote.transactionId ?? order.topupProviderRef}`,
+          deliveryNote,
           failureReason: null,
           topupStatus: "success",
           supplierResponse: rawResp,
@@ -193,10 +199,13 @@ export async function fulfillPaidOrder(
     productCode: order.product.supplierCode,
     playerId: order.playerUid,
     serverId: order.serverId ?? undefined,
+    gameCode: order.game.topupGameCode?.replace(/^\/+/, "") || undefined,
+    gameSlug: order.game.slug,
   });
 
   const transactionRef = topupResult.transactionId || reference;
   const rawResp = topupResult.rawResponse ? JSON.stringify(topupResult.rawResponse) : null;
+  const extractedRedeem = topupResult.redeemCode || extractRedeemCodeFromResponse(topupResult.rawResponse);
 
   // Record the provider reference immediately — even on failure/unknown —
   // so no later run can ever create a second transaction for this order.
@@ -209,6 +218,7 @@ export async function fulfillPaidOrder(
         ? (topupResult.status === "completed" || topupResult.status === "success" ? "success" : "pending")
         : (topupResult.unknown ? "pending" : "failed"),
       supplierResponse: rawResp,
+      ...(extractedRedeem ? { deliveryNote: `Redeem Code: ${extractedRedeem}` } : {}),
     },
   });
 
@@ -216,18 +226,25 @@ export async function fulfillPaidOrder(
     const isInstantComplete = topupResult.status === "completed" || topupResult.status === "success";
 
     if (isInstantComplete) {
+      const finalNote = extractedRedeem
+        ? `Redeem Code: ${extractedRedeem}`
+        : `Auto-delivered via ${supplier.displayName}. Ref: ${transactionRef}`;
+
       await prisma.order.update({
         where: { id: order.id },
         data: {
           status: "DELIVERED",
           deliveredAt: new Date(),
-          deliveryNote: `Auto-delivered via ${supplier.displayName}. Ref: ${transactionRef}`,
+          deliveryNote: finalNote,
           failureReason: null,
           topupStatus: "success",
         },
       });
 
       if (!options?.silentTelegram) {
+        const redeemMsg = extractedRedeem
+          ? `\n🎟️ <b>Redeem Code:</b> <code>${escapeHtml(extractedRedeem)}</code>`
+          : "";
         await notifyTelegram(
           manualReviewMessage(
             `✅ <b>Auto topup DELIVERED (${escapeHtml(supplier.displayName)})</b>`,
@@ -235,7 +252,7 @@ export async function fulfillPaidOrder(
             order.game.name,
             order.product.name,
             order.playerUid,
-            `${escapeHtml(supplier.displayName)} ref: <code>${escapeHtml(transactionRef)}</code>`
+            `${escapeHtml(supplier.displayName)} ref: <code>${escapeHtml(transactionRef)}</code>${redeemMsg}`
           )
         );
       }
@@ -393,12 +410,17 @@ export async function refreshTopupStatus(orderNumber: string): Promise<Fulfillme
   }
 
   if (remote.status === "success" || remote.status === "completed") {
+    const extractedCode = remote.redeemCode || extractRedeemCodeFromResponse(remote.rawResponse);
+    const finalNote = extractedCode
+      ? `Redeem Code: ${extractedCode}`
+      : `Auto-delivered via ${supplier.displayName}. Ref: ${remote.transactionId ?? reference}`;
+
     const updated = await prisma.order.updateMany({
       where: { id: order.id, status: { in: ["PROCESSING", "PAID"] } },
       data: {
         status: "DELIVERED",
         deliveredAt: new Date(),
-        deliveryNote: `Auto-delivered via ${supplier.displayName}. Ref: ${remote.transactionId ?? reference}`,
+        deliveryNote: finalNote,
         failureReason: null,
         topupStatus: "success",
         supplierResponse: rawResp,
@@ -415,6 +437,9 @@ export async function refreshTopupStatus(orderNumber: string): Promise<Fulfillme
         ? `🎮 Nickname: ${escapeHtml(order.playerNickname)}\n`
         : "";
       const serverLine = order.serverId ? ` (${escapeHtml(order.serverId)})` : "";
+      const redeemLine = extractedCode
+        ? `🎟️ <b>Redeem Code:</b> <code>${escapeHtml(extractedCode)}</code>\n`
+        : "";
 
       await notifyTelegram(
         `✅ <b>Topup DELIVERED (${escapeHtml(supplier.displayName)})</b>\n` +
@@ -422,6 +447,7 @@ export async function refreshTopupStatus(orderNumber: string): Promise<Fulfillme
           `${escapeHtml(order.game.name)} – ${escapeHtml(order.product.name)}\n` +
           `UID: <code>${escapeHtml(order.playerUid)}</code>${serverLine}\n` +
           `${nicknameLine}` +
+          `${redeemLine}` +
           `Ref: <code>${escapeHtml(remote.transactionId ?? reference)}</code>\n` +
           `Amount: $${order.amountUsd.toFixed(2)}${link}`
       );

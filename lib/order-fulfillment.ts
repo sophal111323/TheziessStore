@@ -4,6 +4,7 @@ import { fulfillPaidOrder } from "@/lib/fulfillment";
 import { getSupplier } from "@/lib/topup";
 import { startBackgroundOrderTracker } from "@/lib/order-tracker";
 import { markAffiliateOrderCompleted } from "@/lib/affiliate/store";
+import { extractRedeemCode } from "@/lib/redeem";
 
 /**
  * Runs post-payment work after an order safely transitions to PAID.
@@ -119,6 +120,11 @@ export async function notifyAndMaybeDeliverPaidOrder(orderId: string) {
     statusSection = `📦 <b>Status:</b> ${escapeHtml(updatedOrder.status)}`;
   }
 
+  const redeemCode = extractRedeemCode(updatedOrder);
+  const redeemLine = redeemCode
+    ? `🎟️ <b>Redeem Code:</b> <code>${escapeHtml(redeemCode)}</code>\n`
+    : "";
+
   // 3. Send ONE SINGLE unified Telegram notification
   await notifyTelegram(
     `💰 <b>Payment successful!</b>\n` +
@@ -126,6 +132,7 @@ export async function notifyAndMaybeDeliverPaidOrder(orderId: string) {
       `${escapeHtml(updatedOrder.game.name)} – ${escapeHtml(updatedOrder.product.name)}\n` +
       `UID: <code>${escapeHtml(updatedOrder.playerUid)}</code>\n` +
       (customerLines.length > 0 ? `${customerLines.join("\n")}\n` : "") +
+      `${redeemLine}` +
       `Amount: $${updatedOrder.amountUsd.toFixed(2)}\n` +
       `Method: ${escapeHtml(updatedOrder.paymentMethod || "KHQR")}\n` +
       `${statusSection}${link}`

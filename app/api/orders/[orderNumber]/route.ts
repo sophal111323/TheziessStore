@@ -9,6 +9,7 @@ import {
 } from "@/lib/payment-validation";
 import { API_NO_STORE, publicRateLimit, safeJson } from "@/lib/apiSecurity";
 import { refreshTopupStatus } from "@/lib/fulfillment";
+import { extractRedeemCode } from "@/lib/redeem";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -164,6 +165,9 @@ export async function GET(
   const qrString   = canPay ? order.qrString   : null;
   const paymentUrl = canPay ? order.paymentUrl  : null;
 
+  const isCompletedOrDelivered = ["PAID", "PROCESSING", "DELIVERED"].includes(order.status);
+  const redeemCode = isCompletedOrDelivered ? extractRedeemCode(order) : null;
+
   return safeJson({
     // ── Core fields ────────────────────────────────────────────────────────
     orderNumber:   order.orderNumber,
@@ -176,6 +180,8 @@ export async function GET(
     createdAt:     order.createdAt.toISOString(),
     paidAt:        order.paidAt?.toISOString()       ?? null,
     deliveredAt:   order.deliveredAt?.toISOString()  ?? null,
+    redeemCode:    redeemCode,
+    deliveryNote:  isCompletedOrDelivered ? order.deliveryNote : null,
 
     // ── Frontend-friendly flat fields (Task 2) ─────────────────────────────
     isRandomSpin:      order.isRandomSpin ?? false,

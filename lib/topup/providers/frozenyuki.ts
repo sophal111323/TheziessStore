@@ -21,6 +21,7 @@ import type {
   TopUpResult,
   TopUpStatusResult,
 } from "../types";
+import { extractRedeemCodeFromResponse } from "@/lib/redeem";
 
 function cleanEnv(value?: string): string {
   return (value || "").trim().replace(/^['"]|['"]$/g, "");
@@ -279,9 +280,21 @@ export class FrozenYukiSupplier implements TopupSupplier {
     playerId: string;
     serverId?: string;
     orderReference: string;
+    gameCode?: string;
+    gameSlug?: string;
   }): Promise<TopUpResult> {
     const hasServer = Boolean(params.serverId && params.serverId.trim().length > 0);
-    const { game, code } = parseProductCode(params.productCode, hasServer);
+    let { game, code } = parseProductCode(params.productCode, hasServer);
+
+    // If explicit gameCode is provided (e.g. from Game.topupGameCode "/robux" -> "robux"), prefer it
+    if (params.gameCode) {
+      game = params.gameCode.replace(/^\/+/, "").trim();
+    } else if (params.gameSlug && !params.productCode.includes(":")) {
+      const gs = params.gameSlug.toLowerCase();
+      if (gs.includes("roblox")) {
+        game = "roblox";
+      }
+    }
 
     // Build dynamic fieldValues in exact required order:
     // For games with server: [playerId, serverId]
@@ -323,10 +336,12 @@ export class FrozenYukiSupplier implements TopupSupplier {
 
       if (data && data.ok) {
         const normStatus = normalizeFrozenYukiStatus(data.status || "Processing");
+        const redeemCode = extractRedeemCodeFromResponse(data);
         return {
           success: true,
           transactionId: data.refid || params.orderReference,
           status: normStatus,
+          redeemCode: redeemCode || undefined,
           rawResponse: data,
         };
       }
@@ -378,12 +393,14 @@ export class FrozenYukiSupplier implements TopupSupplier {
       }
 
       const normStatus = normalizeFrozenYukiStatus(data.status);
+      const redeemCode = extractRedeemCodeFromResponse(data);
       return {
         found: true,
         status: normStatus,
         transactionId: data.refid || orderReferenceOrSupplierId,
         productName: data.item,
         amount: typeof data.amount === "number" ? data.amount : undefined,
+        redeemCode: redeemCode || undefined,
         rawResponse: data,
       };
     } catch (err: unknown) {

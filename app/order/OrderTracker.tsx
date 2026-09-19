@@ -25,6 +25,7 @@ interface OrderInfo {
   createdAt: string;
   paidAt: string | null;
   deliveredAt: string | null;
+  redeemCode?: string | null;
 }
 
 const TIMELINE_STEPS = [
@@ -251,6 +252,28 @@ export default function OrderTracker() {
     window.setTimeout(() => setCopiedOrder(false), 1800);
   }
 
+  const [copiedRedeem, setCopiedRedeem] = useState(false);
+
+  async function copyRedeemCode(code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch {
+      const input = document.createElement("input");
+      input.value = code;
+      input.setAttribute("readonly", "true");
+      input.style.position = "absolute";
+      input.style.left = "-9999px";
+
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+    }
+
+    setCopiedRedeem(true);
+    window.setTimeout(() => setCopiedRedeem(false), 2000);
+  }
+
   const orderStatus = order ? normalizeStatus(order.status) : "";
   const meta = order
     ? STATUS_META[orderStatus] ?? DEFAULT_STATUS_META
@@ -367,6 +390,87 @@ export default function OrderTracker() {
                 </div>
               )}
             </div>
+
+            {/* 🎟️ VIP Redeem Code Box */}
+            {order.redeemCode && (
+              <div className="border-b border-emerald-200 bg-gradient-to-b from-emerald-50 via-teal-50/40 to-emerald-50 p-5 sm:p-6 animate-scale-in">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600 text-white text-xs font-black tracking-wide shadow-sm">
+                    <span>🎟️</span> REDEEM CODE
+                  </div>
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-md">
+                    រួចរាល់សម្រាប់ប្រើប្រាស់
+                  </span>
+                </div>
+
+                <p className="text-xs text-gray-600 mb-2 font-medium">
+                  លេខកូដ Redeem របស់អ្នក៖
+                </p>
+
+                {/* Code display with copy button */}
+                <div className="flex items-center justify-between gap-2 bg-white p-3 rounded-xl border border-emerald-300 shadow-inner">
+                  <span className="font-mono text-base sm:text-xl font-black text-emerald-800 tracking-wider break-all select-all">
+                    {order.redeemCode}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => copyRedeemCode(order.redeemCode!)}
+                    className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-extrabold shadow-sm transition active:scale-95 cursor-pointer"
+                  >
+                    {copiedRedeem ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-200" />
+                        <span>បានចម្លង!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5 text-white" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Full-width 1-Click copy button */}
+                <button
+                  type="button"
+                  onClick={() => copyRedeemCode(order.redeemCode!)}
+                  className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white py-3.5 px-4 text-sm font-black shadow-md shadow-emerald-300/40 transition active:scale-[0.98] cursor-pointer"
+                >
+                  {copiedRedeem ? (
+                    <>
+                      <Check className="h-4 w-4 text-emerald-200" />
+                      <span>✓ បានចម្លងលេខកូដរួចរាល់ (Copied!)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4 text-white" />
+                      <span>ចម្លងលេខកូដ (Copy Redeem Code)</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Instructions */}
+                <div className="mt-3.5 pt-3 border-t border-emerald-200 text-xs text-emerald-950 space-y-1.5">
+                  <div className="font-bold flex items-center justify-between">
+                    <span>📖 របៀប Redeem លើ Roblox:</span>
+                    <a
+                      href="https://www.roblox.com/redeem"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-700 hover:text-emerald-900 font-extrabold underline inline-flex items-center gap-1"
+                    >
+                      roblox.com/redeem ↗
+                    </a>
+                  </div>
+                  <ol className="list-decimal list-inside text-[11px] text-emerald-800 space-y-0.5">
+                    <li>ចុចប៊ូតុង &quot;Copy&quot; ខាងលើដើម្បីចម្លងលេខកូដ</li>
+                    <li>ចូលទៅកាន់ <a href="https://www.roblox.com/redeem" target="_blank" rel="noopener noreferrer" className="underline font-bold">roblox.com/redeem</a></li>
+                    <li>បិទភ្ជាប់ (Paste) លេខកូដ រួចចុច Redeem ដើម្បីទទួលបាន Robux ភ្លាមៗ</li>
+                  </ol>
+                </div>
+              </div>
+            )}
 
             {!isFailed && (
               <div className="border-b border-pink-200 px-5 py-6 sm:px-6">

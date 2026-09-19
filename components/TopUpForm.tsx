@@ -155,8 +155,13 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
 
-  const supportsLookup = LOOKUP_SLUGS.has(game.slug) || Boolean(game.checkIdGameCode);
-  const useZoneField = ZONE_ID_SLUGS.has(game.slug);
+  const isVoucherGame =
+    game.slug.toLowerCase().includes("roblox") ||
+    game.slug.toLowerCase().includes("voucher") ||
+    (game.currencyName && game.currencyName.toLowerCase().includes("voucher"));
+
+  const supportsLookup = !isVoucherGame && (LOOKUP_SLUGS.has(game.slug) || Boolean(game.checkIdGameCode));
+  const useZoneField = !isVoucherGame && ZONE_ID_SLUGS.has(game.slug);
 
   type NicknameStatus = "idle" | "checking" | "verified" | "not_found";
   const [nicknameStatus, setNicknameStatus] = useState<NicknameStatus>("idle");
@@ -248,11 +253,11 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
   }, [uid, serverId, game.slug, supportsLookup, useZoneField, savePlayerToStorage]);
 
   const selectedProduct = products.find((p) => p.id === selected);
-  const needsServer = game.requiresServer || useZoneField;
+  const needsServer = !isVoucherGame && (game.requiresServer || useZoneField);
   const needsNickname = supportsLookup;
   const canSubmit =
     !!selected &&
-    isValidUid(uid) &&
+    (isVoucherGame || isValidUid(uid)) &&
     (!needsServer || serverId.trim().length > 0) &&
     (!needsNickname || nicknameStatus === "verified") &&
     termsAccepted &&
@@ -316,7 +321,7 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
           gameId: game.id,
           productId: isSpin ? undefined : selected,
           randomPackageId: isSpin ? selectedProduct?.randomPackageId : undefined,
-          playerUid: uid.trim(),
+          playerUid: uid.trim() || (isVoucherGame ? "ROBLOX-USER" : ""),
           serverId: needsServer ? serverId.trim() : undefined,
           paymentMethod: method,
           promoCode: promoApplied?.code || undefined,
@@ -380,111 +385,135 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
                 <span className="absolute inset-0 rounded-full bg-pink-500/40 animate-ping" />
                 <span className="relative">1</span>
               </div>
-              <h2 className="font-display text-lg font-extrabold text-pink-800">បញ្ចូលព័ត៌មានគណនី</h2>
+              <h2 className="font-display text-lg font-extrabold text-pink-800">
+                {isVoucherGame ? "ព័ត៌មានកញ្ចប់ Redeem Code" : "បញ្ចូលព័ត៌មានគណនី"}
+              </h2>
             </div>
 
-            <div className="card p-3.5 sm:p-4 space-y-3">
-              <div className={useZoneField ? "grid grid-cols-[1fr_110px] sm:grid-cols-[1fr_130px] gap-3" : ""}>
-                <div>
-                  <label className="label text-xs sm:text-sm mb-1">
-                    {useZoneField ? "User ID" : game.uidLabel}
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={uid}
-                    onChange={(e) => { setUid(e.target.value); resetLookup(); }}
-                    onBlur={() => {
-                      if (isValidUid(uid)) {
-                        savePlayerToStorage(uid, serverId);
-                      }
-                    }}
-                    placeholder={useZoneField ? "12345678" : (game.uidExample || "Enter your player ID")}
-                    className="input font-mono text-sm sm:text-base py-2.5"
-                    required
-                  />
-                  {!uid && game.uidExample && !useZoneField && (
-                    <p className="text-xs text-pink-500 mt-1">
-                      ឧទាហរណ៍: <span className="font-mono text-pink-800/70">{game.uidExample}</span>
+            {isVoucherGame ? (
+              <div className="card p-4 sm:p-5 border-2 border-pink-300/70 bg-gradient-to-br from-pink-50/90 via-purple-50/50 to-pink-100/60 shadow-md shadow-pink-200/40 space-y-3">
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-pink-500 to-purple-600 text-white shadow-md shadow-pink-300">
+                    <Tag className="h-6 w-6" />
+                  </div>
+                  <div className="space-y-1.5 flex-1">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                      មិនបាច់បញ្ចូល Player ID ទេ
+                    </div>
+                    <h3 className="font-display text-base font-extrabold text-pink-950">
+                      កញ្ចប់ទិញលេខកូដ Redeem Code
+                    </h3>
+                    <p className="text-xs sm:text-sm text-pink-800/85 leading-relaxed">
+                      សម្រាប់ <span className="font-bold text-pink-900">{game.name}</span> លោកអ្នកមិនចាំបាច់បញ្ចូលព័ត៌មានគណនីនោះឡើយ។ ក្រោយពេលទូទាត់ប្រាក់ជោគជ័យ ប្រព័ន្ធនឹងបង្ហាញលេខកូដ <span className="font-bold text-pink-900">Redeem Code</span> ភ្លាមៗនៅលើអេក្រង់នេះ ជាមួយប៊ូតុង <span className="font-bold text-pink-900">Copy Code</span> ដើម្បីងាយស្រួលយកទៅប្រើប្រាស់!
                     </p>
-                  )}
-                  {uid && !isValidUid(uid) && (
-                    <p className="text-xs text-red-500 mt-1">IDគួរតែ6-20ខ្ទង់</p>
-                  )}
+                  </div>
                 </div>
-                {useZoneField && (
+              </div>
+            ) : (
+              <div className="card p-3.5 sm:p-4 space-y-3">
+                <div className={useZoneField ? "grid grid-cols-[1fr_110px] sm:grid-cols-[1fr_130px] gap-3" : ""}>
                   <div>
-                    <label className="label text-xs sm:text-sm mb-1">Zone ID</label>
+                    <label className="label text-xs sm:text-sm mb-1">
+                      {useZoneField ? "User ID" : game.uidLabel}
+                    </label>
                     <input
                       type="text"
                       inputMode="numeric"
-                      value={serverId}
-                      onChange={(e) => setServerId(e.target.value)}
+                      value={uid}
+                      onChange={(e) => { setUid(e.target.value); resetLookup(); }}
                       onBlur={() => {
                         if (isValidUid(uid)) {
                           savePlayerToStorage(uid, serverId);
                         }
                       }}
-                      placeholder="1234"
+                      placeholder={useZoneField ? "12345678" : (game.uidExample || "Enter your player ID")}
                       className="input font-mono text-sm sm:text-base py-2.5"
                       required
                     />
+                    {!uid && game.uidExample && !useZoneField && (
+                      <p className="text-xs text-pink-500 mt-1">
+                        ឧទាហរណ៍: <span className="font-mono text-pink-800/70">{game.uidExample}</span>
+                      </p>
+                    )}
+                    {uid && !isValidUid(uid) && (
+                      <p className="text-xs text-red-500 mt-1">IDគួរតែ6-20ខ្ទង់</p>
+                    )}
+                  </div>
+                  {useZoneField && (
+                    <div>
+                      <label className="label text-xs sm:text-sm mb-1">Zone ID</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={serverId}
+                        onChange={(e) => setServerId(e.target.value)}
+                        onBlur={() => {
+                          if (isValidUid(uid)) {
+                            savePlayerToStorage(uid, serverId);
+                          }
+                        }}
+                        placeholder="1234"
+                        className="input font-mono text-sm sm:text-base py-2.5"
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {game.requiresServer && !useZoneField && (
+                  <div>
+                    <label className="label text-xs sm:text-sm mb-1">Server</label>
+                    <select
+                      value={serverId}
+                      onChange={(e) => setServerId(e.target.value)}
+                      className="input text-sm py-2"
+                      required
+                    >
+                      {game.servers.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {supportsLookup && (
+                  <div className="pt-0.5 flex flex-wrap items-center gap-2 sm:gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleCheckNickname}
+                      disabled={
+                        !isValidUid(uid) ||
+                        (useZoneField && serverId.trim().length === 0) ||
+                        nicknameStatus === "checking"
+                      }
+                      className="btn-ghost text-xs py-1.5 px-3.5 inline-flex items-center gap-1.5 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {nicknameStatus === "checking" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+                      ) : (
+                        <Search className="h-3.5 w-3.5" strokeWidth={2} />
+                      )}
+                      {nicknameStatus === "checking" ? "កំពុងពិនិត្យ…" : "ពិនិត្យមើលឈ្មោះ"}
+                    </button>
+
+                    {nicknameStatus === "verified" && nickname && (
+                      <span className="inline-flex items-center gap-1.5 rounded-lg border border-green-600 bg-green-100 px-2.5 py-1 text-xs text-green-600 animate-scale-in">
+                        <UserRoundCheck className="h-3.5 w-3.5 shrink-0 text-green-600" strokeWidth={2} />
+                        <span className="text-pink-500 font-medium">Player:</span>
+                        <span className="font-bold text-green-800">{nickname}</span>
+                      </span>
+                    )}
+                    {nicknameStatus === "not_found" && (
+                      <span className="inline-flex items-center gap-1.5 rounded-lg border border-red-500 bg-red-50 px-2.5 py-1 text-xs text-red-600">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                        គណនីរកមិនឃើញ — សូមពិនិត្យ ID ម្តងទៀត
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
-
-              {game.requiresServer && !useZoneField && (
-                <div>
-                  <label className="label text-xs sm:text-sm mb-1">Server</label>
-                  <select
-                    value={serverId}
-                    onChange={(e) => setServerId(e.target.value)}
-                    className="input text-sm py-2"
-                    required
-                  >
-                    {game.servers.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {supportsLookup && (
-                <div className="pt-0.5 flex flex-wrap items-center gap-2 sm:gap-2.5">
-                  <button
-                    type="button"
-                    onClick={handleCheckNickname}
-                    disabled={
-                      !isValidUid(uid) ||
-                      (useZoneField && serverId.trim().length === 0) ||
-                      nicknameStatus === "checking"
-                    }
-                    className="btn-ghost text-xs py-1.5 px-3.5 inline-flex items-center gap-1.5 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {nicknameStatus === "checking" ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-                    ) : (
-                      <Search className="h-3.5 w-3.5" strokeWidth={2} />
-                    )}
-                    {nicknameStatus === "checking" ? "កំពុងពិនិត្យ…" : "ពិនិត្យមើលឈ្មោះ"}
-                  </button>
-
-                  {nicknameStatus === "verified" && nickname && (
-                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-green-600 bg-green-100 px-2.5 py-1 text-xs text-green-600 animate-scale-in">
-                      <UserRoundCheck className="h-3.5 w-3.5 shrink-0 text-green-600" strokeWidth={2} />
-                      <span className="text-pink-500 font-medium">Player:</span>
-                      <span className="font-bold text-green-800">{nickname}</span>
-                    </span>
-                  )}
-                  {nicknameStatus === "not_found" && (
-                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-red-500 bg-red-50 px-2.5 py-1 text-xs text-red-600">
-                      <AlertCircle className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-                      គណនីរកមិនឃើញ — សូមពិនិត្យ ID ម្តងទៀត
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           {/* ✅ Step 2: Pick Package — Categorized with Original Card Design */}
@@ -839,9 +868,11 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
                 </div>
               )}
 
-              {/* Hint messages when button is disabled */}
               {!selected && (
                 <p className="mt-4 text-xs text-pink-400 text-center">👆 សូមជ្រើសរើសកញ្ចប់មុន</p>
+              )}
+              {selected && !isVoucherGame && !isValidUid(uid) && (
+                <p className="mt-4 text-xs text-pink-400 text-center">👉 សូមបញ្ចូល Player ID របស់អ្នក</p>
               )}
               {selected && needsNickname && nicknameStatus !== "verified" && isValidUid(uid) && (
                 <p className="mt-4 text-xs text-pink-400 text-center">🔍 សូមពិនិត្យឈ្មោះ Player មុន</p>
@@ -914,6 +945,9 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
           {/* Mobile hint messages */}
           {!selected && (
             <p className="mb-1.5 text-xs text-pink-500 text-center font-medium">👆 សូមជ្រើសរើសកញ្ចប់មុន</p>
+          )}
+          {selected && !isVoucherGame && !isValidUid(uid) && (
+            <p className="mb-1.5 text-xs text-pink-500 text-center font-medium">👉 សូមបញ្ចូល Player ID</p>
           )}
           {!termsAccepted && (
             <p className="mb-1.5 text-xs text-pink-500 text-center font-medium">

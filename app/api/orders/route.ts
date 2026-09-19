@@ -46,7 +46,7 @@ const createOrderSchema = z
     gameId: z.string().min(1),
     productId: z.string().optional(),
     randomPackageId: z.string().optional(),
-    playerUid: z.string().min(4).max(20),
+    playerUid: z.string().max(100).optional(),
     serverId: z.string().optional(),
     customerEmail: z.string().email().optional(),
     customerPhone: z.string().optional(),
@@ -109,10 +109,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!isValidUid(data.playerUid)) {
-      return NextResponse.json({ error: "Invalid UID format" }, { status: 400 });
-    }
-
     // Maintenance mode blocks new orders site-wide.
     const maintSettings = await prisma.settings.findUnique({ where: { id: 1 } });
     if (maintSettings?.maintenanceMode) {
@@ -136,13 +132,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate game + product/randomPackage match and pricing
+    const [game, settings] = await Promise.all([
+      prisma.game.findUnique({ where: { id: data.gameId } }),
+      prisma.settings.findUnique({ where: { id: 1 } }),
+    ]);
+
+    if (!game || !game.active) {
+      return NextResponse.json({ error: "Game not found" }, { status: 404 });
+    }
+
+    const isVoucherGame =
+      game.slug.toLowerCase().includes("roblox") ||
+      game.slug.toLowerCase().includes("voucher") ||
+      (game.currencyName && game.currencyName.toLowerCase().includes("voucher"));
+
+    if (isVoucherGame) {
+      if (!data.playerUid || !data.playerUid.trim()) {
+        data.playerUid = "ROBLOX-USER";
+      }
+    } else {
+      if (!data.playerUid || !isValidUid(data.playerUid)) {
+        return NextResponse.json({ error: "Invalid UID format" }, { status: 400 });
+      }
+    }
+
     // Banlist: block orders from flagged emails, phones, IPs or UIDs.
     const ipAddress = getClientIp(req);
     const banCandidates = [
       { type: "email", value: data.customerEmail?.toLowerCase() },
       { type: "phone", value: data.customerPhone?.toLowerCase() },
       { type: "ip", value: ipAddress.toLowerCase() },
-      { type: "uid", value: data.playerUid.toLowerCase() },
+      { type: "uid", value: data.playerUid ? data.playerUid.toLowerCase() : undefined },
     ].filter((c): c is { type: string; value: string } => !!c.value);
 
     if (banCandidates.length > 0) {
@@ -157,15 +178,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Validate game + product/randomPackage match and pricing
-    const [game, settings] = await Promise.all([
-      prisma.game.findUnique({ where: { id: data.gameId } }),
-      prisma.settings.findUnique({ where: { id: 1 } }),
-    ]);
-
-    if (!game || !game.active) {
-      return NextResponse.json({ error: "Game not found" }, { status: 404 });
-    }
     if (game.requiresServer && !data.serverId) {
       return NextResponse.json({ error: "Server is required for this game" }, { status: 400 });
     }
