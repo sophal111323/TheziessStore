@@ -229,6 +229,12 @@ export async function POST(req: NextRequest) {
       if (!product || !product.active || product.gameId !== game.id) {
         return NextResponse.json({ error: "Product not found" }, { status: 404 });
       }
+      if (product.inStock === false) {
+        return NextResponse.json(
+          { error: "ទំនិញនេះអស់ពីស្តុកហើយ មិនអាចកុម្ម៉ង់បានទេ (This item is currently out of stock)." },
+          { status: 400 }
+        );
+      }
     }
 
     // Create the order

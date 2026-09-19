@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
       category: true,
       imageUrl: true,
       active: true,
+      inStock: true,
       sortOrder: true,
       game: {
         select: {
@@ -88,7 +89,8 @@ export async function GET(req: NextRequest) {
       imageUrl: product.imageUrl ?? product.game.imageUrl,
       badge: product.badge,
       enabled: product.active,
-      stockStatus: product.active ? "AVAILABLE" : "UNAVAILABLE",
+      inStock: product.inStock,
+      stockStatus: !product.inStock ? "OUT_OF_STOCK" : (product.active ? "AVAILABLE" : "UNAVAILABLE"),
       sortOrder: product.sortOrder,
     })),
     undefined,

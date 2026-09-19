@@ -18,6 +18,8 @@ const productSchema = z
     badge: z.string().optional().nullable(),
     category: z.string().optional().nullable(),
     imageUrl: z.string().optional().nullable(),
+    active: z.boolean().optional().default(true),
+    inStock: z.boolean().optional().default(true),
     sortOrder: z.number().int().optional().default(0),
     supplier: z
       .enum(["bay2game", "khmer_topup", "frozenyuki", "soratopup"])
@@ -44,12 +46,15 @@ export const GET = withAdminAuth(
     const category = req.nextUrl.searchParams.get("category") || undefined;
     const activeParam = req.nextUrl.searchParams.get("active");
     const active = activeParam === null ? undefined : activeParam === "true";
+    const inStockParam = req.nextUrl.searchParams.get("inStock");
+    const inStock = inStockParam === null ? undefined : inStockParam === "true";
 
     const products = await prisma.product.findMany({
       where: {
         ...(gameId ? { gameId } : {}),
         ...(category ? { category } : {}),
         ...(active !== undefined ? { active } : {}),
+        ...(inStock !== undefined ? { inStock } : {}),
       },
       include: {
         game: { select: { id: true, name: true, slug: true, sortOrder: true } },

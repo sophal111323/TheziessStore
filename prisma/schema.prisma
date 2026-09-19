@@ -59,6 +59,7 @@ model Product {
   category     String?  @default("Diamonds")
   imageUrl     String?
   active       Boolean  @default(true)
+  inStock      Boolean  @default(true)
   sortOrder    Int      @default(0)
   supplier     String   @default("bay2game")
   supplierCode String?
@@ -67,6 +68,7 @@ model Product {
   updatedAt    DateTime @updatedAt
 
   @@index([gameId, active])
+  @@index([gameId, inStock])
 }
 
 model UploadedFile {

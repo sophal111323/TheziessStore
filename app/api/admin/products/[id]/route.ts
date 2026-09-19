@@ -19,6 +19,7 @@ const updateSchema = z
     category: z.string().nullable().optional(),
     imageUrl: z.string().nullable().optional(),
     active: z.boolean().optional(),
+    inStock: z.boolean().optional(),
     sortOrder: z.number().int().optional(),
     supplier: z
       .enum(["bay2game", "khmer_topup", "frozenyuki", "soratopup"])

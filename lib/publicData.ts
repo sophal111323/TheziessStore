@@ -198,6 +198,7 @@ const getCachedPublicGameBySlug = unstable_cache(
             badge: true,
             category: true,
             imageUrl: true,
+            inStock: true,
             sortOrder: true,
             updatedAt: true,
           },
@@ -252,6 +253,7 @@ const getCachedPublicGameBySlug = unstable_cache(
       updatedAt: new Date(),
       isRandomSpin: true,
       randomPackageId: pkg.id,
+      inStock: true,
       description: pkg.description,
       slots: pkg.slots,
     }));

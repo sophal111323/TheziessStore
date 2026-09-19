@@ -79,6 +79,16 @@ export default function AdminProductsPage() {
     await loadAll();
   }
 
+  async function toggleStock(p: any) {
+    const nextInStock = p.inStock === false ? true : false;
+    await fetch(`/api/admin/products/${p.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inStock: nextInStock }),
+    });
+    await loadAll();
+  }
+
   async function deleteProduct(p: any) {
     if (!confirm(`Delete "${p.name}"?`)) return;
     await fetch(`/api/admin/products/${p.id}`, { method: "DELETE" });
@@ -308,15 +318,16 @@ export default function AdminProductsPage() {
                 <th className="text-left px-5 py-3">Badge</th>
                 <th className="text-left px-5 py-3">Supplier</th>
                 <th className="text-left px-5 py-3">Supplier Code / ID</th>
+                <th className="text-center px-5 py-3">Stock</th>
                 <th className="text-center px-5 py-3">Active</th>
                 <th className="text-right px-5 py-3">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-fox-border">
               {loading ? (
-                <tr><td colSpan={11} className="px-5 py-12 text-center text-fox-muted">Loading...</td></tr>
+                <tr><td colSpan={12} className="px-5 py-12 text-center text-fox-muted">Loading...</td></tr>
               ) : filteredProducts.length === 0 ? (
-                <tr><td colSpan={11} className="px-5 py-16 text-center">
+                <tr><td colSpan={12} className="px-5 py-16 text-center">
                     <div className="text-4xl mb-3">💎</div>
                     <p className="text-fox-muted mb-1">No products found</p>
                     <p className="text-xs text-fox-muted/60 mb-3">Add packages for customers to purchase.</p>
@@ -393,6 +404,21 @@ export default function AdminProductsPage() {
                         )}
                       </td>
                       <td className="px-5 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => toggleStock(p)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-all shadow-sm ${
+                            p.inStock !== false
+                              ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25"
+                              : "bg-rose-500/15 text-rose-300 border-rose-500/30 hover:bg-rose-500/25"
+                          }`}
+                          title={p.inStock !== false ? "Click to set Out of Stock (ដាច់ស្តុក)" : "Click to set In Stock (មានស្តុក)"}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${p.inStock !== false ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`} />
+                          <span>{p.inStock !== false ? "In Stock" : "Out of Stock"}</span>
+                        </button>
+                      </td>
+                      <td className="px-5 py-3 text-center">
                         <button onClick={() => toggleActive(p)}>
                           <span className={`inline-block h-5 w-9 rounded-full relative transition-colors ${p.active ? "bg-green-500" : "bg-fox-border"}`}>
                             <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${p.active ? "translate-x-4" : "translate-x-0.5"}`} />
@@ -426,6 +452,7 @@ function ProductForm({ games, products = [], defaultGameId, initial, onCancel, o
     badge: initial?.badge || "",
     imageUrl: initial?.imageUrl || "",
     active: initial?.active ?? true,
+    inStock: initial?.inStock !== undefined ? initial.inStock : true,
     sortOrder: initial?.sortOrder ?? 0,
     supplier: initial?.supplier || "bay2game",
     supplierCode: initial?.supplierCode || "",
@@ -508,6 +535,8 @@ function ProductForm({ games, products = [], defaultGameId, initial, onCancel, o
       imageUrl: form.imageUrl || null,
       supplier: form.supplier || "bay2game",
       supplierCode: form.supplierCode || null,
+      active: Boolean(form.active),
+      inStock: Boolean(form.inStock),
     };
     const url = initial ? `/api/admin/products/${initial.id}` : "/api/admin/products";
     const method = initial ? "PATCH" : "POST";
@@ -830,11 +859,31 @@ function ProductForm({ games, products = [], defaultGameId, initial, onCancel, o
           <label className="label">Sort Order</label>
           <input className="input" type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} />
         </div>
-        <div className="flex items-end">
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-            Active
-          </label>
+        <div className="flex items-end pb-1">
+          <div className="flex flex-wrap items-center gap-6 bg-fox-surface/80 p-2.5 rounded-xl border border-fox-border w-full">
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.active}
+                onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                className="rounded accent-fox-primary"
+              />
+              <span className="font-semibold text-fox-text">Active (បើកបង្ហាញ)</span>
+            </label>
+
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.inStock}
+                onChange={(e) => setForm({ ...form, inStock: e.target.checked })}
+                className="rounded accent-emerald-500"
+              />
+              <span className={`font-semibold flex items-center gap-1.5 ${form.inStock ? "text-emerald-400" : "text-rose-400"}`}>
+                <span className={`h-2 w-2 rounded-full ${form.inStock ? "bg-emerald-400" : "bg-rose-400"}`} />
+                {form.inStock ? "In Stock (មានស្តុក)" : "Out of Stock (អស់ស្តុក)"}
+              </span>
+            </label>
+          </div>
         </div>
       </div>
 

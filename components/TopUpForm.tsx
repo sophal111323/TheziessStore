@@ -24,6 +24,7 @@ interface Product {
   badge: string | null;
   category?: string | null;
   imageUrl: string | null;
+  inStock?: boolean;
   isRandomSpin?: boolean;
   randomPackageId?: string | null;
 }
@@ -253,10 +254,12 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
   }, [uid, serverId, game.slug, supportsLookup, useZoneField, savePlayerToStorage]);
 
   const selectedProduct = products.find((p) => p.id === selected);
+  const isSelectedOutOfStock = selectedProduct?.inStock === false;
   const needsServer = !isVoucherGame && (game.requiresServer || useZoneField);
   const needsNickname = supportsLookup;
   const canSubmit =
     !!selected &&
+    !isSelectedOutOfStock &&
     (isVoucherGame || isValidUid(uid)) &&
     (!needsServer || serverId.trim().length > 0) &&
     (!needsNickname || nicknameStatus === "verified") &&
@@ -544,44 +547,63 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3.5">
                     {group.items.map((p) => {
                       const isSelected = selected === p.id;
+                      const isOutOfStock = p.inStock === false;
                       return (
                         <button
                           type="button"
                           key={p.id}
-                          onClick={() => setSelected(p.id)}
-                          className={`group relative overflow-hidden text-center rounded-2xl border-2 p-2.5 sm:p-3.5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
-                            isSelected
-                              ? "border-pink-400 bg-gradient-to-b from-pink-50 to-white shadow-lg shadow-pink-300/40 ring-2 ring-pink-400/40"
-                              : "border-pink-100 bg-white hover:border-pink-300 hover:shadow-pink-200/50"
+                          disabled={isOutOfStock}
+                          onClick={isOutOfStock ? undefined : () => setSelected(p.id)}
+                          className={`group relative overflow-hidden text-center rounded-2xl border-2 p-2.5 sm:p-3.5 transition-all duration-300 ${
+                            isOutOfStock
+                              ? "opacity-55 grayscale-[40%] bg-gray-50 border-gray-200 cursor-not-allowed select-none shadow-none hover:translate-y-0"
+                              : isSelected
+                              ? "border-pink-400 bg-gradient-to-b from-pink-50 to-white shadow-lg shadow-pink-300/40 ring-2 ring-pink-400/40 hover:-translate-y-0.5 hover:shadow-lg"
+                              : "border-pink-100 bg-white hover:border-pink-300 hover:shadow-pink-200/50 hover:-translate-y-0.5 hover:shadow-lg"
                           }`}
                           style={{
-                            background: isSelected
+                            background: isOutOfStock
+                              ? "#f9fafb"
+                              : isSelected
                               ? "linear-gradient(160deg, #faf5ff 0%, #ffffff 100%)"
                               : undefined,
                           }}
                         >
                           {/* Shimmer on selected */}
-                          {isSelected && (
+                          {isSelected && !isOutOfStock && (
                             <span className="pointer-events-none absolute inset-0 opacity-50">
                               <span className="absolute -inset-y-1 -left-1/3 w-1/3 rotate-12 bg-gradient-to-r from-transparent via-pink-200/60 to-transparent animate-shimmer" />
                             </span>
                           )}
 
-                          {/* Checkmark top-left */}
+                          {/* Checkmark or Out of stock indicator top-left */}
                           <span
                             className={`absolute top-2 left-2 flex h-5 w-5 sm:h-5.5 sm:w-5.5 items-center justify-center rounded-full transition-all duration-200 ${
-                              isSelected
+                              isOutOfStock
+                                ? "bg-rose-100 text-rose-600 scale-90"
+                                : isSelected
                                 ? "bg-pink-500 shadow-sm shadow-pink-300/50 scale-100"
                                 : "bg-pink-100/70 scale-90"
                             }`}
                           >
-                            <svg className={`h-3 w-3 transition-colors ${isSelected ? "text-white" : "text-pink-300"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                              <path d="M5 13l4 4L19 7" />
-                            </svg>
+                            {isOutOfStock ? (
+                              <span className="text-[10px] font-extrabold leading-none">✕</span>
+                            ) : (
+                              <svg className={`h-3 w-3 transition-colors ${isSelected ? "text-white" : "text-pink-300"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                <path d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
                           </span>
 
-                          {/* Badge */}
-                          {p.badge && (
+                          {/* Badge or Out of Stock Tag */}
+                          {isOutOfStock ? (
+                            <div className="absolute -top-1.5 right-2 z-10">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 text-white font-extrabold text-[9px] px-2 py-0.5 shadow-sm shadow-rose-500/30">
+                                <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                                អស់ស្តុក
+                              </span>
+                            </div>
+                          ) : p.badge ? (
                             <div className="absolute -top-1.5 right-2 z-10">
                               {p.badge === "Hot" && <span className="badge-hot !text-[9px] !px-2 !py-0.5">Hot</span>}
                               {p.badge === "Best Value" && <span className="badge-best !text-[9px] !px-2 !py-0.5">Best</span>}
@@ -590,7 +612,7 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
                                 <span className="badge-best !text-[9px] !px-2 !py-0.5">{p.badge}</span>
                               )}
                             </div>
-                          )}
+                          ) : null}
 
                           {/* Product Image */}
                           {p.imageUrl ? (
@@ -609,7 +631,7 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
                           )}
 
                           {/* Product Name */}
-                          <div className="font-bold text-xs sm:text-sm text-pink-800 leading-tight line-clamp-1 mb-0.5">
+                          <div className={`font-bold text-xs sm:text-sm leading-tight line-clamp-1 mb-0.5 ${isOutOfStock ? "text-gray-500 line-through decoration-rose-400" : "text-pink-800"}`}>
                             {p.name}
                           </div>
                           {p.bonus > 0 && (
@@ -632,13 +654,22 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
                             <svg className={`h-2.5 w-2.5 shrink-0 transition-colors ${isSelected ? "text-pink-500" : "text-pink-300"}`} viewBox="0 0 24 24" fill="currentColor">
                               <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" />
                             </svg>
-                            <span className={`font-mono font-extrabold text-sm sm:text-base transition-colors ${isSelected ? "text-pink-600" : "text-pink-500"}`}>
+                            <span className={`font-mono font-extrabold text-sm sm:text-base transition-colors ${isOutOfStock ? "text-gray-400" : isSelected ? "text-pink-600" : "text-pink-500"}`}>
                               {format(p.priceUsd)}
                             </span>
                             <svg className={`h-2.5 w-2.5 shrink-0 transition-colors ${isSelected ? "text-pink-500" : "text-pink-300"}`} viewBox="0 0 24 24" fill="currentColor">
                               <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" />
                             </svg>
                           </div>
+
+                          {/* Out of stock label below price */}
+                          {isOutOfStock && (
+                            <div className="mt-1.5">
+                              <span className="text-[10px] font-extrabold text-rose-600 bg-rose-50 border border-rose-200/80 rounded-md px-2 py-0.5 inline-block">
+                                🚫 អស់ពីស្តុក
+                              </span>
+                            </div>
+                          )}
                         </button>
                       );
                     })}
@@ -887,6 +918,11 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
                   🛡️ កំពុងផ្ទៀងផ្ទាត់សុវត្ថិភាព…
                 </p>
               )}
+              {isSelectedOutOfStock && (
+                <p className="mt-2 text-xs text-rose-600 text-center font-bold">
+                  ⚠️ កញ្ចប់នេះអស់ពីស្តុកហើយ (Out of stock) — សូមជ្រើសរើសកញ្ចប់ផ្សេង
+                </p>
+              )}
 
               <button
                 type="submit"
@@ -960,6 +996,11 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
           {turnstileSiteKey && !turnstileToken && selected && (
             <p className="mb-1.5 text-xs text-pink-500 text-center font-medium">
               🛡️ កំពុងផ្ទៀងផ្ទាត់សុវត្ថិភាព…
+            </p>
+          )}
+          {isSelectedOutOfStock && (
+            <p className="mb-1.5 text-xs text-rose-600 text-center font-bold">
+              ⚠️ កញ្ចប់នេះអស់ពីស្តុកហើយ (Out of stock)
             </p>
           )}
 
