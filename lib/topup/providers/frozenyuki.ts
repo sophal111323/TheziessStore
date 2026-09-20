@@ -303,14 +303,20 @@ export class FrozenYukiSupplier implements TopupSupplier {
       ? [params.playerId.trim(), params.serverId!.trim()]
       : [params.playerId.trim()];
 
-    const body = {
-      game,
-      code,
-      fieldValues,
-    };
+    const isRobux =
+      game.toLowerCase().includes("robux") ||
+      game.toLowerCase().includes("roblox") ||
+      Boolean(params.gameSlug && params.gameSlug.toLowerCase().includes("roblox")) ||
+      params.productCode.toLowerCase().includes("robux") ||
+      code.toLowerCase().includes("robux");
+
+    const endpoint = isRobux ? "/robux/order" : "/order";
+    const body = isRobux
+      ? { cardId: code || params.productCode }
+      : { game, code, fieldValues };
 
     try {
-      const res = await callFrozenYuki("/order", {
+      const res = await callFrozenYuki(endpoint, {
         method: "POST",
         body,
         idempotencyKey: params.orderReference,
@@ -326,20 +332,38 @@ export class FrozenYukiSupplier implements TopupSupplier {
         };
       }
 
-      const data = res.data;
+      let data = res.data;
+      const refId = data?.refid || data?.ref || params.orderReference;
 
       console.log(
-        `[frozenyuki] create_order ref=${params.orderReference} http=${res.status} ok=${Boolean(
+        `[frozenyuki] create_order ref=${params.orderReference} endpoint=${endpoint} http=${res.status} ok=${Boolean(
           data?.ok
-        )} refid=${data?.refid ?? "N/A"} status=${data?.status ?? "N/A"}`
+        )} refid=${refId} status=${data?.status ?? "N/A"}`
       );
 
       if (data && data.ok) {
-        const normStatus = normalizeFrozenYukiStatus(data.status || "Processing");
-        const redeemCode = extractRedeemCodeFromResponse(data);
+        let normStatus = normalizeFrozenYukiStatus(data.status || "Processing");
+        let redeemCode = extractRedeemCodeFromResponse(data);
+
+        // For Robux vouchers, if status is processing, wait 1.5s and poll /robux/order to get the generated code immediately
+        if (isRobux && normStatus === "processing" && refId) {
+          await new Promise((r) => setTimeout(r, 1500));
+          try {
+            const pollRes = await callFrozenYuki("/robux/order", {
+              method: "GET",
+              params: { ref: refId },
+            });
+            if (pollRes.data && pollRes.data.ok) {
+              data = pollRes.data;
+              normStatus = normalizeFrozenYukiStatus(pollRes.data.status);
+              redeemCode = extractRedeemCodeFromResponse(pollRes.data) || redeemCode;
+            }
+          } catch {}
+        }
+
         return {
           success: true,
-          transactionId: data.refid || params.orderReference,
+          transactionId: refId,
           status: normStatus,
           redeemCode: redeemCode || undefined,
           rawResponse: data,
@@ -367,10 +391,21 @@ export class FrozenYukiSupplier implements TopupSupplier {
     orderReferenceOrSupplierId: string
   ): Promise<TopUpStatusResult> {
     try {
-      const res = await callFrozenYuki("/order", {
+      let res = await callFrozenYuki("/order", {
         method: "GET",
         params: { ref: orderReferenceOrSupplierId },
       });
+
+      // If regular /order doesn't find it, check /robux/order
+      if (!res.ok || !res.data?.ok || res.data?.error === "order_not_found") {
+        const robuxRes = await callFrozenYuki("/robux/order", {
+          method: "GET",
+          params: { ref: orderReferenceOrSupplierId },
+        });
+        if (robuxRes.ok && robuxRes.data?.ok) {
+          res = robuxRes;
+        }
+      }
 
       if (res.networkError || !res.data) {
         return {
@@ -397,7 +432,7 @@ export class FrozenYukiSupplier implements TopupSupplier {
       return {
         found: true,
         status: normStatus,
-        transactionId: data.refid || orderReferenceOrSupplierId,
+        transactionId: data.refid || data.ref || orderReferenceOrSupplierId,
         productName: data.item,
         amount: typeof data.amount === "number" ? data.amount : undefined,
         redeemCode: redeemCode || undefined,
