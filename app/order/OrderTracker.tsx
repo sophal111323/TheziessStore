@@ -452,21 +452,42 @@ export default function OrderTracker() {
 
                 {/* Instructions */}
                 <div className="mt-3.5 pt-3 border-t border-emerald-200 text-xs text-emerald-950 space-y-1.5">
-                  <div className="font-bold flex items-center justify-between">
+                  <div className="font-bold flex items-center justify-between gap-1">
                     <span>📖 របៀប Redeem លើ Roblox:</span>
                     <a
-                      href="https://www.roblox.com/redeem"
+                      href="https://t.me/theziessstore/26"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-emerald-700 hover:text-emerald-900 font-extrabold underline inline-flex items-center gap-1"
+                      className="text-blue-600 hover:text-blue-800 font-extrabold underline inline-flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-lg border border-blue-200 transition-colors text-[11px]"
                     >
-                      roblox.com/redeem ↗
+                      🎥 វីដេអូរបៀបប្រើប្រាស់ ↗
                     </a>
                   </div>
                   <ol className="list-decimal list-inside text-[11px] text-emerald-800 space-y-0.5">
                     <li>ចុចប៊ូតុង &quot;Copy&quot; ខាងលើដើម្បីចម្លងលេខកូដ</li>
-                    <li>ចូលទៅកាន់ <a href="https://www.roblox.com/redeem" target="_blank" rel="noopener noreferrer" className="underline font-bold">roblox.com/redeem</a></li>
-                    <li>បិទភ្ជាប់ (Paste) លេខកូដ រួចចុច Redeem ដើម្បីទទួលបាន Robux ភ្លាមៗ</li>
+                    <li>
+                      ចូលមើលវីដេអូរបៀបប្រើប្រាស់លើ Telegram៖{" "}
+                      <a
+                        href="https://t.me/theziessstore/26"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline font-bold text-blue-700 hover:text-blue-900"
+                      >
+                        t.me/theziessstore/26
+                      </a>
+                    </li>
+                    <li>
+                      ចូលទៅកាន់{" "}
+                      <a
+                        href="https://www.roblox.com/redeem"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline font-bold"
+                      >
+                        roblox.com/redeem
+                      </a>{" "}
+                      រួចបិទភ្ជាប់ (Paste) លេខកូដដើម្បីទទួលបាន Robux ភ្លាមៗ
+                    </li>
                   </ol>
                 </div>
               </div>
