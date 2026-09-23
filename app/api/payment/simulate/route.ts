@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { isPaymentSimulationAllowed } from "@/lib/payment";
 import { markAffiliateOrderCompleted } from "@/lib/affiliate/store";
+import { consumeOrderCouponAtomically } from "@/lib/coupon";
 
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const RATE_LIMIT_MAX = 10; // 10 requests per minute
@@ -214,6 +215,7 @@ export async function GET(req: NextRequest) {
             deliveredAt: new Date(),
           },
         });
+        await consumeOrderCouponAtomically(order.id);
       } catch (error) {
         console.error("Simulation delivery update failed:", error);
       }

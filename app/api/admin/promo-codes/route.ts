@@ -13,6 +13,8 @@ const createSchema = z.object({
   discountValue: z.number().positive(),
   minOrderUsd: z.number().min(0).default(0),
   maxUses: z.number().int().min(0).default(0),
+  onePerUser: z.boolean().default(true),
+  maxUsesPerUser: z.number().int().min(0).default(1),
   expiresAt: z.string().nullable().optional(),
   active: z.boolean().default(true),
 });
@@ -21,7 +23,14 @@ export const GET = withAdminAuth(
   async () => {
     const codes = await prisma.promoCode.findMany({
       orderBy: { createdAt: "desc" },
-      include: { _count: { select: { orders: true } } },
+      include: {
+        _count: {
+          select: {
+            orders: true,
+            usages: { where: { status: "USED" } },
+          },
+        },
+      },
     });
     return NextResponse.json(codes);
   },
@@ -50,6 +59,8 @@ export const POST = withAdminAuth(
         discountValue: data.discountValue,
         minOrderUsd: data.minOrderUsd,
         maxUses: data.maxUses,
+        onePerUser: data.onePerUser,
+        maxUsesPerUser: data.maxUsesPerUser,
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
         active: data.active,
       },

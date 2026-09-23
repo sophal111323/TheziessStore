@@ -121,8 +121,9 @@ model Order {
   paidAt           DateTime?
   deliveredAt      DateTime?
   promoCodeId      String?
-  promoCode        PromoCode? @relation(fields: [promoCodeId], references: [id])
-  discountUsd      Float      @default(0)
+  promoCode        PromoCode?   @relation(fields: [promoCodeId], references: [id])
+  discountUsd      Float        @default(0)
+  couponUsage      CouponUsage?
 
   // ── Random Spin / Mystery Box ──────────────────────────────────────────
   isRandomSpin    Boolean                @default(false)
@@ -137,18 +138,39 @@ model Order {
 }
 
 model PromoCode {
-  id            String    @id @default(cuid())
-  code          String    @unique
-  discountType  String
-  discountValue Float
-  minOrderUsd   Float     @default(0)
-  maxUses       Int       @default(0)
-  usedCount     Int       @default(0)
-  expiresAt     DateTime?
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  orders        Order[]
+  id             String        @id @default(cuid())
+  code           String        @unique
+  discountType   String
+  discountValue  Float
+  minOrderUsd    Float         @default(0)
+  maxUses        Int           @default(0)
+  usedCount      Int           @default(0)
+  onePerUser     Boolean       @default(true)
+  maxUsesPerUser Int           @default(1)
+  expiresAt      DateTime?
+  active         Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  orders         Order[]
+  usages         CouponUsage[]
+}
+
+model CouponUsage {
+  id             String     @id @default(cuid())
+  promoCodeId    String
+  promoCode      PromoCode  @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  userIdentifier String     // playerUid / Game ID
+  orderId        String?    @unique
+  order          Order?     @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  status         String     @default("PENDING") // PENDING, USED, FAILED, CANCELLED
+  discountUsd    Float      @default(0)
+  usedAt         DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([promoCodeId, userIdentifier, status])
+  @@index([userIdentifier, status])
+  @@index([orderId])
 }
 
 model Admin {

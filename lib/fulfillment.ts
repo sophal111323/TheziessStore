@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { getSupplier, getTopupStatus } from "@/lib/topup";
 import { notifyTelegram, escapeHtml } from "@/lib/telegram";
 import { extractRedeemCode, extractRedeemCodeFromResponse } from "@/lib/redeem";
+import { consumeOrderCouponAtomically, releaseOrCancelCouponUsage } from "@/lib/coupon";
 
 export interface FulfillmentResult {
   success: boolean;
@@ -142,6 +143,7 @@ export async function fulfillPaidOrder(
           supplierResponse: rawResp,
         },
       });
+      await consumeOrderCouponAtomically(order.id);
       return { success: true, transactionId: remote.transactionId, status: "success" };
     }
     if (remote.found && remote.status !== "failed") {
@@ -240,6 +242,7 @@ export async function fulfillPaidOrder(
           topupStatus: "success",
         },
       });
+      await consumeOrderCouponAtomically(order.id);
 
       if (!options?.silentTelegram) {
         const redeemMsg = extractedRedeem
@@ -428,6 +431,7 @@ export async function refreshTopupStatus(orderNumber: string): Promise<Fulfillme
     });
 
     if (updated.count === 1) {
+      await consumeOrderCouponAtomically(order.id);
       const baseUrl = process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "";
       const link = baseUrl
         ? `\n<a href="${baseUrl}/admin/orders/${order.orderNumber}">Open in admin</a>`

@@ -10,6 +10,7 @@ import { normalizeAdminRole } from "@/lib/adminPermissions";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAdminAuth } from "@/lib/withAdminAuth";
+import { consumeOrderCouponAtomically, releaseOrCancelCouponUsage } from "@/lib/coupon";
 
 const statusSchema = z.enum([
   "PENDING",
@@ -142,6 +143,12 @@ export const PATCH = withAdminAuth(
         targetType: "order",
         targetId: order.orderNumber,
       });
+
+      if (nextStatus === "DELIVERED") {
+        await consumeOrderCouponAtomically(order.id);
+      } else if (nextStatus === "FAILED" || nextStatus === "CANCELLED") {
+        await releaseOrCancelCouponUsage(order.id, nextStatus as any);
+      }
 
       if (nextStatus === "DELIVERED" || nextStatus === "PAID") {
         const prefix = isManualPaid

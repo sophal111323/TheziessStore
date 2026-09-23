@@ -9,6 +9,7 @@ import { getClientIp } from "@/lib/getIp";
 import { withAdminAuth } from "@/lib/withAdminAuth";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { recordAffiliateOrder } from "@/lib/affiliate/store";
+import { validatePromoCode } from "@/lib/coupon";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -244,86 +245,38 @@ export async function POST(req: NextRequest) {
     const basePriceUsd = randomPackage ? randomPackage.priceUsd : product.priceUsd;
     let finalPrice = basePriceUsd;
 
-    // ── Promo code handling (race-condition-safe) ────────────────────────────
-    //
-    // OLD (buggy): read usedCount → check < maxUses → increment
-    //   Two concurrent requests can both pass the check before either
-    //   increments, letting the same code be used more times than maxUses.
-    //
-    // FIX: wrap everything in a Prisma transaction and use a conditional
-    //   updateMany that includes the `usedCount < maxUses` guard inside the
-    //   WHERE clause.  The database evaluates the check and the increment
-    //   atomically, so only one winner gets through when the last slot is used.
-    type PromoApplied = {
-      promoCodeId: string;
-      discountUsd: number;
-      finalPrice: number;
-    };
-
+    // ── Promo code handling (Apply ≠ Consume) ────────────────────────────────
+    // When the order is placed, validate the coupon against the player UID and
+    // order amount, and create a PENDING CouponUsage record.
+    // The coupon is ONLY consumed and counted as used after payment + top-up succeed!
     let promoCodeId: string | null = null;
     let discountUsd = 0;
 
-    if (data.promoCode && settings?.promosEnabled === false) {
-      return NextResponse.json(
-        { error: "Promo codes are temporarily disabled." },
-        { status: 503, headers: { "Cache-Control": "no-store" } }
-      );
-    }
-
     if (data.promoCode) {
-      const promoApplied = await prisma.$transaction(
-        async (tx): Promise<PromoApplied | null> => {
-          // 1. Fetch the promo inside the transaction for a consistent read.
-          const promo = await tx.promoCode.findUnique({
-            where: { code: data.promoCode!.toUpperCase().trim() },
-          });
-
-          // Basic eligibility checks (non-atomic — just early-exit guards).
-          if (!promo || !promo.active) return null;
-          if (promo.expiresAt && promo.expiresAt < new Date()) return null;
-          if (basePriceUsd < promo.minOrderUsd) return null;
-
-          // 2. Atomic conditional increment — WHERE includes the maxUses guard.
-          //    If another request just used the last slot, updateMany returns
-          //    count=0 and we bail out cleanly without double-spending.
-          const updated = await tx.promoCode.updateMany({
-            where: {
-              id: promo.id,
-              active: true,
-              OR: [
-                { maxUses: { equals: 0 } },          // unlimited code
-                { usedCount: { lt: promo.maxUses } }, // still has slots
-              ],
-            },
-            data: { usedCount: { increment: 1 } },
-          });
-
-          if (updated.count === 0) {
-            // Lost the race or limit already reached — treat as invalid.
-            return null;
-          }
-
-          // 3. Calculate discount only after we have secured the slot.
-          let discount =
-            promo.discountType === "PERCENT"
-              ? (basePriceUsd * promo.discountValue) / 100
-              : promo.discountValue;
-          discount = Math.min(discount, basePriceUsd);
-          discount = Math.round(discount * 100) / 100;
-
-          return {
-            promoCodeId: promo.id,
-            discountUsd: discount,
-            finalPrice: Math.round((basePriceUsd - discount) * 100) / 100,
-          };
-        }
-      );
-
-      if (promoApplied) {
-        promoCodeId = promoApplied.promoCodeId;
-        discountUsd = promoApplied.discountUsd;
-        finalPrice  = promoApplied.finalPrice;
+      if (settings?.promosEnabled === false) {
+        return NextResponse.json(
+          { error: "Promo codes are temporarily disabled." },
+          { status: 503, headers: { "Cache-Control": "no-store" } }
+        );
       }
+
+      const validation = await validatePromoCode({
+        code: data.promoCode,
+        orderAmountUsd: basePriceUsd,
+        playerUid: data.playerUid,
+        gameId: game.id,
+      });
+
+      if (!validation.valid) {
+        return NextResponse.json(
+          { error: validation.error || "Coupon code is invalid or expired." },
+          { status: 400 }
+        );
+      }
+
+      promoCodeId = validation.promoCodeId || null;
+      discountUsd = validation.discountUsd || 0;
+      finalPrice = validation.finalAmountUsd || basePriceUsd;
     }
 
     const order = await prisma.order.create({
@@ -346,6 +299,16 @@ export async function POST(req: NextRequest) {
         userAgent,
         promoCodeId,
         discountUsd,
+        couponUsage: promoCodeId
+          ? {
+              create: {
+                promoCodeId,
+                userIdentifier: data.playerUid.trim().toLowerCase(),
+                status: "PENDING",
+                discountUsd,
+              },
+            }
+          : undefined,
       },
     });
 

@@ -60,6 +60,28 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
   const [claimSuccess, setClaimSuccess] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [copiedUid, setCopiedUid] = useState(false);
+  const [wheelSize, setWheelSize] = useState<number>(340);
+
+  useEffect(() => {
+    const updateSize = () => {
+      const width = window.innerWidth;
+      if (width < 360) {
+        setWheelSize(250);
+      } else if (width < 400) {
+        setWheelSize(270);
+      } else if (width < 640) {
+        setWheelSize(290);
+      } else if (width < 1024) {
+        setWheelSize(330);
+      } else {
+        setWheelSize(350);
+      }
+    };
+
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
 
   const autoClaimTriggeredRef = useRef(false);
 
@@ -153,9 +175,12 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
     loadData();
   }, [loadData]);
 
+  const hasSpunRef = useRef(false);
+
   // Execute Spin (Server-Authoritative Cryptographic RNG)
   const handleSpinStart = async () => {
-    if (spinning || !data || data.status === "COMPLETED" || claimSuccess) return;
+    if (hasSpunRef.current || spinning || !data || data.status === "COMPLETED" || claimSuccess) return;
+    hasSpunRef.current = true;
 
     try {
       setSpinning(true);
@@ -167,39 +192,45 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
       });
       const json = await res.json();
       if (!res.ok) {
+        hasSpunRef.current = false;
         throw new Error(json.error || "ការបង្វិលកងមិនបានសម្រេច");
       }
 
       // Set target index returned from server-side cryptographic outcome
       setTargetIndex(json.winningIndex);
     } catch (err: any) {
+      hasSpunRef.current = false;
       setSpinning(false);
       setError(err.message || "Spin failed");
     }
   };
 
   // Wheel animation complete: transition to completed receipt and auto-claim
-  const handleSpinEnd = (slot: WheelSlot) => {
-    setSpinning(false);
-    setWonSlot(slot);
+  const handleSpinEnd = useCallback(
+    (slot: WheelSlot) => {
+      setSpinning(false);
+      setTargetIndex(null); // CRITICAL: Reset targetIndex so the wheel NEVER spins again!
+      setWonSlot(slot);
 
-    // Transition immediately to the completed view
-    setData((prev) => {
-      if (!prev) return null;
-      return {
-        ...prev,
-        status: "COMPLETED",
-        winningRewardLabel: slot.label,
-        winningRewardAmount: slot.rewardAmount,
-      };
-    });
+      // Transition immediately to the completed view
+      setData((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          status: "COMPLETED",
+          winningRewardLabel: slot.label,
+          winningRewardAmount: slot.rewardAmount,
+        };
+      });
 
-    // Automatically call claim API
-    if (!autoClaimTriggeredRef.current) {
-      autoClaimTriggeredRef.current = true;
-      void executeAutoClaim(slot);
-    }
-  };
+      // Automatically call claim API
+      if (!autoClaimTriggeredRef.current) {
+        autoClaimTriggeredRef.current = true;
+        void executeAutoClaim(slot);
+      }
+    },
+    [executeAutoClaim]
+  );
 
   const copyUid = async () => {
     if (!data?.playerUid) return;
@@ -287,35 +318,35 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
   })();
 
   return (
-    <div className="relative min-h-[85vh] overflow-hidden px-4 py-8 sm:py-12 sm:px-6">
+    <div className="relative min-h-[85vh] overflow-hidden px-3 py-4 sm:py-10 sm:px-6">
       {/* ── Ambient Background Lighting ── */}
       <div className="pointer-events-none absolute -top-24 left-1/2 h-[450px] w-[450px] -translate-x-1/2 rounded-full bg-gradient-to-tr from-pink-500/25 via-purple-600/20 to-amber-400/15 blur-[120px]" />
       <div className="pointer-events-none absolute bottom-10 right-10 h-72 w-72 rounded-full bg-rose-500/15 blur-[100px]" />
 
       <div className="relative z-10 mx-auto max-w-4xl">
         {/* ── Top Header & Player Badge ── */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 rounded-full border border-pink-300/80 bg-white/90 px-4 py-1.5 text-xs font-black text-pink-700 shadow-sm backdrop-blur-md">
-            <Sparkles className="h-4 w-4 text-amber-500 animate-pulse" />
+        <div className="text-center mb-3 sm:mb-8">
+          <div className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-pink-300/80 bg-white/90 px-3 py-1 sm:px-4 sm:py-1.5 text-[11px] sm:text-xs font-black text-pink-700 shadow-xs backdrop-blur-md">
+            <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-500 animate-pulse" />
             <span>{data.package.badge || "🔥 MYSTERY DIAMOND BOX"}</span>
           </div>
 
-          <h1 className="mt-3 font-display text-3xl sm:text-5xl font-black tracking-tight text-gray-900 drop-shadow-sm">
+          <h1 className="mt-1.5 sm:mt-3 font-display text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight text-gray-900 drop-shadow-xs">
             {data.package.name}
           </h1>
 
-          <p className="mt-2 text-xs sm:text-sm font-bold text-pink-600 max-w-md mx-auto">
+          <p className="mt-1 text-xs sm:text-sm font-bold text-pink-600 max-w-md mx-auto line-clamp-1 sm:line-clamp-none">
             {data.package.description || "បង្វិលកងសំណាងដើម្បីឈ្នះរង្វាន់ Diamonds ធំៗពី TheziessStore!"}
           </p>
 
           {/* Player Identity Card */}
-          <div className="mt-4 inline-flex flex-wrap items-center justify-center gap-2.5 rounded-2xl border border-pink-200 bg-white/95 px-4 py-2.5 text-xs shadow-sm backdrop-blur-md">
+          <div className="mt-2.5 sm:mt-4 inline-flex flex-wrap items-center justify-center gap-2 rounded-xl sm:rounded-2xl border border-pink-200 bg-white/95 px-3 py-1.5 sm:px-4 sm:py-2.5 text-[11px] sm:text-xs shadow-xs backdrop-blur-md">
             {data.game.imageUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={data.game.imageUrl}
                 alt={data.game.name}
-                className="h-5 w-5 rounded-md object-cover shadow-xs"
+                className="h-4 w-4 sm:h-5 sm:w-5 rounded-md object-cover shadow-xs"
               />
             )}
             <span className="font-bold text-gray-600">{data.game.name}:</span>
@@ -336,13 +367,13 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
             </button>
 
             {data.playerNickname && (
-              <span className="rounded-md bg-pink-100 px-2 py-0.5 font-bold text-pink-700">
+              <span className="rounded-md bg-pink-100 px-1.5 py-0.5 sm:px-2 font-bold text-pink-700">
                 {data.playerNickname}
               </span>
             )}
 
             <span className="text-gray-300">|</span>
-            <span className="font-mono text-xs font-semibold text-gray-500">
+            <span className="font-mono text-[11px] sm:text-xs font-semibold text-gray-500">
               #{data.orderNumber}
             </span>
           </div>
@@ -508,7 +539,7 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
           /* ── 2. ACTIVE LUCKY WHEEL INTERACTIVE VIEW ── */
           <div className="flex flex-col items-center">
             {/* The Lucky Wheel */}
-            <div className="my-3 scale-95 sm:scale-100 transition-transform">
+            <div className="my-1 sm:my-3 transition-transform">
               <LuckyWheel
                 slots={data.slots}
                 onSpinStart={handleSpinStart}
@@ -516,37 +547,37 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
                 isSpinning={spinning}
                 disabled={spinning || isCompleted}
                 targetIndex={targetIndex}
-                size={360}
+                size={wheelSize}
               />
             </div>
 
             {/* Spin Trigger Button */}
-            <div className="mt-5 text-center">
+            <div className="mt-3 sm:mt-5 text-center">
               <button
                 type="button"
                 onClick={handleSpinStart}
                 disabled={spinning || isCompleted}
-                className={`group relative inline-flex items-center justify-center gap-3 rounded-2xl px-10 py-4 font-black text-sm sm:text-base text-white shadow-2xl transition-all duration-300 active:scale-95 ${
+                className={`group relative inline-flex items-center justify-center gap-2 sm:gap-3 rounded-2xl px-6 py-2.5 sm:px-10 sm:py-3.5 font-black text-xs sm:text-base text-white shadow-xl transition-all duration-300 active:scale-95 ${
                   spinning
                     ? "bg-gray-500 cursor-not-allowed shadow-none"
-                    : "bg-gradient-to-r from-pink-600 via-rose-500 to-purple-600 shadow-pink-500/40 hover:shadow-pink-500/60 hover:scale-105"
+                    : "bg-gradient-to-r from-pink-600 via-rose-500 to-purple-600 shadow-pink-500/30 hover:shadow-pink-500/50 hover:scale-105"
                 }`}
               >
                 {spinning ? (
                   <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                     <span>កំពុងបង្វិលកង់សំណាង...</span>
                   </>
                 ) : (
                   <>
-                    <span className="text-xl">🎡</span>
+                    <span className="text-base sm:text-xl">🎡</span>
                     <span>ចុចដើម្បីបង្វិលកង់ (SPIN NOW)</span>
-                    <Sparkles className="h-4 w-4 text-amber-300 group-hover:rotate-12 transition-transform" />
+                    <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-300 group-hover:rotate-12 transition-transform" />
                   </>
                 )}
               </button>
 
-              <p className="mt-2.5 text-xs font-semibold text-pink-600/90">
+              <p className="mt-1.5 sm:mt-2 text-[11px] sm:text-xs font-semibold text-pink-600/90">
                 🔒 ១ ការបញ្ជាទិញ = ១ សិទ្ធិបង្វិល (ប្រព័ន្ធនឹងផ្ញើរង្វាន់ពេជ្រចូលគណនីហ្គេមដោយស្វ័យប្រវត្តិ)
               </p>
             </div>

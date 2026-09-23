@@ -266,11 +266,59 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
     termsAccepted &&
     (!turnstileSiteKey || !!turnstileToken);
 
+  // 🎟️ If user changes Game ID after applying promo, reset so per-user validation stays accurate
+  useEffect(() => {
+    if (promoApplied) {
+      setPromoApplied(null);
+      setPromoError("Game ID បានផ្លាស់ប្តូរ — សូមចុចអនុវត្តកូដម្តងទៀត");
+    }
+  }, [uid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 🎟️ If user changes product after applying promo, recalculate discount
+  useEffect(() => {
+    if (promoApplied && selectedProduct) {
+      const codeToReapply = promoApplied.code;
+      fetch("/api/promo-codes/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: codeToReapply,
+          orderAmountUsd: selectedProduct.priceUsd,
+          playerUid: uid.trim() || (isVoucherGame ? "ROBLOX-USER" : undefined),
+          gameId: game.id,
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.valid) {
+            setPromoApplied(data);
+            setPromoError(null);
+          } else {
+            setPromoApplied(null);
+            setPromoError(data?.error || "Coupon code is invalid or expired.");
+          }
+        })
+        .catch(() => {
+          setPromoApplied(null);
+        });
+    }
+  }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function applyPromo() {
-    if (!promoInput.trim() || !selectedProduct) return;
+    if (!promoInput.trim()) return;
+    if (!selectedProduct) {
+      setPromoError("សូមជ្រើសរើសកញ្ចប់ជាមុនសិន");
+      return;
+    }
+    if (!isVoucherGame && !uid.trim()) {
+      setPromoError("សូមបញ្ចូល Game ID / User ID ជាមុនសិន");
+      return;
+    }
+
     setPromoLoading(true);
     setPromoError(null);
     setPromoApplied(null);
+
     try {
       const res = await fetch("/api/promo-codes/validate", {
         method: "POST",
@@ -278,13 +326,17 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
         body: JSON.stringify({
           code: promoInput.trim(),
           orderAmountUsd: selectedProduct.priceUsd,
+          playerUid: uid.trim() || (isVoucherGame ? "ROBLOX-USER" : undefined),
+          gameId: game.id,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Invalid promo code");
+      if (!res.ok || !data.valid) {
+        throw new Error(data.error || "Coupon code is invalid or expired.");
+      }
       setPromoApplied(data);
     } catch (err: any) {
-      setPromoError(err.message);
+      setPromoError(err.message || "Coupon code is invalid or expired.");
     } finally {
       setPromoLoading(false);
     }
@@ -685,7 +737,7 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-pink-50 border border-pink-200 text-pink-500">
                 <Tag className="h-3.5 w-3.5" strokeWidth={2.5} />
               </div>
-              <h3 className="font-display text-sm font-semibold text-pink-500">Have a promo code?</h3>
+              <h3 className="font-display text-sm font-semibold text-pink-500">តើអ្នកមានកូដបញ្ចុះតម្លៃដែរឬទេ?</h3>
             </div>
 
             {promoApplied ? (
@@ -693,7 +745,7 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
                 <Tag className="h-4 w-4 text-green-600 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <span className="font-mono font-bold text-green-600 text-sm">{promoApplied.code}</span>
-                  <span className="text-xs text-green-600/80 ml-2">−{format(promoApplied.discountUsd)} off</span>
+                  <span className="text-xs text-green-600/80 ml-2">បញ្ចុះតម្លៃ −{format(promoApplied.discountUsd)}</span>
                 </div>
                 <button type="button" onClick={removePromo} className="text-xs text-pink-500 hover:text-red-500 transition-colors">
                   លុប
@@ -705,7 +757,7 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
                   type="text"
                   value={promoInput}
                   onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoError(null); }}
-                  placeholder="Enter code"
+                  placeholder="បញ្ចូលកូដបញ្ចុះតម្លៃ"
                   className="input font-mono uppercase text-sm flex-1"
                 />
                 <button
@@ -727,7 +779,7 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
               <div className="flex h-9 w-9 items-center justify-center rounded-full font-extrabold text-white shadow-lg shadow-pink-300/40" style={{background:"linear-gradient(135deg,#9333EA,#C084FC)"}}>
                 3
               </div>
-              <h2 className="font-display text-xl font-extrabold text-pink-800">Choose Payment</h2>
+              <h2 className="font-display text-xl font-extrabold text-pink-800">ជ្រើសរើសវិធីសាស្ត្រទូទាត់</h2>
             </div>
 
             <div className="grid gap-3">

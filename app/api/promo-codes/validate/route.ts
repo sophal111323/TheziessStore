@@ -1,72 +1,68 @@
-﻿import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { applyRateLimit } from "@/lib/rateLimit";
 import { getClientIp } from "@/lib/getIp";
+import { prisma } from "@/lib/prisma";
+import { validatePromoCode } from "@/lib/coupon";
 
 const schema = z.object({
   code: z.string().min(1),
   orderAmountUsd: z.number().positive(),
+  playerUid: z.string().optional().nullable(),
+  gameId: z.string().optional().nullable(),
 });
 
 export async function POST(req: NextRequest) {
-  // Rate limit: 10 attempts per IP per 5 minutes
-  // ការពារ brute-force promo codes (e.g. SAVE10, FREE99, VIP50...)
+  // Rate limit: 15 attempts per IP per 5 minutes to prevent brute-forcing
   const ip = getClientIp(req);
-  const rl = await applyRateLimit(`promo-validate:${ip}`, 10, 5 * 60 * 1000, ip);
+  const rl = await applyRateLimit(`promo-validate:${ip}`, 15, 5 * 60 * 1000, ip);
   if (rl) return rl;
 
   try {
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+      return NextResponse.json({ valid: false, error: "Invalid request" }, { status: 400 });
     }
 
-    const { code, orderAmountUsd } = parsed.data;
-    const promo = await prisma.promoCode.findUnique({
-      where: { code: code.toUpperCase().trim() },
-    });
+    const { code, orderAmountUsd, playerUid, gameId } = parsed.data;
 
-    if (!promo || !promo.active) {
-      return NextResponse.json({ error: "Invalid promo code" }, { status: 404 });
-    }
-
-    if (promo.expiresAt && promo.expiresAt < new Date()) {
-      return NextResponse.json({ error: "This promo code has expired" }, { status: 400 });
-    }
-
-    if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) {
-      return NextResponse.json({ error: "This promo code has reached its usage limit" }, { status: 400 });
-    }
-
-    if (orderAmountUsd < promo.minOrderUsd) {
+    // Check system settings
+    const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+    if (settings?.promosEnabled === false) {
       return NextResponse.json(
-        { error: `Minimum order of $${promo.minOrderUsd.toFixed(2)} required` },
+        { valid: false, error: "Promo codes are temporarily disabled." },
         { status: 400 }
       );
     }
 
-    let discountUsd =
-      promo.discountType === "PERCENT"
-        ? (orderAmountUsd * promo.discountValue) / 100
-        : promo.discountValue;
+    const validation = await validatePromoCode({
+      code,
+      orderAmountUsd,
+      playerUid: playerUid || undefined,
+      gameId: gameId || undefined,
+    });
 
-    // Cap discount at order total
-    discountUsd = Math.min(discountUsd, orderAmountUsd);
-    discountUsd = Math.round(discountUsd * 100) / 100;
+    if (!validation.valid) {
+      return NextResponse.json(
+        { valid: false, error: validation.error || "Coupon code is invalid or expired." },
+        { status: 400 }
+      );
+    }
 
     return NextResponse.json({
       valid: true,
-      code: promo.code,
-      discountType: promo.discountType,
-      discountValue: promo.discountValue,
-      discountUsd,
-      finalAmountUsd: Math.round((orderAmountUsd - discountUsd) * 100) / 100,
+      message: "Coupon applied successfully",
+      code: validation.code,
+      discountType: validation.discountType,
+      discountValue: validation.discountValue,
+      discountUsd: validation.discountUsd,
+      finalAmountUsd: validation.finalAmountUsd,
     });
-  } catch {
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  } catch (err) {
+    console.error("Promo validation error:", err);
+    return NextResponse.json({ valid: false, error: "Server error" }, { status: 500 });
   }
 }

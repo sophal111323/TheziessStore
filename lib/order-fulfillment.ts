@@ -5,6 +5,7 @@ import { getSupplier } from "@/lib/topup";
 import { startBackgroundOrderTracker } from "@/lib/order-tracker";
 import { markAffiliateOrderCompleted } from "@/lib/affiliate/store";
 import { extractRedeemCode } from "@/lib/redeem";
+import { consumeOrderCouponAtomically } from "@/lib/coupon";
 
 /**
  * Runs post-payment work after an order safely transitions to PAID.
@@ -103,6 +104,7 @@ export async function notifyAndMaybeDeliverPaidOrder(orderId: string) {
 
   let statusSection = "";
   if (updatedOrder.status === "DELIVERED") {
+    await consumeOrderCouponAtomically(updatedOrder.id);
     const refText = updatedOrder.topupProviderRef
       ? ` (Ref: <code>${escapeHtml(updatedOrder.topupProviderRef)}</code>)`
       : "";

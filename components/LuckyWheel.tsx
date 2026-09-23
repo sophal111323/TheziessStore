@@ -39,6 +39,15 @@ export default function LuckyWheel({
   const lastTickSliceRef = useRef<number>(-1);
   const [internalSpinning, setInternalSpinning] = useState(false);
 
+  const onSpinEndRef = useRef(onSpinEnd);
+  onSpinEndRef.current = onSpinEnd;
+
+  const slotsRef = useRef(slots);
+  slotsRef.current = slots;
+
+  const lastProcessedTargetRef = useRef<number | null>(null);
+  const isAnimatingRef = useRef(false);
+
   // Play synthesized tick sound on each passing segment
   const playTickSound = useCallback(() => {
     try {
@@ -151,9 +160,11 @@ export default function LuckyWheel({
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
 
-        const textX = radius - 36;
+        const textScale = radius / 360;
+        const textX = radius - Math.round(36 * textScale);
         ctx.fillStyle = slot.textColor || "#FFFFFF";
-        ctx.font = `bold ${numSlots > 10 ? 12 : 14}px system-ui, -apple-system, sans-serif`;
+        const fontSize = Math.max(10, Math.round((numSlots > 10 ? 12 : 14) * textScale));
+        ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
         ctx.shadowColor = "rgba(0,0,0,0.6)";
         ctx.shadowBlur = 4;
 
@@ -163,8 +174,9 @@ export default function LuckyWheel({
 
         // Icon near rim (only emoji / text icon, not image URLs)
         if (slot.icon && !slot.icon.startsWith("http") && !slot.icon.startsWith("/")) {
-          ctx.font = `${numSlots > 10 ? 14 : 18}px system-ui`;
-          ctx.fillText(slot.icon, radius - 18, 0);
+          const iconSize = Math.max(12, Math.round((numSlots > 10 ? 14 : 18) * textScale));
+          ctx.font = `${iconSize}px system-ui`;
+          ctx.fillText(slot.icon, radius - Math.round(18 * textScale), 0);
         }
 
         ctx.restore();
@@ -191,21 +203,23 @@ export default function LuckyWheel({
       ctx.save();
       ctx.translate(center, center);
 
+      const hubScale = radius / 360;
+
       // Hub outer shadow ring
       ctx.beginPath();
-      ctx.arc(0, 0, 46, 0, 2 * Math.PI);
+      ctx.arc(0, 0, Math.round(46 * hubScale), 0, 2 * Math.PI);
       ctx.fillStyle = "#312E81";
       ctx.fill();
 
       // Hub gold border
       ctx.beginPath();
-      ctx.arc(0, 0, 42, 0, 2 * Math.PI);
+      ctx.arc(0, 0, Math.round(42 * hubScale), 0, 2 * Math.PI);
       ctx.fillStyle = "linear-gradient" in ctx ? "#FACC15" : "#EAB308";
       ctx.fill();
 
       // Hub center cap
       ctx.beginPath();
-      ctx.arc(0, 0, 36, 0, 2 * Math.PI);
+      ctx.arc(0, 0, Math.round(36 * hubScale), 0, 2 * Math.PI);
       ctx.fillStyle = "#4C1D95";
       ctx.fill();
 
@@ -221,20 +235,27 @@ export default function LuckyWheel({
 
   // Handle spin animation when targetIndex is received
   useEffect(() => {
-    if (targetIndex === null || targetIndex === undefined || internalSpinning) return;
+    if (targetIndex === null || targetIndex === undefined) {
+      lastProcessedTargetRef.current = null;
+      return;
+    }
 
-    const numSlots = slots.length;
+    // 🛑 Anti-glitch guard: If already animating or this targetIndex was already spun, NEVER spin again!
+    if (isAnimatingRef.current || lastProcessedTargetRef.current === targetIndex) {
+      return;
+    }
+
+    const currentSlots = slotsRef.current;
+    const numSlots = currentSlots.length;
     if (numSlots === 0 || targetIndex < 0 || targetIndex >= numSlots) return;
 
+    lastProcessedTargetRef.current = targetIndex;
+    isAnimatingRef.current = true;
     setInternalSpinning(true);
     const sliceDeg = 360 / numSlots;
 
     // Pointer is at the top (270 degrees in standard canvas coords or 0 relative to pointer).
-    // To align the target slice directly under the top pointer:
-    // Slot i center angle is: (i + 0.5) * sliceDeg.
-    // Target rotation = 270 - (targetIndex + 0.5) * sliceDeg.
     const targetSliceCenter = (targetIndex + 0.5) * sliceDeg;
-    // Base target: pointer at 270°
     let targetOffset = 270 - targetSliceCenter;
     while (targetOffset < 0) targetOffset += 360;
 
@@ -269,10 +290,11 @@ export default function LuckyWheel({
       } else {
         currentRotationRef.current = finalRotation;
         drawWheel(finalRotation);
+        isAnimatingRef.current = false;
         setInternalSpinning(false);
         playVictoryFanfare();
-        if (onSpinEnd) {
-          onSpinEnd(slots[targetIndex]);
+        if (onSpinEndRef.current) {
+          onSpinEndRef.current(currentSlots[targetIndex]);
         }
       }
     };
@@ -284,7 +306,7 @@ export default function LuckyWheel({
         cancelAnimationFrame(animFrameRef.current);
       }
     };
-  }, [targetIndex, slots, drawWheel, onSpinEnd, playTickSound, playVictoryFanfare]);
+  }, [targetIndex, drawWheel, playTickSound, playVictoryFanfare]);
 
   const spinning = isSpinning || internalSpinning;
 
@@ -294,8 +316,8 @@ export default function LuckyWheel({
       <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-pink-500/30 via-purple-500/20 to-yellow-400/20 blur-2xl pointer-events-none scale-110" />
 
       {/* The Top Pointer / Indicator */}
-      <div className="relative z-30 -mb-5 flex flex-col items-center pointer-events-none">
-        <div className="w-8 h-10 -rotate-180 drop-shadow-[0_4px_12px_rgba(234,179,8,0.8)] filter">
+      <div className={`relative z-30 flex flex-col items-center pointer-events-none ${size < 320 ? "-mb-3.5" : "-mb-5"}`}>
+        <div className={`${size < 320 ? "w-6 h-8" : "w-8 h-10"} -rotate-180 drop-shadow-[0_4px_12px_rgba(234,179,8,0.8)] filter`}>
           <svg viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M12 0L24 24C24 27.3137 18.6274 30 12 30C5.37258 30 0 27.3137 0 24L12 0Z"
@@ -318,7 +340,7 @@ export default function LuckyWheel({
 
       {/* Wheel Container */}
       <div
-        className="relative rounded-full p-2 bg-gradient-to-b from-yellow-300 via-amber-500 to-yellow-600 shadow-[0_12px_40px_rgba(0,0,0,0.45)] ring-4 ring-yellow-400/50"
+        className="relative rounded-full p-1.5 sm:p-2 bg-gradient-to-b from-yellow-300 via-amber-500 to-yellow-600 shadow-[0_12px_40px_rgba(0,0,0,0.45)] ring-2 sm:ring-4 ring-yellow-400/50"
         style={{ width: size, height: size }}
       >
         <canvas
@@ -339,18 +361,20 @@ export default function LuckyWheel({
                 onSpinStart();
               }
             }}
-            className={`pointer-events-auto relative w-20 h-20 rounded-full flex flex-col items-center justify-center text-white font-black text-xs sm:text-sm tracking-wider uppercase transition-all duration-300 shadow-[0_4px_20px_rgba(0,0,0,0.5)] active:scale-95 focus:outline-none ${
+            className={`pointer-events-auto relative ${
+              size < 320 ? "w-14 h-14" : "w-18 h-18 sm:w-20 sm:h-20"
+            } rounded-full flex flex-col items-center justify-center text-white font-black text-xs sm:text-sm tracking-wider uppercase transition-all duration-300 shadow-[0_4px_20px_rgba(0,0,0,0.5)] active:scale-95 focus:outline-none ${
               spinning || disabled
                 ? "bg-gradient-to-tr from-gray-700 to-gray-500 cursor-not-allowed opacity-80"
                 : "bg-gradient-to-tr from-rose-500 via-pink-600 to-purple-600 hover:scale-105 hover:shadow-[0_0_25px_rgba(244,63,94,0.8)] cursor-pointer ring-2 ring-yellow-300 animate-pulse"
             }`}
           >
             {spinning ? (
-              <span className="text-[11px] font-bold">Spinning...</span>
+              <span className={size < 320 ? "text-[9px] font-bold" : "text-[11px] font-bold"}>Spinning...</span>
             ) : (
               <>
-                <span className="text-[10px] text-yellow-200 font-bold">LUCKY</span>
-                <span className="text-sm font-extrabold drop-shadow">SPIN</span>
+                <span className={`${size < 320 ? "text-[8px]" : "text-[10px]"} text-yellow-200 font-bold`}>LUCKY</span>
+                <span className={`${size < 320 ? "text-xs" : "text-sm"} font-extrabold drop-shadow`}>SPIN</span>
               </>
             )}
           </button>

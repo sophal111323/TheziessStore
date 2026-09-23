@@ -13,6 +13,8 @@ const updateSchema = z.object({
   discountValue: z.number().positive().optional(),
   minOrderUsd: z.number().min(0).optional(),
   maxUses: z.number().int().min(0).optional(),
+  onePerUser: z.boolean().optional(),
+  maxUsesPerUser: z.number().int().min(0).optional(),
   expiresAt: z.string().nullable().optional(),
   active: z.boolean().optional(),
 });
@@ -22,7 +24,14 @@ export const GET = withAdminAuth(
     const { id } = await params;
     const promo = await prisma.promoCode.findUnique({
       where: { id },
-      include: { _count: { select: { orders: true } } },
+      include: {
+        _count: {
+          select: {
+            orders: true,
+            usages: { where: { status: "USED" } },
+          },
+        },
+      },
     });
     if (!promo) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(promo);
@@ -52,6 +61,8 @@ export const PATCH = withAdminAuth(
           ...(data.discountValue !== undefined ? { discountValue: data.discountValue } : {}),
           ...(data.minOrderUsd !== undefined ? { minOrderUsd: data.minOrderUsd } : {}),
           ...(data.maxUses !== undefined ? { maxUses: data.maxUses } : {}),
+          ...(data.onePerUser !== undefined ? { onePerUser: data.onePerUser } : {}),
+          ...(data.maxUsesPerUser !== undefined ? { maxUsesPerUser: data.maxUsesPerUser } : {}),
           ...(data.expiresAt !== undefined ? { expiresAt: data.expiresAt ? new Date(data.expiresAt) : null } : {}),
           ...(data.active !== undefined ? { active: data.active } : {}),
         },

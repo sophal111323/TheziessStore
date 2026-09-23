@@ -32,6 +32,7 @@ import { getClientIp } from "@/lib/getIp";
 import { isIpAllowedByEnv } from "@/lib/ipAllowlist";
 import { logSecurityEvent } from "@/lib/secureLogger";
 import { publicRateLimit } from "@/lib/apiSecurity";
+import { consumeOrderCouponAtomically } from "@/lib/coupon";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -190,6 +191,7 @@ export async function POST(req: NextRequest) {
           supplierResponse: rawBody,
         },
       });
+      await consumeOrderCouponAtomically(order.id);
 
       const baseUrl =
         process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "";
