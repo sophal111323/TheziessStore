@@ -17,7 +17,7 @@ import {
 
 interface SpinPageData {
   orderNumber: string;
-  status: "PENDING" | "SPUN" | "COMPLETED" | "FAILED";
+  status: "PENDING" | "SPUN" | "CLAIMING" | "COMPLETED" | "FAILED";
   playerUid: string;
   serverId?: string | null;
   playerNickname?: string | null;
@@ -59,8 +59,13 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
   const [claiming, setClaiming] = useState(false);
   const [claimSuccess, setClaimSuccess] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
+  const [showVictory, setShowVictory] = useState(false);
   const [copiedUid, setCopiedUid] = useState(false);
   const [wheelSize, setWheelSize] = useState<number>(340);
+
+  const claimingRef = useRef(false);
+  const hasSpunRef = useRef(false);
+  const autoClaimTriggeredRef = useRef(false);
 
   useEffect(() => {
     const updateSize = () => {
@@ -83,17 +88,15 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  const autoClaimTriggeredRef = useRef(false);
-
   // Execute Claim API automatically without requiring manual user button click
   const executeAutoClaim = useCallback(
     async (targetSlot?: WheelSlot | null) => {
-      if (claiming) return;
+      if (claimingRef.current) return;
+      claimingRef.current = true;
+      setClaiming(true);
+      setClaimError(null);
 
       try {
-        setClaiming(true);
-        setClaimError(null);
-
         const res = await fetch(`/api/spin/${encodeURIComponent(orderNumber)}/claim`, {
           method: "POST",
         });
@@ -104,6 +107,7 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
         }
 
         setClaimSuccess(true);
+        setShowVictory(true);
 
         // Update local state to COMPLETED & Expired
         setData((prev) => {
@@ -111,21 +115,24 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
           return {
             ...prev,
             status: "COMPLETED",
+            winningSlotId: targetSlot?.id || prev.winningSlotId,
             winningRewardLabel:
               json.rewardLabel || targetSlot?.label || prev.winningRewardLabel,
             winningRewardAmount:
               json.rewardAmount ?? targetSlot?.rewardAmount ?? prev.winningRewardAmount,
             claimedAt: json.claimedAt || new Date().toISOString(),
             fulfillmentRef: json.fulfillmentRef || prev.fulfillmentRef,
+            fulfillmentStatus: json.fulfillmentStatus || "COMPLETED",
           };
         });
       } catch (err: any) {
         setClaimError(err.message || "មិនអាចផ្ញើរង្វាន់បានទេ សូមចុចសាកល្បងម្ដងទៀត");
       } finally {
+        claimingRef.current = false;
         setClaiming(false);
       }
     },
-    [claiming, orderNumber]
+    [orderNumber]
   );
 
   // Fetch spin state
@@ -143,26 +150,28 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
       setData(json);
 
       // Locate winning slot if previously determined or completed
+      let foundWonSlot: WheelSlot | null = null;
       if (json.winningSlotId) {
-        const found = json.slots?.find((s: WheelSlot) => s.id === json.winningSlotId);
-        if (found) setWonSlot(found);
-      } else if (json.winningRewardLabel) {
-        const found = json.slots?.find((s: WheelSlot) => s.label === json.winningRewardLabel);
-        if (found) setWonSlot(found);
+        foundWonSlot = json.slots?.find((s: WheelSlot) => s.id === json.winningSlotId) || null;
+      }
+      if (!foundWonSlot && json.winningRewardLabel) {
+        foundWonSlot = json.slots?.find((s: WheelSlot) => s.label === json.winningRewardLabel) || null;
+      }
+      if (foundWonSlot) {
+        setWonSlot(foundWonSlot);
       }
 
-      // If already spun and waiting for claim, auto-trigger claim!
-      if (json.status === "SPUN" && json.winningSlotId) {
-        const found = json.slots?.find((s: WheelSlot) => s.id === json.winningSlotId);
-        if (found) {
-          setWonSlot(found);
-          if (!autoClaimTriggeredRef.current) {
-            autoClaimTriggeredRef.current = true;
-            void executeAutoClaim(found);
-          }
+      // If already spun, claiming, or completed, lock permanently into victory view!
+      if (json.status === "COMPLETED" || json.status === "CLAIMING" || json.status === "SPUN") {
+        hasSpunRef.current = true;
+        setShowVictory(true);
+
+        if (json.status === "COMPLETED") {
+          setClaimSuccess(true);
+        } else if (foundWonSlot && !autoClaimTriggeredRef.current) {
+          autoClaimTriggeredRef.current = true;
+          void executeAutoClaim(foundWonSlot);
         }
-      } else if (json.status === "COMPLETED") {
-        setClaimSuccess(true);
       }
     } catch (err: any) {
       setError(err.message || "មានបញ្ហាមិនប្រក្រតីកើតឡើង");
@@ -175,11 +184,20 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
     loadData();
   }, [loadData]);
 
-  const hasSpunRef = useRef(false);
-
   // Execute Spin (Server-Authoritative Cryptographic RNG)
   const handleSpinStart = async () => {
-    if (hasSpunRef.current || spinning || !data || data.status === "COMPLETED" || claimSuccess) return;
+    if (
+      hasSpunRef.current ||
+      spinning ||
+      !data ||
+      data.status === "COMPLETED" ||
+      data.status === "CLAIMING" ||
+      data.status === "SPUN" ||
+      claimSuccess ||
+      showVictory
+    ) {
+      return;
+    }
     hasSpunRef.current = true;
 
     try {
@@ -194,6 +212,10 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
       if (!res.ok) {
         hasSpunRef.current = false;
         throw new Error(json.error || "ការបង្វិលកងមិនបានសម្រេច");
+      }
+
+      if (json.slot) {
+        setWonSlot(json.slot);
       }
 
       // Set target index returned from server-side cryptographic outcome
@@ -211,6 +233,7 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
       setSpinning(false);
       setTargetIndex(null); // CRITICAL: Reset targetIndex so the wheel NEVER spins again!
       setWonSlot(slot);
+      setShowVictory(true); // PERMANENT: Lock into victory receipt view
 
       // Transition immediately to the completed view
       setData((prev) => {
@@ -218,6 +241,7 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
         return {
           ...prev,
           status: "COMPLETED",
+          winningSlotId: slot.id,
           winningRewardLabel: slot.label,
           winningRewardAmount: slot.rewardAmount,
         };
@@ -288,10 +312,16 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
     );
   }
 
-  const isCompleted = data.status === "COMPLETED" || claimSuccess;
+  const isCompleted =
+    showVictory ||
+    claimSuccess ||
+    data.status === "COMPLETED" ||
+    data.status === "CLAIMING" ||
+    data.status === "SPUN";
   const prizeLabel =
     data.winningRewardLabel ||
-    (wonSlot ? wonSlot.label : "Diamond Reward");
+    wonSlot?.label ||
+    "Diamond Reward";
 
   // Image configured in admin panel: slice custom icon -> data.slots match -> package logo -> game logo
   const wonRewardImage = (() => {
@@ -487,9 +517,19 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-gray-500">ស្ថានភាពបញ្ជូន</span>
-                  <span className="inline-flex items-center gap-1 font-black text-emerald-600">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> ជោគជ័យ (DELIVERED)
-                  </span>
+                  {claiming ? (
+                    <span className="inline-flex items-center gap-1 font-bold text-amber-600">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> កំពុងបញ្ជូន (PROCESSING)
+                    </span>
+                  ) : claimError ? (
+                    <span className="inline-flex items-center gap-1 font-bold text-rose-600">
+                      <AlertCircle className="h-3.5 w-3.5" /> បរាជ័យ (FAILED)
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 font-black text-emerald-600">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> ជោគជ័យ (DELIVERED)
+                    </span>
+                  )}
                 </div>
                 {data.fulfillmentRef && (
                   <div className="flex justify-between items-center">
