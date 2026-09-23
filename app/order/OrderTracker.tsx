@@ -11,6 +11,7 @@ import {
   Send,
   Copy,
   Check,
+  ExternalLink,
 } from "lucide-react";
 
 interface OrderInfo {
@@ -393,33 +394,33 @@ export default function OrderTracker() {
 
             {/* 🎟️ VIP Redeem Code Box */}
             {order.redeemCode && (
-              <div className="border-b border-emerald-200 bg-gradient-to-b from-emerald-50 via-teal-50/40 to-emerald-50 p-5 sm:p-6 animate-scale-in">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600 text-white text-xs font-black tracking-wide shadow-sm">
+              <div className="border-b border-purple-200 bg-gradient-to-b from-purple-50 via-white to-purple-50/70 p-5 sm:p-6 animate-scale-in">
+                <div className="flex items-center justify-between gap-2 mb-2.5">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black tracking-wide shadow-md shadow-purple-500/25">
                     <span>🎟️</span> REDEEM CODE
                   </div>
-                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-md">
+                  <span className="text-[11px] font-bold text-purple-700 bg-purple-100/90 border border-purple-200 px-2.5 py-0.5 rounded-full">
                     រួចរាល់សម្រាប់ប្រើប្រាស់
                   </span>
                 </div>
 
-                <p className="text-xs text-gray-600 mb-2 font-medium">
+                <p className="text-xs text-purple-900/80 mb-2.5 font-medium">
                   លេខកូដ Redeem របស់អ្នក៖
                 </p>
 
                 {/* Code display with copy button */}
-                <div className="flex items-center justify-between gap-2 bg-white p-3 rounded-xl border border-emerald-300 shadow-inner">
-                  <span className="font-mono text-base sm:text-xl font-black text-emerald-800 tracking-wider break-all select-all">
+                <div className="flex items-center justify-between gap-2 bg-white p-3.5 rounded-2xl border-2 border-purple-200 shadow-sm focus-within:border-purple-500 transition-colors">
+                  <span className="font-mono text-base sm:text-xl font-black text-purple-950 tracking-wider break-all select-all">
                     {order.redeemCode}
                   </span>
                   <button
                     type="button"
                     onClick={() => copyRedeemCode(order.redeemCode!)}
-                    className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-extrabold shadow-sm transition active:scale-95 cursor-pointer"
+                    className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-3.5 py-2 text-xs font-black shadow-md shadow-purple-500/25 transition active:scale-95 cursor-pointer"
                   >
                     {copiedRedeem ? (
                       <>
-                        <Check className="h-3.5 w-3.5 text-emerald-200" />
+                        <Check className="h-3.5 w-3.5 text-purple-200" />
                         <span>បានចម្លង!</span>
                       </>
                     ) : (
@@ -435,11 +436,11 @@ export default function OrderTracker() {
                 <button
                   type="button"
                   onClick={() => copyRedeemCode(order.redeemCode!)}
-                  className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white py-3.5 px-4 text-sm font-black shadow-md shadow-emerald-300/40 transition active:scale-[0.98] cursor-pointer"
+                  className="mt-3.5 w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 hover:from-purple-700 hover:via-violet-700 hover:to-indigo-700 text-white py-3.5 px-4 text-sm font-black shadow-lg shadow-purple-500/25 transition active:scale-[0.98] cursor-pointer"
                 >
                   {copiedRedeem ? (
                     <>
-                      <Check className="h-4 w-4 text-emerald-200" />
+                      <Check className="h-4 w-4 text-purple-200" />
                       <span>✓ បានចម្លងលេខកូដរួចរាល់ (Copied!)</span>
                     </>
                   ) : (
@@ -451,19 +452,19 @@ export default function OrderTracker() {
                 </button>
 
                 {/* Instructions */}
-                <div className="mt-3.5 pt-3 border-t border-emerald-200 text-xs text-emerald-950 space-y-1.5">
-                  <div className="font-bold flex items-center justify-between gap-1">
+                <div className="mt-3.5 pt-3.5 border-t border-purple-200/80 text-xs text-purple-950 space-y-2">
+                  <div className="font-bold flex items-center justify-between gap-1 flex-wrap">
                     <span>📖 របៀប Redeem លើ Roblox:</span>
                     <a
                       href="https://t.me/theziessstore/26"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 font-extrabold underline inline-flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-lg border border-blue-200 transition-colors text-[11px]"
+                      className="text-white hover:text-white font-extrabold inline-flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 px-3 py-1 rounded-full shadow-sm shadow-purple-500/20 transition-all text-[11px]"
                     >
-                      🎥 វីដេអូរបៀបប្រើប្រាស់ ↗
+                      <span>🎥 វីដេអូរបៀបប្រើប្រាស់</span> <ExternalLink className="h-3 w-3" />
                     </a>
                   </div>
-                  <ol className="list-decimal list-inside text-[11px] text-emerald-800 space-y-0.5">
+                  <ol className="list-decimal list-inside text-[11px] text-purple-900/90 space-y-1">
                     <li>ចុចប៊ូតុង &quot;Copy&quot; ខាងលើដើម្បីចម្លងលេខកូដ</li>
                     <li>
                       ចូលមើលវីដេអូរបៀបប្រើប្រាស់លើ Telegram៖{" "}
@@ -471,7 +472,7 @@ export default function OrderTracker() {
                         href="https://t.me/theziessstore/26"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline font-bold text-blue-700 hover:text-blue-900"
+                        className="underline font-bold text-purple-700 hover:text-purple-900"
                       >
                         t.me/theziessstore/26
                       </a>
@@ -482,7 +483,7 @@ export default function OrderTracker() {
                         href="https://www.roblox.com/redeem"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline font-bold"
+                        className="underline font-bold text-purple-700 hover:text-purple-900"
                       >
                         roblox.com/redeem
                       </a>{" "}
