@@ -34,6 +34,20 @@ export interface AffiliateStats {
   pendingCommission: number;
   availableBalance: number;
   paidCommission: number;
+  totalAdjustmentsAdd?: number;
+  totalAdjustmentsDeduct?: number;
+}
+
+export type AdjustmentType = "ADD" | "DEDUCT";
+
+export interface AffiliateAdjustment {
+  id: string;
+  affiliateId: string;
+  type: AdjustmentType;
+  amountUsd: number;
+  reason: string;
+  adminEmail?: string;
+  createdAt: string;
 }
 
 export type AffiliateOrderStatus = "COMPLETED" | "PENDING" | "CANCELLED";
@@ -53,7 +67,7 @@ export interface AffiliateOrder {
   createdAt: string;
 }
 
-export type PayoutMethod = "ABA" | "WING" | "ACLEDA" | "OTHER";
+export type PayoutMethod = "ABA" | "WING" | "ACLEDA" | "TRUE_MONEY" | "CASH" | "OTHER" | (string & {});
 export type PayoutStatus = "PENDING" | "APPROVED" | "PAID" | "REJECTED";
 
 export interface AffiliatePayout {

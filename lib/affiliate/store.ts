@@ -6,6 +6,9 @@ import {
   AffiliateOrder,
   AffiliatePayout,
   AffiliateNotification,
+  AffiliateAdjustment,
+  PayoutMethod,
+  PayoutStatus,
   MarketingAsset,
   AffiliateSettings,
 } from "./types";
@@ -666,6 +669,192 @@ export function requestPayout(
   return { success: true, payout: newPayout };
 }
 
+// ── Persistent Adjustments Storage ─────────────────────────────────────
+function getStoredAdjustments(): AffiliateAdjustment[] {
+  ensureDataDir();
+  const file = path.join(DATA_DIR, "affiliate-adjustments.json");
+  try {
+    if (fs.existsSync(file)) {
+      const content = fs.readFileSync(file, "utf-8");
+      const list = JSON.parse(content);
+      if (Array.isArray(list)) {
+        return list;
+      }
+    }
+  } catch {}
+  return [];
+}
+
+function saveStoredAdjustments(list: AffiliateAdjustment[]) {
+  ensureDataDir();
+  const file = path.join(DATA_DIR, "affiliate-adjustments.json");
+  try {
+    fs.writeFileSync(file, JSON.stringify(list, null, 2), "utf-8");
+  } catch (e) {
+    console.error("Failed to save affiliate adjustments:", e);
+  }
+}
+
+export function getAffiliateAdjustments(affiliateId: string): AffiliateAdjustment[] {
+  return getStoredAdjustments()
+    .filter((a) => a.affiliateId === affiliateId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export function recordAffiliateAdjustment(data: {
+  affiliateId: string;
+  type: "ADD" | "DEDUCT";
+  amountUsd: number;
+  reason: string;
+  adminEmail?: string;
+}): { success: boolean; adjustment?: AffiliateAdjustment; error?: string } {
+  const aff = getAffiliateById(data.affiliateId);
+  if (!aff) return { success: false, error: "Promoter not found" };
+
+  const parsedAmount = Number(data.amountUsd);
+  if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    return { success: false, error: "Invalid amount. Must be greater than 0." };
+  }
+
+  const cleanAmount = Number(parsedAmount.toFixed(2));
+  const stats = getAffiliateStats(data.affiliateId);
+
+  if (data.type === "DEDUCT" && cleanAmount > stats.availableBalance) {
+    return {
+      success: false,
+      error: `Cannot deduct $${cleanAmount.toFixed(2)}. Available balance is only $${stats.availableBalance.toFixed(2)}.`,
+    };
+  }
+
+  const newAdjustment: AffiliateAdjustment = {
+    id: `adj-${Date.now()}`,
+    affiliateId: data.affiliateId,
+    type: data.type,
+    amountUsd: cleanAmount,
+    reason: data.reason?.trim() || (data.type === "ADD" ? "Manual credit added by admin" : "Manual deduction by admin"),
+    adminEmail: data.adminEmail,
+    createdAt: new Date().toISOString(),
+  };
+
+  const list = getStoredAdjustments();
+  list.unshift(newAdjustment);
+  saveStoredAdjustments(list);
+
+  // Send notification to promoter
+  const notifs = getStoredNotifications();
+  const isAdd = data.type === "ADD";
+  notifs.unshift({
+    id: `notif-${Date.now()}`,
+    affiliateId: aff.id,
+    title: isAdd
+      ? `Bonus/Credit Added: +$${cleanAmount.toFixed(2)}`
+      : `Balance Deduction: -$${cleanAmount.toFixed(2)}`,
+    message: isAdd
+      ? `An amount of +$${cleanAmount.toFixed(2)} has been credited to your account. Note: ${newAdjustment.reason}`
+      : `An amount of -$${cleanAmount.toFixed(2)} has been deducted from your balance. Reason: ${newAdjustment.reason}`,
+    type: isAdd ? "commission" : "info",
+    read: false,
+    createdAt: new Date().toISOString(),
+  });
+  saveStoredNotifications(notifs);
+
+  return { success: true, adjustment: newAdjustment };
+}
+
+export function clearAffiliateBalance(data: {
+  affiliateId: string;
+  amountUsd?: number;
+  paymentMethod?: PayoutMethod;
+  accountName?: string;
+  accountNumber?: string;
+  note?: string;
+  adminEmail?: string;
+}): { success: boolean; payout?: AffiliatePayout; error?: string } {
+  const aff = getAffiliateById(data.affiliateId);
+  if (!aff) return { success: false, error: "Promoter not found" };
+
+  const stats = getAffiliateStats(data.affiliateId);
+  const amountToClear = data.amountUsd !== undefined ? Number(data.amountUsd) : stats.availableBalance;
+
+  if (isNaN(amountToClear) || amountToClear <= 0) {
+    return { success: false, error: "No available balance to clear ($0.00)" };
+  }
+
+  if (amountToClear > stats.availableBalance) {
+    return {
+      success: false,
+      error: `Amount $${amountToClear.toFixed(2)} exceeds available balance ($${stats.availableBalance.toFixed(2)})`,
+    };
+  }
+
+  const cleanAmount = Number(amountToClear.toFixed(2));
+  const newPayout: AffiliatePayout = {
+    id: `pay-${Date.now()}`,
+    affiliateId: data.affiliateId,
+    amountUsd: cleanAmount,
+    paymentMethod: data.paymentMethod || "ABA",
+    accountName: data.accountName?.trim() || aff.name || aff.slug,
+    accountNumber: data.accountNumber?.trim() || aff.phone || "MANUAL_CLEAR",
+    note: data.note?.trim() || "Admin cleared balance (ទូទាត់ប្រាក់ជូន Promoter)",
+    status: "PAID",
+    createdAt: new Date().toISOString(),
+    processedAt: new Date().toISOString(),
+  };
+
+  const payouts = getStoredPayouts();
+  payouts.unshift(newPayout);
+  saveStoredPayouts(payouts);
+
+  // Send notification to promoter
+  const notifs = getStoredNotifications();
+  notifs.unshift({
+    id: `notif-${Date.now()}`,
+    affiliateId: aff.id,
+    title: `Payout Completed: $${cleanAmount.toFixed(2)}`,
+    message: `Your balance of $${cleanAmount.toFixed(2)} has been cleared and marked as PAID (${newPayout.paymentMethod}). You can now accumulate new commissions.`,
+    type: "payout",
+    read: false,
+    createdAt: new Date().toISOString(),
+  });
+  saveStoredNotifications(notifs);
+
+  return { success: true, payout: newPayout };
+}
+
+export function updateAffiliatePayoutStatus(
+  payoutId: string,
+  status: PayoutStatus,
+  note?: string
+): AffiliatePayout | null {
+  const payouts = getStoredPayouts();
+  const payout = payouts.find((p) => p.id === payoutId);
+  if (!payout) return null;
+
+  payout.status = status;
+  if (note) payout.note = note;
+  if (status === "PAID") {
+    payout.processedAt = new Date().toISOString();
+  }
+  saveStoredPayouts(payouts);
+
+  // Send notification to promoter
+  const notifs = getStoredNotifications();
+  notifs.unshift({
+    id: `notif-${Date.now()}`,
+    affiliateId: payout.affiliateId,
+    title: status === "PAID" ? `Payout Approved: $${payout.amountUsd.toFixed(2)}` : `Payout Update: ${status}`,
+    message: status === "PAID"
+      ? `Your payout of $${payout.amountUsd.toFixed(2)} (${payout.paymentMethod}) has been marked as PAID.`
+      : `Your payout request #${payout.id} was updated to ${status}. Note: ${note || "None"}`,
+    type: "payout",
+    read: false,
+    createdAt: new Date().toISOString(),
+  });
+  saveStoredNotifications(notifs);
+
+  return payout;
+}
+
 export function getAffiliateStats(affiliateId: string): AffiliateStats {
   const orders = getAffiliateOrders(affiliateId);
   const completed = orders.filter((o) => o.status === "COMPLETED");
@@ -673,15 +862,28 @@ export function getAffiliateStats(affiliateId: string): AffiliateStats {
   const cancelled = orders.filter((o) => o.status === "CANCELLED");
 
   const totalSales = completed.reduce((sum, o) => sum + o.amountUsd, 0);
-  const totalCommission = completed.reduce((sum, o) => sum + o.commissionUsd, 0);
+  const orderCommission = completed.reduce((sum, o) => sum + o.commissionUsd, 0);
   const pendingCommission = pending.reduce((sum, o) => sum + o.commissionUsd, 0);
+
+  const adjustments = getAffiliateAdjustments(affiliateId);
+  const totalAdjustmentsAdd = adjustments
+    .filter((a) => a.type === "ADD")
+    .reduce((sum, a) => sum + a.amountUsd, 0);
+  const totalAdjustmentsDeduct = adjustments
+    .filter((a) => a.type === "DEDUCT")
+    .reduce((sum, a) => sum + a.amountUsd, 0);
+
+  const totalCommission = Number((orderCommission + totalAdjustmentsAdd).toFixed(2));
 
   const payouts = getAffiliatePayouts(affiliateId);
   const paidCommission = payouts
     .filter((p) => p.status === "PAID")
     .reduce((sum, p) => sum + p.amountUsd, 0);
 
-  const availableBalance = Math.max(0, totalCommission - paidCommission);
+  const availableBalance = Math.max(
+    0,
+    Number((totalCommission - totalAdjustmentsDeduct - paidCommission).toFixed(2))
+  );
 
   return {
     clicks: 0,
@@ -690,11 +892,13 @@ export function getAffiliateStats(affiliateId: string): AffiliateStats {
     successfulOrders: completed.length,
     cancelledOrders: cancelled.length,
     conversionRate: orders.length > 0 ? Number(((completed.length / Math.max(1, orders.length)) * 100).toFixed(2)) : 0,
-    totalSales,
+    totalSales: Number(totalSales.toFixed(2)),
     totalCommission,
-    pendingCommission,
+    pendingCommission: Number(pendingCommission.toFixed(2)),
     availableBalance,
-    paidCommission,
+    paidCommission: Number(paidCommission.toFixed(2)),
+    totalAdjustmentsAdd: Number(totalAdjustmentsAdd.toFixed(2)),
+    totalAdjustmentsDeduct: Number(totalAdjustmentsDeduct.toFixed(2)),
   };
 }
 
