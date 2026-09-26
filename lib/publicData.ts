@@ -215,6 +215,7 @@ const getCachedPublicGameBySlug = unstable_cache(
             imageUrl: true,
             bannerUrl: true,
             sortOrder: true,
+            inStock: true,
             slots: {
               select: {
                 id: true,
@@ -253,7 +254,7 @@ const getCachedPublicGameBySlug = unstable_cache(
       updatedAt: new Date(),
       isRandomSpin: true,
       randomPackageId: pkg.id,
-      inStock: true,
+      inStock: (pkg as any).inStock !== false,
       description: pkg.description,
       slots: pkg.slots,
     }));

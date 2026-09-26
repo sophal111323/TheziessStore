@@ -194,6 +194,12 @@ export async function POST(req: NextRequest) {
       if (!randomPackage || !randomPackage.active || randomPackage.gameId !== game.id) {
         return NextResponse.json({ error: "Mystery Box package not found" }, { status: 404 });
       }
+      if ((randomPackage as any).inStock === false) {
+        return NextResponse.json(
+          { error: "កញ្ចប់នេះអស់ពីស្តុកហើយ មិនអាចកុម្ម៉ង់បានទេ (This package is currently out of stock)." },
+          { status: 400 }
+        );
+      }
       if (randomPackage.slots.length < 2) {
         return NextResponse.json({ error: "Mystery Box is not configured properly" }, { status: 400 });
       }

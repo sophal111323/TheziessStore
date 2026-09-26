@@ -117,6 +117,7 @@ export default async function AffiliateGamesPage({
             badge: p.badge,
             category: (p as any).category || "Diamonds",
             imageUrl: p.imageUrl,
+            inStock: (p as any).inStock !== false,
             isRandomSpin: (p as any).isRandomSpin ?? false,
             randomPackageId: (p as any).randomPackageId ?? null,
           }))}

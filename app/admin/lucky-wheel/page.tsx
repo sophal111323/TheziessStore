@@ -59,6 +59,7 @@ interface AdminPackage {
   bannerUrl?: string | null;
   badge?: string | null;
   active: boolean;
+  inStock?: boolean;
   sortOrder: number;
   maxSpinsPerUserDaily?: number | null;
   slots: AdminSlot[];
@@ -131,6 +132,7 @@ export default function AdminLuckyWheelPage() {
   const [badge, setBadge] = useState("🔥 MYSTERY BOX");
   const [description, setDescription] = useState("");
   const [packageActive, setPackageActive] = useState(true);
+  const [packageInStock, setPackageInStock] = useState(true);
   const [dailyLimit, setDailyLimit] = useState("");
   const [packageImageUrl, setPackageImageUrl] = useState("");
   const [uploadingPackageImage, setUploadingPackageImage] = useState(false);
@@ -282,6 +284,7 @@ export default function AdminLuckyWheelPage() {
     setDescription("");
     setPackageImageUrl("");
     setPackageActive(true);
+    setPackageInStock(true);
     setDailyLimit("");
     setPlaceOnTop(true);
     setModalSlots([
@@ -333,6 +336,7 @@ export default function AdminLuckyWheelPage() {
     setDescription(pkg.description || "");
     setPackageImageUrl(pkg.imageUrl || "");
     setPackageActive(pkg.active);
+    setPackageInStock(pkg.inStock !== false);
     setDailyLimit(pkg.maxSpinsPerUserDaily ? String(pkg.maxSpinsPerUserDaily) : "");
     const g = games.find((x) => x.id === pkg.gameId);
     let order: string[] = [];
@@ -476,6 +480,7 @@ export default function AdminLuckyWheelPage() {
         imageUrl: packageImageUrl.trim() || null,
         priceUsd: price,
         active: packageActive,
+        inStock: packageInStock,
         maxSpinsPerUserDaily: dailyLimit ? parseInt(dailyLimit, 10) : null,
         slots: modalSlots.map((s, idx) => ({
           id: s.id,
@@ -575,6 +580,28 @@ export default function AdminLuckyWheelPage() {
       }
     } catch (err) {
       alert("Failed to toggle status");
+    }
+  };
+
+  // Toggle stock status
+  const handleToggleStock = async (pkg: AdminPackage) => {
+    try {
+      const nextInStock = pkg.inStock === false ? true : false;
+      const res = await fetch(`/api/admin/random-packages/${pkg.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inStock: nextInStock }),
+      });
+      if (res.ok) {
+        setPackages((prev) =>
+          prev.map((p) => (p.id === pkg.id ? { ...p, inStock: nextInStock } : p))
+        );
+        showToast(
+          `Package is now ${nextInStock ? "IN STOCK (មានស្តុក)" : "OUT OF STOCK (អស់ស្តុក)"}`
+        );
+      }
+    } catch (err) {
+      alert("Failed to toggle stock status");
     }
   };
 
@@ -788,18 +815,34 @@ export default function AdminLuckyWheelPage() {
                       </div>
                     </div>
 
-                    <div className="text-right shrink-0">
+                    <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
                       <div className="text-xl font-extrabold text-pink-600">${pkg.priceUsd.toFixed(2)}</div>
-                      <button
-                        onClick={() => handleToggleActive(pkg)}
-                        className={`mt-1 text-[11px] font-bold px-2 py-0.5 rounded-full cursor-pointer transition-colors ${
-                          pkg.active
-                            ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                            : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                        }`}
-                      >
-                        {pkg.active ? "● ACTIVE" : "○ INACTIVE"}
-                      </button>
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStock(pkg)}
+                          className={`text-[11px] font-bold px-2 py-0.5 rounded-full cursor-pointer transition-colors border flex items-center gap-1 ${
+                            pkg.inStock !== false
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                              : "bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100"
+                          }`}
+                          title={pkg.inStock !== false ? "Click to set Out of Stock (ដាច់ស្តុក)" : "Click to set In Stock (មានស្តុក)"}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${pkg.inStock !== false ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+                          <span>{pkg.inStock !== false ? "In Stock" : "Out of Stock"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleActive(pkg)}
+                          className={`text-[11px] font-bold px-2 py-0.5 rounded-full cursor-pointer transition-colors ${
+                            pkg.active
+                              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                          }`}
+                        >
+                          {pkg.active ? "● ACTIVE" : "○ INACTIVE"}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -1211,6 +1254,20 @@ export default function AdminLuckyWheelPage() {
                   />
                   <label htmlFor="packageActiveCheckbox" className="text-xs font-bold text-gray-800 cursor-pointer">
                     Enable Package on Storefront
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2 pt-6">
+                  <input
+                    type="checkbox"
+                    id="packageInStockCheckbox"
+                    checked={packageInStock}
+                    onChange={(e) => setPackageInStock(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                  />
+                  <label htmlFor="packageInStockCheckbox" className="text-xs font-bold text-gray-800 cursor-pointer flex items-center gap-1.5">
+                    <span className={`h-2 w-2 rounded-full ${packageInStock ? "bg-emerald-500" : "bg-rose-500"}`} />
+                    {packageInStock ? "In Stock (មានស្តុក)" : "Out of Stock (អស់ស្តុក)"}
                   </label>
                 </div>
 

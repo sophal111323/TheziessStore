@@ -266,6 +266,13 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
     termsAccepted &&
     (!turnstileSiteKey || !!turnstileToken);
 
+  // Reset selection if the selected product is marked out of stock
+  useEffect(() => {
+    if (selected && isSelectedOutOfStock) {
+      setSelected(null);
+    }
+  }, [selected, isSelectedOutOfStock]);
+
   // 🎟️ If user changes Game ID after applying promo, reset so per-user validation stays accurate
   useEffect(() => {
     if (promoApplied) {

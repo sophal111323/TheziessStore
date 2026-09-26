@@ -483,6 +483,7 @@ model RandomPackage {
   bannerUrl            String?
   badge                String?                 @default("🔥 MYSTERY BOX")
   active               Boolean                 @default(true)
+  inStock              Boolean                 @default(true)
   sortOrder            Int                     @default(0)
   maxSpinsPerUserDaily Int?
   slots                RandomPackageSlot[]
@@ -492,6 +493,7 @@ model RandomPackage {
   updatedAt            DateTime                @updatedAt
 
   @@index([gameId, active])
+  @@index([gameId, inStock])
 }
 
 model RandomPackageSlot {
