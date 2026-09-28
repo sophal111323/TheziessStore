@@ -18,29 +18,15 @@ async function runTests() {
   const orderNumB = `TEST-B-${timestamp}`;
   const orderNumC = `TEST-C-${timestamp}`;
 
-  // Find or create test customer & product for orders
-  let testCustomer = await prisma.customer.findFirst();
-  let testProduct = await prisma.product.findFirst();
-
-  if (!testCustomer) {
-    testCustomer = await prisma.customer.create({
-      data: {
-        email: "test@example.com",
-        name: "Test Customer",
-      },
-    });
-  }
+  // Find an existing game and product
+  const testProduct = await prisma.product.findFirst({
+    include: { game: true },
+  });
 
   if (!testProduct) {
-    testProduct = await prisma.product.create({
-      data: {
-        name: "Test Diamonds",
-        price: 0.10,
-        diamonds: 10,
-        active: true,
-      },
-    });
+    throw new Error("No product found in DB to run payment tests against.");
   }
+  const testGame = testProduct.game;
 
   // Ensure settings record exists
   let settings = await prisma.settings.findFirst();
@@ -73,11 +59,11 @@ async function runTests() {
     const orderA = await prisma.order.create({
       data: {
         orderNumber: orderNumA,
-        customerId: testCustomer.id,
+        gameId: testGame.id,
         productId: testProduct.id,
-        productName: "Test Product",
-        amount: 0.10,
-        gameUserId: "123456",
+        playerUid: "123456",
+        amountUsd: 0.10,
+        currency: "USD",
         paymentMethod: "KHQR",
         paymentProvider: activeProvider1,
         status: "PENDING",
@@ -91,7 +77,7 @@ async function runTests() {
     // Initiate payment for Order A
     const initA = await initiatePayment({
       orderNumber: orderA.orderNumber,
-      amount: orderA.amount,
+      amount: orderA.amountUsd,
       currency: "USD",
       webhookUrl: "https://theziessstore.store/api/payment/webhook/khqrpay",
     }, orderA.paymentProvider as "khqrpay");
@@ -130,11 +116,11 @@ async function runTests() {
     const orderB = await prisma.order.create({
       data: {
         orderNumber: orderNumB,
-        customerId: testCustomer.id,
+        gameId: testGame.id,
         productId: testProduct.id,
-        productName: "Test Product",
-        amount: 0.10,
-        gameUserId: "123456",
+        playerUid: "123456",
+        amountUsd: 0.10,
+        currency: "USD",
         paymentMethod: "KHQR",
         paymentProvider: activeProvider2,
         status: "PENDING",
@@ -148,7 +134,7 @@ async function runTests() {
     // Initiate payment for Order B (calls https://payway.jlastore.com/api/create-tran)
     const initB = await initiatePayment({
       orderNumber: orderB.orderNumber,
-      amount: orderB.amount,
+      amount: orderB.amountUsd,
       currency: "USD",
       webhookUrl: "https://theziessstore.store/api/payment/webhook/jla",
     }, orderB.paymentProvider as "jla");
@@ -225,11 +211,11 @@ async function runTests() {
     const orderC = await prisma.order.create({
       data: {
         orderNumber: orderNumC,
-        customerId: testCustomer.id,
+        gameId: testGame.id,
         productId: testProduct.id,
-        productName: "Test Product",
-        amount: 0.10,
-        gameUserId: "123456",
+        playerUid: "123456",
+        amountUsd: 0.10,
+        currency: "USD",
         paymentMethod: "KHQR",
         paymentProvider: activeProvider3,
         status: "PENDING",
