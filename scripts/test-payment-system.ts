@@ -104,7 +104,6 @@ async function runTests() {
         adminEmail: "admin@test.local",
         ipAddress: "127.0.0.1",
         userAgent: "Verification-Suite",
-        status: "SUCCESS",
         details: "KHQRPay → JLA",
       },
     });
@@ -202,7 +201,6 @@ async function runTests() {
         adminEmail: "admin@test.local",
         ipAddress: "127.0.0.1",
         userAgent: "Verification-Suite",
-        status: "SUCCESS",
         details: "JLA → KHQRPay",
       },
     });
