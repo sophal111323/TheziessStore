@@ -16,6 +16,8 @@ import type {
   InitiatePaymentArgs,
   PaymentInitResult,
   PaymentStatusResult,
+  IPaymentProvider,
+  NormalizedWebhookEvent,
 } from "../types";
 
 // Ensure Node connects using IPv4 first to match the whitelisted IPv4 address (e.g. 94.237.75.87)
@@ -124,6 +126,7 @@ export async function initiateKhqrpayPayment(
     redirectUrl,
     qrString,
     expiresAt,
+    provider: "khqrpay",
   };
 }
 
@@ -235,4 +238,24 @@ export function parseKhqrpayWebhookEvent(payload: any): KhqrpayWebhookEvent | nu
     time: payload.time ? String(payload.time) : undefined,
   };
 }
+
+export const KhqrPayProvider: IPaymentProvider = {
+  name: "khqrpay",
+  initiatePayment: initiateKhqrpayPayment,
+  fetchStatus: fetchKhqrpayStatus,
+  verifyWebhook: (rawBody, headers) => verifyKhqrpayWebhookSignature(headers, rawBody),
+  parseWebhookEvent: (payload) => {
+    const ev = parseKhqrpayWebhookEvent(payload);
+    if (!ev) return null;
+    return {
+      event: ev.event,
+      transactionId: ev.id,
+      status: ev.status === "paid" ? "paid" : ev.status === "expired" ? "expired" : ev.status === "failed" ? "failed" : "pending",
+      amount: ev.amount,
+      currency: "USD",
+      rawPayload: payload,
+    };
+  },
+};
+
 

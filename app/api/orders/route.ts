@@ -285,6 +285,8 @@ export async function POST(req: NextRequest) {
       finalPrice = validation.finalAmountUsd || basePriceUsd;
     }
 
+    const activeProvider = await getActivePaymentProvider();
+
     const order = await prisma.order.create({
       data: {
         orderNumber,
@@ -300,6 +302,7 @@ export async function POST(req: NextRequest) {
         amountUsd: finalPrice,
         amountKhr: calcKhr(finalPrice, exchangeRate),
         paymentMethod: data.paymentMethod,
+        paymentProvider: activeProvider,
         status: "PENDING",
         ipAddress,
         userAgent,
@@ -341,8 +344,7 @@ export async function POST(req: NextRequest) {
     // so webhooks actually reach us. Falls back to baseUrl; the payment lib
     // strips localhost URLs automatically (the gateway refuses private IPs).
     const publicUrl = (process.env.PUBLIC_APP_URL || baseUrl).replace(/\/+$/, "");
-    const activeProvider = getActivePaymentProvider();
-    const webhookPath = activeProvider === "khqrpay" ? "khqrpay" : "tolasaint";
+    const webhookPath = activeProvider === "jla" ? "jla" : "khqrpay";
     const init = await initiatePayment({
       orderNumber: order.orderNumber,
       amountUsd: order.amountUsd,
@@ -361,7 +363,7 @@ export async function POST(req: NextRequest) {
         player_uid: data.playerUid,
         is_random_spin: randomPackage ? "true" : "false",
       },
-    });
+    }, activeProvider);
 
     await prisma.order.update({
       where: { id: order.id },
@@ -369,6 +371,7 @@ export async function POST(req: NextRequest) {
         paymentRef: init.paymentRef,
         paymentUrl: init.redirectUrl,
         qrString: init.qrString ?? null,
+        deeplink: init.deeplink ?? null,
         paymentExpiresAt: init.expiresAt,
       },
     });

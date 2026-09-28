@@ -101,6 +101,8 @@ model Order {
   paymentRef       String?   @unique
   paymentUrl       String?
   qrString         String?
+  deeplink         String?
+  paymentProvider  String?   @default("khqrpay") @map("payment_provider")
   paymentExpiresAt DateTime?
   status           String    @default("PENDING")
   deliveryNote     String?
@@ -193,8 +195,9 @@ model Settings {
   telegramChatId   String?
   updatedAt        DateTime @updatedAt
 
-  siteName     String @default("DY TOPUP")
-  exchangeRate Float  @default(4100)
+  siteName        String @default("DY TOPUP")
+  exchangeRate    Float  @default(4100)
+  paymentProvider String @default("khqrpay")
 
   supportTelegram String?
   supportTikTok   String?

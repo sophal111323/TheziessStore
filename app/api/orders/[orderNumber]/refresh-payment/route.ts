@@ -74,6 +74,7 @@ export async function POST(
       productName: order.product.name,
 
       qrString: order.qrString,
+      deeplink: order.deeplink,
       paymentUrl: order.paymentUrl,
       paymentExpiresAt: order.paymentExpiresAt?.toISOString() ?? null,
       expiresAt: order.paymentExpiresAt?.toISOString() ?? null,
@@ -91,8 +92,8 @@ export async function POST(
     req.nextUrl.origin
   ).replace(/\/$/, "");
 
-  const activeProvider = getActivePaymentProvider();
-  const webhookPath = activeProvider === "khqrpay" ? "khqrpay" : "tolasaint";
+  const orderProvider = (order.paymentProvider as "khqrpay" | "jla") || "khqrpay";
+  const webhookPath = orderProvider === "jla" ? "jla" : "khqrpay";
   const returnUrl = `${baseUrl}/checkout/${encodeURIComponent(order.orderNumber)}`;
   const cancelUrl = `${baseUrl}/games/${encodeURIComponent(order.game.slug)}`;
   const callbackUrl = `${baseUrl}/api/payment/webhook/${webhookPath}`;
@@ -105,7 +106,7 @@ export async function POST(
     returnUrl,
     cancelUrl,
     callbackUrl,
-  });
+  }, orderProvider);
 
   const updated = await prisma.order.update({
     where: {
@@ -115,6 +116,7 @@ export async function POST(
       paymentRef: payment.paymentRef,
       paymentUrl: payment.redirectUrl,
       qrString: payment.qrString,
+      deeplink: payment.deeplink ?? null,
       paymentExpiresAt: payment.expiresAt,
     },
     include: {
@@ -137,6 +139,7 @@ export async function POST(
     productName: updated.product.name,
 
     qrString: updated.qrString,
+    deeplink: updated.deeplink,
     paymentUrl: updated.paymentUrl,
     paymentExpiresAt: updated.paymentExpiresAt?.toISOString() ?? null,
     expiresAt: updated.paymentExpiresAt?.toISOString() ?? null,

@@ -64,7 +64,7 @@ export async function syncAndConfirmOrderPayment(orderNumber: string): Promise<{
     };
   }
 
-  const remote = await fetchPaymentStatus(order.paymentRef);
+  const remote = await fetchPaymentStatus(order.paymentRef, order.paymentProvider);
   if (!remote) {
     return {
       paid: false,

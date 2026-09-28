@@ -23,6 +23,9 @@ type OrderPayment = {
   status: string;
   amountUsd: number;
   qrString: string | null;
+  deeplink?: string | null;
+  paymentUrl?: string | null;
+  paymentProvider?: string | null;
 
   redeemCode?: string | null;
   deliveryNote?: string | null;
@@ -731,7 +734,17 @@ export default function KHQRBottomSheet({
 
               <p className="mt-3 text-lg font-bold text-gray-900">
                 Scan to Pay
-</p>
+              </p>
+
+              {(currentOrder.deeplink || (currentOrder.paymentUrl && currentOrder.paymentUrl.startsWith("abamobilebank://"))) && (
+                <a
+                  href={currentOrder.deeplink || currentOrder.paymentUrl || "#"}
+                  className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-[#004e6e] hover:bg-[#003d57] text-white px-4 py-2.5 font-bold text-xs shadow-md transition-all active:scale-[0.98] w-full max-w-[220px]"
+                >
+                  <span>📱 Open ABA Mobile</span>
+                </a>
+              )}
+
               <button
                 type="button"
                 onClick={downloadKHQRCard}

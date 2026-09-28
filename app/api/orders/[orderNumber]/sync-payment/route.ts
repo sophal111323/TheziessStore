@@ -68,7 +68,7 @@ export async function POST(
     );
   }
 
-  const remote = await fetchPaymentStatus(order.paymentRef);
+  const remote = await fetchPaymentStatus(order.paymentRef, order.paymentProvider);
   if (!remote) {
     return NextResponse.json(
       { ok: false, status: order.status, error: "Unable to fetch remote payment status" },

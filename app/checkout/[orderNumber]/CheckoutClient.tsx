@@ -36,6 +36,8 @@ interface OrderPayment {
   paymentRef: string | null;
   paymentUrl: string | null;
   qrString: string | null;
+  deeplink?: string | null;
+  paymentProvider?: string | null;
   paymentExpiresAt: string | null;
   createdAt: string;
   paidAt: string | null;
@@ -242,11 +244,13 @@ async function buildKhqrBlob(
 // ── KHQR Frame (display only) ────────────────────────────────────────────────
 function KHQRFrame({
   qrString,
+  deeplink,
   amountUsd,
   storeName,
   remainingMs,
 }: {
   qrString: string | null;
+  deeplink?: string | null;
   amountUsd: number;
   storeName?: string;
   remainingMs: number | null;
@@ -363,7 +367,34 @@ function KHQRFrame({
           )}
 
           <p style={{ margin: "0 0 6px",  fontSize: 15, fontWeight: 700, color: "#111827" }}>Scan to Pay</p>
-          <p style={{ margin: "0 0 14px", fontSize: 13, color: "#9ca3af" }}>or</p>
+
+          {deeplink && (
+            <a
+              href={deeplink}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                background: "#004e6e",
+                color: "#ffffff",
+                fontSize: 13,
+                fontWeight: 700,
+                padding: "10px 16px",
+                borderRadius: 12,
+                textDecoration: "none",
+                width: "100%",
+                maxWidth: 240,
+                marginTop: 6,
+                marginBottom: 8,
+                boxShadow: "0 4px 12px rgba(0,78,110,0.25)",
+              }}
+            >
+              <span>📱 Open in ABA Mobile</span>
+            </a>
+          )}
+
+          <p style={{ margin: deeplink ? "2px 0 10px" : "0 0 14px", fontSize: 13, color: "#9ca3af" }}>or</p>
 
           <button
             onClick={handleDownload}
@@ -769,6 +800,7 @@ export default function CheckoutClient() {
                 {/* KHQR frame — storeName driven by order number prefix */}
                 <KHQRFrame
                   qrString={order.qrString}
+                  deeplink={order.deeplink || (order.paymentUrl?.startsWith("abamobilebank://") ? order.paymentUrl : null)}
                   amountUsd={order.amountUsd}
                   storeName="TheziessStore"
                   remainingMs={remainingMs}

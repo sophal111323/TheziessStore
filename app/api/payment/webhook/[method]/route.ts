@@ -6,6 +6,8 @@ import {
   parseTolaSaintWebhookEvent,
   parseKhqrpayWebhookEvent,
   fetchKhqrpayStatus,
+  parseJlaWebhookEvent,
+  fetchJlaStatus,
 } from "@/lib/payment";
 import { NextRequest, NextResponse } from "next/server";
 import { logSecurityEvent } from "@/lib/secureLogger";
@@ -37,6 +39,7 @@ export async function POST(
     const method = (methodParam || "").toUpperCase();
     const isSupported =
       method === "KHQRPAY" ||
+      method === "JLA" ||
       method === "TOLASAINT" ||
       method === "ABA" ||
       method === "BAKONG" ||
@@ -248,7 +251,161 @@ export async function POST(
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 3B. Process Tola Saint Webhook
+    // 3B. Process JLA Payway (payway.jlastore.com) Webhook
+    // ─────────────────────────────────────────────────────────────────────────
+    const isJlaEvent =
+      method === "JLA" ||
+      Boolean(
+        payload?.tran_id !== undefined &&
+        (payload?.payway_tran_id !== undefined || payload?.status === "approved" || payload?.real_tran_id !== undefined || payload?.download_receipt !== undefined)
+      );
+
+    if (isJlaEvent) {
+      const event = parseJlaWebhookEvent(payload);
+      if (!event || (!event.orderNumber && !event.transactionId)) {
+        logSecurityEvent({
+          event: "payment_missing_ref",
+          detail: "JLA webhook missing order identifier or payment reference",
+          ip: getClientIp(req),
+        });
+        return NextResponse.json({ error: "Missing payment identifiers" }, { status: 400 });
+      }
+
+      if (event.status === "pending") {
+        return NextResponse.json({ ok: true, ignored: true, status: "pending" });
+      }
+
+      const orderNumber = event.orderNumber;
+      const transactionId = event.transactionId;
+
+      // Find order by orderNumber (preferred) or paymentRef
+      const order = orderNumber
+        ? await prisma.order.findUnique({ where: { orderNumber } })
+        : await prisma.order.findFirst({ where: { paymentRef: transactionId } });
+
+      if (!order) {
+        logSecurityEvent({
+          event: "webhook_order_mismatch",
+          detail: `JLA order not found for orderNumber: ${orderNumber}; paymentRef: ${transactionId}`,
+          ip: getClientIp(req),
+        });
+        return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      }
+
+      if (event.status === "paid") {
+        // If JLA_WEBHOOK_SECRET is not configured, confirm with gateway API directly
+        if (!process.env.JLA_WEBHOOK_SECRET) {
+          const remoteCheck = await fetchJlaStatus(order.orderNumber);
+          if (!remoteCheck || !remoteCheck.paid) {
+            logSecurityEvent({
+              event: "payment_validation_failed",
+              detail: `JLA remote check not paid for ${order.orderNumber}`,
+              ip: getClientIp(req),
+            });
+            return NextResponse.json({ error: "Remote payment verification failed" }, { status: 400 });
+          }
+        }
+
+        // Validate amount
+        if (event.amount && !amountsMatch(order.amountUsd, event.amount)) {
+          logSecurityEvent({
+            event: "payment_amount_mismatch",
+            detail: `JLA amount mismatch: order=${order.orderNumber} expected=${order.amountUsd} got=${event.amount}`,
+            ip: getClientIp(req),
+          });
+          return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
+        }
+
+        if (order.status !== "PENDING") {
+          if (["PAID", "PROCESSING", "DELIVERED"].includes(order.status)) {
+            return NextResponse.json({ ok: true, skipped: true, reason: "already_paid" });
+          }
+          return NextResponse.json(
+            { error: "Order is not pending and cannot be marked paid" },
+            { status: 409 }
+          );
+        }
+
+        // Idempotent transition to PAID
+        let fullOrder = null;
+        try {
+          fullOrder = await prisma.$transaction(async (tx: any) => {
+            await tx.processedWebhookEvent.create({
+              data: {
+                transactionId,
+                orderNumber: order.orderNumber,
+                processedAt: new Date(),
+              },
+            });
+
+            const updated = await tx.order.updateMany({
+              where: {
+                id: order.id,
+                status: "PENDING",
+              },
+              data: {
+                status: "PAID",
+                paidAt: new Date(),
+              },
+            });
+
+            if (updated.count !== 1) {
+              throw new Error("Order payment update lost a race or already marked.");
+            }
+
+            return tx.order.findUnique({
+              where: { id: order.id },
+              include: { game: true, product: true },
+            });
+          });
+        } catch (error) {
+          if (isPrismaUniqueError(error)) {
+            logSecurityEvent({
+              event: "webhook_replay_blocked",
+              detail: `transactionId=${transactionId}; order=${order.orderNumber}`,
+            });
+            return NextResponse.json({ ok: true, skipped: true, reason: "replay" });
+          }
+          throw error;
+        }
+
+        if (fullOrder) {
+          await notifyAndMaybeDeliverPaidOrder(fullOrder.id);
+        }
+      } else if (event.status === "expired" || event.status === "failed") {
+        if (order.status === "PENDING") {
+          try {
+            await prisma.$transaction(async (tx: any) => {
+              await tx.processedWebhookEvent.create({
+                data: {
+                  transactionId,
+                  orderNumber: order.orderNumber,
+                  processedAt: new Date(),
+                },
+              });
+
+              await tx.order.update({
+                where: { id: order.id },
+                data: {
+                  status: event.status === "expired" ? "CANCELLED" : "FAILED",
+                  failureReason: `JLA Payway: ${event.status}`,
+                },
+              });
+            });
+          } catch (error) {
+            if (isPrismaUniqueError(error)) {
+              return NextResponse.json({ ok: true, skipped: true, reason: "replay" });
+            }
+            throw error;
+          }
+        }
+      }
+
+      return NextResponse.json({ ok: true });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 3C. Process Tola Saint Webhook
     // ─────────────────────────────────────────────────────────────────────────
     const event = parseTolaSaintWebhookEvent(payload);
     if (!event) {

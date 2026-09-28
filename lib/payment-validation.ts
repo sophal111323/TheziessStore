@@ -214,12 +214,29 @@ export function assertProductionPaymentConfig(): void {
     throw new Error("PAYMENT_SIMULATION_MODE=true is not allowed in production.");
   }
 
-  if (isProduction && !tolaSaintApiKey && !khqrpayApiKey) {
+  const jlaAbaData = cleanEnv(process.env.ABA_DATA);
+
+  if (isProduction && !tolaSaintApiKey && !khqrpayApiKey && !jlaAbaData) {
     logSecurityEvent({
       event: "payment_config_error",
-      detail: "Missing KHQRPAY_API_KEY or TOLA_SAINT_API_KEY in production",
+      detail: "Missing KHQRPAY_API_KEY or ABA_DATA in production",
     });
-    throw new Error("A payment gateway API key (KHQRPAY_API_KEY or TOLA_SAINT_API_KEY) is required in production.");
+    throw new Error("A payment gateway configuration (KHQRPAY_API_KEY or ABA_DATA) is required in production.");
+  }
+}
+
+export function assertRealJlaConfig(): void {
+  assertProductionPaymentConfig();
+
+  const abaData = cleanEnv(process.env.ABA_DATA);
+  if (!abaData) {
+    logSecurityEvent({
+      event: "payment_config_error",
+      detail: "Missing ABA_DATA while JLA Payway mode was requested",
+    });
+    throw new Error(
+      "ABA_DATA is required for JLA Payway payments. Please configure ABA_DATA."
+    );
   }
 }
 

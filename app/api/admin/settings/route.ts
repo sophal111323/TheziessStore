@@ -5,6 +5,7 @@ import { withAdminAuth } from "@/lib/withAdminAuth";
 import { writeAuditForAdmin } from "@/lib/audit";
 import { revalidateAdminChange } from "@/lib/adminRevalidate";
 import { logSecurityEvent } from "@/lib/secureLogger";
+import { invalidatePaymentProviderCache } from "@/lib/payment";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ const settingsSchema = z.object({
   logoTagline: z.string().nullable().optional(),
   telegramBotToken: z.string().nullable().optional(),
   telegramChatId: z.string().nullable().optional(),
+  paymentProvider: z.enum(["khqrpay", "jla"]).optional(),
 });
 
 function maskSecret(value: string | null | undefined): string | null {
@@ -71,11 +73,41 @@ export const PATCH = withAdminAuth(
       delete data.telegramBotToken;
     }
 
+    const currentSettings = await prisma.settings.findUnique({
+      where: { id: 1 },
+      select: { paymentProvider: true },
+    });
+
+    const isProviderChanged =
+      data.paymentProvider &&
+      currentSettings?.paymentProvider &&
+      currentSettings.paymentProvider !== data.paymentProvider;
+
     const settings = await prisma.settings.upsert({
       where: { id: 1 },
       update: data,
       create: { id: 1, ...data },
     });
+
+    if (isProviderChanged) {
+      invalidatePaymentProviderCache();
+      const oldLabel = currentSettings?.paymentProvider === "jla" ? "JLA" : "KHQRPay";
+      const newLabel = data.paymentProvider === "jla" ? "JLA" : "KHQRPay";
+      const switchDetails = `${oldLabel} → ${newLabel}`;
+
+      await writeAuditForAdmin(admin, req, {
+        action: "settings.payment_provider_switch",
+        targetType: "settings",
+        targetId: "1",
+        details: switchDetails,
+      });
+
+      logSecurityEvent({
+        event: "admin_settings_changed",
+        adminId: admin.id,
+        detail: `payment_provider: ${switchDetails}`,
+      });
+    }
 
     await writeAuditForAdmin(admin, req, {
       action: "settings.update",

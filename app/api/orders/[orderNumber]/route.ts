@@ -115,7 +115,7 @@ export async function GET(
     !order.paymentRef.startsWith("SIM-")
   ) {
     try {
-      const remote = await fetchPaymentStatus(order.paymentRef);
+      const remote = await fetchPaymentStatus(order.paymentRef, order.paymentProvider);
 
       if (isRemotePaid(remote)) {
         const validation = validatePaymentForOrder(order, {
@@ -163,6 +163,7 @@ export async function GET(
       : null;
 
   const qrString   = canPay ? order.qrString   : null;
+  const deeplink   = canPay ? order.deeplink   : null;
   const paymentUrl = canPay ? order.paymentUrl  : null;
 
   const isCompletedOrDelivered = ["PAID", "PROCESSING", "DELIVERED"].includes(order.status);
@@ -177,6 +178,7 @@ export async function GET(
     amountUsd:     order.amountUsd,
     amountKhr:     order.amountKhr,
     paymentMethod: order.paymentMethod,
+    paymentProvider: order.paymentProvider || "khqrpay",
     createdAt:     order.createdAt.toISOString(),
     paidAt:        order.paidAt?.toISOString()       ?? null,
     deliveredAt:   order.deliveredAt?.toISOString()  ?? null,
@@ -190,6 +192,7 @@ export async function GET(
     gameSlug:          order.game.slug,
     productName:       order.product.name,
     qrString,
+    deeplink,
     paymentUrl,
     paymentRef:        safePaymentRef,   // null for real orders; SIM- only in dev
     paymentExpiresAt:  order.paymentExpiresAt?.toISOString() ?? null,
@@ -203,6 +206,7 @@ export async function GET(
       canPay,
       paymentUrl,
       qrString,
+      deeplink,
       expiresAt: order.paymentExpiresAt?.toISOString() ?? null,
     },
 

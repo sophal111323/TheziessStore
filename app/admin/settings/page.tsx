@@ -22,6 +22,7 @@ type AdminSettingsForm = {
   promosEnabled?: boolean;
   telegramBotToken?: string | null;
   telegramChatId?: string | null;
+  paymentProvider?: "khqrpay" | "jla";
 };
 
 export default function AdminSettingsPage() {
@@ -36,6 +37,7 @@ export default function AdminSettingsPage() {
       .then((data) => {
         setForm({
           ...data,
+          paymentProvider: data.paymentProvider ?? "khqrpay",
           announcementEnabled: data.announcementEnabled ?? Boolean(data.announcement),
           appMinSupportedVersion: data.appMinSupportedVersion ?? "1.0.0",
           appLatestVersion: data.appLatestVersion ?? "1.0.0",
@@ -81,6 +83,7 @@ export default function AdminSettingsPage() {
         ordersEnabled: form.ordersEnabled ?? true,
         paymentsEnabled: form.paymentsEnabled ?? true,
         promosEnabled: form.promosEnabled ?? true,
+        paymentProvider: form.paymentProvider || "khqrpay",
         telegramBotToken: form.telegramBotToken || null,
         telegramChatId: form.telegramChatId || null,
       }),
@@ -187,6 +190,80 @@ export default function AdminSettingsPage() {
             <input type="checkbox" checked={Boolean(form.appForceUpdate)} onChange={(e) => update("appForceUpdate", e.target.checked)} />
             Force all app users to update
           </label>
+        </section>
+
+        <section className="space-y-4 border-t border-fox-border pt-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <h2 className="font-semibold text-lg flex items-center gap-2">
+                <span>Payment Provider</span>
+                <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase ${
+                  form.paymentProvider === "jla"
+                    ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                    : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                }`}>
+                  Active: {form.paymentProvider === "jla" ? "JLA Payway" : "KHQRPay"}
+                </span>
+              </h2>
+              <p className="text-xs text-fox-muted mt-1">
+                ជ្រើសរើស Gateway សម្រាប់បង្កើតការទូទាត់លើ Order ថ្មីៗ។ Order ចាស់ៗនឹងរក្សា Provider ដើមរបស់វាជានិច្ច។
+              </p>
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <label
+              className={`flex items-start gap-3.5 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                (form.paymentProvider || "khqrpay") === "khqrpay"
+                  ? "border-blue-500 bg-blue-500/10 shadow-md shadow-blue-500/10"
+                  : "border-fox-border bg-fox-surface hover:border-fox-border/80"
+              }`}
+            >
+              <input
+                type="radio"
+                name="paymentProvider"
+                value="khqrpay"
+                checked={(form.paymentProvider || "khqrpay") === "khqrpay"}
+                onChange={() => update("paymentProvider", "khqrpay")}
+                className="mt-1 accent-blue-500"
+              />
+              <div className="flex-1">
+                <div className="font-bold flex items-center gap-2">
+                  <span>KHQRPay</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono">khqrpay.site</span>
+                </div>
+                <div className="text-xs text-fox-muted mt-1 leading-relaxed">
+                  Existing KHQRPay integration. គាំទ្រការបង្កើត KHQR និង Webhook ស្វ័យប្រវត្តិ។
+                </div>
+              </div>
+            </label>
+
+            <label
+              className={`flex items-start gap-3.5 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                form.paymentProvider === "jla"
+                  ? "border-purple-500 bg-purple-500/10 shadow-md shadow-purple-500/10"
+                  : "border-fox-border bg-fox-surface hover:border-fox-border/80"
+              }`}
+            >
+              <input
+                type="radio"
+                name="paymentProvider"
+                value="jla"
+                checked={form.paymentProvider === "jla"}
+                onChange={() => update("paymentProvider", "jla")}
+                className="mt-1 accent-purple-500"
+              />
+              <div className="flex-1">
+                <div className="font-bold flex items-center gap-2">
+                  <span>JLA Payway</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono">payway.jlastore.com</span>
+                </div>
+                <div className="text-xs text-fox-muted mt-1 leading-relaxed">
+                  JLA Payway gateway. គាំទ្រការបង្កើត KHQR, Deeplink ចូល ABA Mobile App ដោយផ្ទាល់។
+                </div>
+              </div>
+            </label>
+          </div>
         </section>
 
         <section className="space-y-4 border-t border-fox-border pt-6">

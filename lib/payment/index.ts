@@ -1,36 +1,56 @@
 // lib/payment/index.ts
 //
-// Generic payment API. The rest of the app calls ONLY these functions —
-// never the provider directly. Supports KHQR Pay (https://khqrpay.site)
-// and Tola Saint (https://tolasaint.com).
+// PaymentService architecture managing:
+//   1. KhqrPayProvider (https://khqrpay.site)
+//   2. JlaPaywayProvider (https://payway.jlastore.com)
+//
+// Admin switches the active provider server-side.
+// Customers never choose or control the provider.
+// Old orders retain their original provider permanently for verification.
 
 import crypto from "crypto";
+import { prisma } from "@/lib/prisma";
 import { assertProductionPaymentConfig } from "@/lib/payment-validation";
 import {
-  initiateTolaSaintPayment,
-  fetchTolaSaintStatus,
-  verifyTolaSaintWebhookSignature,
-  parseTolaSaintWebhookEvent,
-} from "./providers/tola-saint";
-import {
+  KhqrPayProvider,
   initiateKhqrpayPayment,
   fetchKhqrpayStatus,
   verifyKhqrpayWebhookSignature,
   parseKhqrpayWebhookEvent,
   isKhqrpayConfigured,
 } from "./providers/khqrpay";
+import {
+  JlaPaywayProvider,
+  initiateJlaPayment,
+  fetchJlaStatus,
+  verifyJlaWebhookSignature,
+  parseJlaWebhookEvent,
+  isJlaConfigured,
+} from "./providers/jla";
 
-// Re-export provider helpers used by route handlers (webhook parsing).
-export { parseTolaSaintWebhookEvent } from "./providers/tola-saint";
-export type { TolaSaintWebhookEvent } from "./providers/tola-saint";
-export { parseKhqrpayWebhookEvent, fetchKhqrpayStatus } from "./providers/khqrpay";
+// Re-export provider helpers
+export {
+  parseKhqrpayWebhookEvent,
+  fetchKhqrpayStatus,
+  KhqrPayProvider,
+} from "./providers/khqrpay";
 export type { KhqrpayWebhookEvent } from "./providers/khqrpay";
+
+export {
+  parseJlaWebhookEvent,
+  fetchJlaStatus,
+  JlaPaywayProvider,
+} from "./providers/jla";
+
+export { parseTolaSaintWebhookEvent } from "./providers/tola-saint";
 
 import type {
   InitiatePaymentArgs,
   PaymentInitResult,
   PaymentMethod,
   PaymentStatusResult,
+  PaymentProviderType,
+  IPaymentProvider,
 } from "./types";
 
 export type {
@@ -38,6 +58,8 @@ export type {
   PaymentInitResult,
   PaymentMethod,
   PaymentStatusResult,
+  PaymentProviderType,
+  IPaymentProvider,
 } from "./types";
 
 function cleanEnv(value?: string): string {
@@ -48,19 +70,85 @@ function cleanBaseUrl(value?: string): string {
   return cleanEnv(value).replace(/\/+$/, "");
 }
 
+// ── Payment Provider Abstraction ─────────────────────────────────────────────
+
+export const PaymentService = {
+  KhqrPayProvider,
+  JlaPaywayProvider,
+
+  getProvider(provider: PaymentProviderType): IPaymentProvider {
+    if (provider === "jla") {
+      return JlaPaywayProvider;
+    }
+    return KhqrPayProvider;
+  },
+};
+
+// ── In-memory cache for active payment provider ──────────────────────────────
+let cachedActiveProvider: PaymentProviderType | null = null;
+let cacheExpiresAt = 0;
+const CACHE_TTL_MS = 5000; // 5-second TTL cache for DB provider lookup
+
+export function invalidatePaymentProviderCache(): void {
+  cachedActiveProvider = null;
+  cacheExpiresAt = 0;
+}
+
 /**
  * Determine the active payment gateway provider.
- * Priority:
- * 1. Explicit PAYMENT_PROVIDER env var ("khqrpay" or "tolasaint")
- * 2. If KHQRPAY_API_KEY is configured -> "khqrpay"
- * 3. Default -> "tolasaint"
+ * The active provider is controlled strictly in Admin Panel and stored
+ * in the database (prisma.settings.paymentProvider).
+ *
+ * Allowed values strictly: "khqrpay" | "jla".
+ * Falls back to PAYMENT_PROVIDER env var or "khqrpay".
  */
-export function getActivePaymentProvider(): "khqrpay" | "tolasaint" {
-  const configured = cleanEnv(process.env.PAYMENT_PROVIDER).toLowerCase();
-  if (configured === "khqrpay") return "khqrpay";
-  if (configured === "tolasaint") return "tolasaint";
-  if (isKhqrpayConfigured()) return "khqrpay";
-  return "tolasaint";
+export async function getActivePaymentProvider(): Promise<PaymentProviderType> {
+  const now = Date.now();
+  if (cachedActiveProvider && now < cacheExpiresAt) {
+    return cachedActiveProvider;
+  }
+
+  try {
+    const settings = await prisma.settings.findUnique({
+      where: { id: 1 },
+      select: { paymentProvider: true },
+    });
+
+    const dbVal = String(settings?.paymentProvider || "").trim().toLowerCase();
+    if (dbVal === "jla") {
+      cachedActiveProvider = "jla";
+      cacheExpiresAt = now + CACHE_TTL_MS;
+      return "jla";
+    }
+
+    if (dbVal === "khqrpay") {
+      cachedActiveProvider = "khqrpay";
+      cacheExpiresAt = now + CACHE_TTL_MS;
+      return "khqrpay";
+    }
+  } catch (err) {
+    console.warn("[payment] Failed to load provider from DB settings, falling back to env:", err);
+  }
+
+  const envVal = cleanEnv(process.env.PAYMENT_PROVIDER).toLowerCase();
+  if (envVal === "jla") {
+    cachedActiveProvider = "jla";
+  } else {
+    cachedActiveProvider = "khqrpay";
+  }
+  cacheExpiresAt = now + CACHE_TTL_MS;
+  return cachedActiveProvider;
+}
+
+/**
+ * Synchronous provider resolver using memory cache or environment fallback.
+ */
+export function getActivePaymentProviderSync(): PaymentProviderType {
+  if (cachedActiveProvider && Date.now() < cacheExpiresAt) {
+    return cachedActiveProvider;
+  }
+  const envVal = cleanEnv(process.env.PAYMENT_PROVIDER).toLowerCase();
+  return envVal === "jla" ? "jla" : "khqrpay";
 }
 
 // ── Simulation mode (local development only) ─────────────────────────────────
@@ -94,60 +182,74 @@ function simulatePayment(args: InitiatePaymentArgs): PaymentInitResult {
     paymentRef: ref,
     redirectUrl: `${base}/api/payment/simulate?order=${encodeURIComponent(args.orderNumber)}&ref=${encodeURIComponent(ref)}&method=${encodeURIComponent(args.method)}`,
     expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    provider: "khqrpay",
   };
 }
 
-// ── Generic provider API ─────────────────────────────────────────────────────
+// ── Generic Provider API ─────────────────────────────────────────────────────
 
 /**
  * Create a payment for an order.
- * The amount MUST be loaded server-side from the database order.
+ * If forceProvider is specified (e.g. refreshing an existing order), that provider
+ * is used. Otherwise, the current active provider chosen by the Admin is used.
  */
 export async function initiatePayment(
-  args: InitiatePaymentArgs
+  args: InitiatePaymentArgs,
+  forceProvider?: PaymentProviderType
 ): Promise<PaymentInitResult> {
   assertProductionPaymentConfig();
 
   if (isPaymentSimulationMode()) return simulatePayment(args);
 
-  const provider = getActivePaymentProvider();
+  const provider = forceProvider || (await getActivePaymentProvider());
 
-  if (provider === "khqrpay") {
-    return initiateKhqrpayPayment(args);
+  if (provider === "jla") {
+    return JlaPaywayProvider.initiatePayment(args);
   }
 
-  // Otherwise route to Tola Saint
-  return initiateTolaSaintPayment(args);
+  return KhqrPayProvider.initiatePayment(args);
 }
 
 /**
- * Query the provider for the current status of a stored payment reference.
- * Returns null when there is nothing usable (simulation refs, config missing,
- * or remote errors) — callers must treat null as "unknown", never as "paid".
+ * Query the payment provider for the current status of a stored payment reference.
+ * If providerHint is provided (from the order's stored payment_provider), it verifies
+ * against THAT specific provider, preventing admin switches from breaking old orders.
  */
 export async function fetchPaymentStatus(
-  transactionId: string
+  transactionId: string,
+  providerHint?: string | null
 ): Promise<PaymentStatusResult | null> {
   assertProductionPaymentConfig();
 
   if (!transactionId || transactionId.startsWith("SIM-")) return null;
 
-  const isNumericRef = /^\d{6,20}$/.test(transactionId);
-  const provider = getActivePaymentProvider();
+  const normalizedHint = String(providerHint || "").trim().toLowerCase();
 
-  if (provider === "khqrpay" || isNumericRef) {
-    const res = await fetchKhqrpayStatus(transactionId);
-    if (res) return res;
-    if (provider === "khqrpay") return null;
+  // If order explicitly recorded JLA, verify with JLA only
+  if (normalizedHint === "jla") {
+    return JlaPaywayProvider.fetchStatus(transactionId);
   }
 
-  return fetchTolaSaintStatus(transactionId);
+  // If order explicitly recorded KHQRPay, verify with KHQRPay only
+  if (normalizedHint === "khqrpay") {
+    return KhqrPayProvider.fetchStatus(transactionId);
+  }
+
+  // If no providerHint was stored (e.g. legacy order), try active provider then fallback
+  const active = await getActivePaymentProvider();
+  if (active === "jla") {
+    const jlaRes = await JlaPaywayProvider.fetchStatus(transactionId);
+    if (jlaRes) return jlaRes;
+    return KhqrPayProvider.fetchStatus(transactionId);
+  }
+
+  const khqrRes = await KhqrPayProvider.fetchStatus(transactionId);
+  if (khqrRes) return khqrRes;
+  return JlaPaywayProvider.fetchStatus(transactionId);
 }
 
 /**
- * Verify a webhook signature against the active provider.
- * Returns true only when the signature is valid per the provider's documented
- * algorithm. Never bypassed by simulation mode.
+ * Verify a webhook signature against the appropriate provider.
  */
 export function verifyWebhook(
   method: PaymentMethod | string,
@@ -157,6 +259,7 @@ export function verifyWebhook(
   const norm = String(method || "").toUpperCase();
   const isSupported =
     norm === "KHQRPAY" ||
+    norm === "JLA" ||
     norm === "TOLASAINT" ||
     norm === "ABA" ||
     norm === "BAKONG" ||
@@ -165,6 +268,10 @@ export function verifyWebhook(
 
   if (!isSupported) return false;
 
+  if (norm === "JLA") {
+    return JlaPaywayProvider.verifyWebhook(rawBody, headers);
+  }
+
   const hasKhqrpayHeader = Boolean(
     headers["x-webhook-event"] ||
     headers["X-Webhook-Event"] ||
@@ -172,9 +279,15 @@ export function verifyWebhook(
     headers["X-Webhook-Delivery"]
   );
 
-  if (norm === "KHQRPAY" || hasKhqrpayHeader || getActivePaymentProvider() === "khqrpay") {
-    return verifyKhqrpayWebhookSignature(headers, rawBody);
+  if (norm === "KHQRPAY" || hasKhqrpayHeader) {
+    return KhqrPayProvider.verifyWebhook(rawBody, headers);
   }
 
-  return verifyTolaSaintWebhookSignature(headers, rawBody);
+  // Default to active provider
+  const active = getActivePaymentProviderSync();
+  if (active === "jla") {
+    return JlaPaywayProvider.verifyWebhook(rawBody, headers);
+  }
+
+  return KhqrPayProvider.verifyWebhook(rawBody, headers);
 }
