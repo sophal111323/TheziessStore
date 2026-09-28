@@ -77,9 +77,12 @@ async function runTests() {
     // Initiate payment for Order A
     const initA = await initiatePayment({
       orderNumber: orderA.orderNumber,
-      amount: orderA.amountUsd,
+      amountUsd: orderA.amountUsd,
       currency: "USD",
-      webhookUrl: "https://theziessstore.store/api/payment/webhook/khqrpay",
+      method: "KHQR",
+      returnUrl: `https://theziessstore.store/checkout/${orderA.orderNumber}`,
+      cancelUrl: `https://theziessstore.store/checkout/${orderA.orderNumber}`,
+      callbackUrl: "https://theziessstore.store/api/payment/webhook/khqrpay",
     }, orderA.paymentProvider as "khqrpay");
     console.log(`- Order A initiatePayment success: provider=${initA.provider}, qrStringLength=${initA.qrString?.length}`);
     if (initA.provider !== "khqrpay") {
@@ -134,9 +137,12 @@ async function runTests() {
     // Initiate payment for Order B (calls https://payway.jlastore.com/api/create-tran)
     const initB = await initiatePayment({
       orderNumber: orderB.orderNumber,
-      amount: orderB.amountUsd,
+      amountUsd: orderB.amountUsd,
       currency: "USD",
-      webhookUrl: "https://theziessstore.store/api/payment/webhook/jla",
+      method: "KHQR",
+      returnUrl: `https://theziessstore.store/checkout/${orderB.orderNumber}`,
+      cancelUrl: `https://theziessstore.store/checkout/${orderB.orderNumber}`,
+      callbackUrl: "https://theziessstore.store/api/payment/webhook/jla",
     }, orderB.paymentProvider as "jla");
     console.log(`- Order B initiatePayment result: provider=${initB.provider}, paymentRef=${initB.paymentRef}`);
     console.log(`- Order B qrString present: ${Boolean(initB.qrString)} (length: ${initB.qrString?.length || 0})`);

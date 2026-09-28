@@ -68,9 +68,10 @@ export async function initiateKhqrpayPayment(
     throw new Error("KHQRPAY_API_KEY is not configured.");
   }
 
-  const amountUsd = Number(args.amountUsd.toFixed(2));
+  const rawAmount = args.amountUsd ?? (args as any).amount ?? 0;
+  const amountUsd = Number(Number(rawAmount).toFixed(2));
   if (amountUsd < 0.01 || amountUsd > 10000) {
-    throw new Error(`Invalid payment amount: $${args.amountUsd}. Must be between 0.01 and 10000.`);
+    throw new Error(`Invalid payment amount: $${rawAmount}. Must be between 0.01 and 10000.`);
   }
 
   const payload: Record<string, unknown> = {
