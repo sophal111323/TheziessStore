@@ -102,7 +102,7 @@ async function runTests() {
       data: {
         action: "settings.payment_provider_switch",
         adminEmail: "admin@test.local",
-        ip: "127.0.0.1",
+        ipAddress: "127.0.0.1",
         userAgent: "Verification-Suite",
         status: "SUCCESS",
         details: "KHQRPay → JLA",
@@ -200,7 +200,7 @@ async function runTests() {
       data: {
         action: "settings.payment_provider_switch",
         adminEmail: "admin@test.local",
-        ip: "127.0.0.1",
+        ipAddress: "127.0.0.1",
         userAgent: "Verification-Suite",
         status: "SUCCESS",
         details: "JLA → KHQRPay",
