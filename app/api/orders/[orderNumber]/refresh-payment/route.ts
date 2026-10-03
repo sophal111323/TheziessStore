@@ -87,6 +87,8 @@ export async function POST(
   }
 
   const baseUrl = (
+    process.env.PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXTAUTH_URL ||
     req.nextUrl.origin

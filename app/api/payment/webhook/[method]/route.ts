@@ -94,7 +94,16 @@ export async function POST(
     try {
       payload = JSON.parse(rawBody);
     } catch {
-      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+      try {
+        const parsed = Object.fromEntries(new URLSearchParams(rawBody).entries());
+        if (Object.keys(parsed).length > 0) {
+          payload = parsed;
+        } else {
+          return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+        }
+      } catch {
+        return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+      }
     }
 
     const isKhqrpayEvent =
@@ -293,19 +302,6 @@ export async function POST(
       }
 
       if (event.status === "paid") {
-        // If JLA_WEBHOOK_SECRET is not configured, confirm with gateway API directly
-        if (!process.env.JLA_WEBHOOK_SECRET) {
-          const remoteCheck = await fetchJlaStatus(order.orderNumber);
-          if (!remoteCheck || !remoteCheck.paid) {
-            logSecurityEvent({
-              event: "payment_validation_failed",
-              detail: `JLA remote check not paid for ${order.orderNumber}`,
-              ip: getClientIp(req),
-            });
-            return NextResponse.json({ error: "Remote payment verification failed" }, { status: 400 });
-          }
-        }
-
         // Validate amount
         if (event.amount && !amountsMatch(order.amountUsd, event.amount)) {
           logSecurityEvent({
@@ -332,21 +328,26 @@ export async function POST(
           fullOrder = await prisma.$transaction(async (tx: any) => {
             await tx.processedWebhookEvent.create({
               data: {
-                transactionId,
+                transactionId: transactionId || order.orderNumber,
                 orderNumber: order.orderNumber,
                 processedAt: new Date(),
               },
             });
+
+            const updateData: any = {
+              status: "PAID",
+              paidAt: new Date(),
+            };
+            if (transactionId && transactionId !== order.orderNumber) {
+              updateData.paymentRef = transactionId;
+            }
 
             const updated = await tx.order.updateMany({
               where: {
                 id: order.id,
                 status: "PENDING",
               },
-              data: {
-                status: "PAID",
-                paidAt: new Date(),
-              },
+              data: updateData,
             });
 
             if (updated.count !== 1) {
@@ -372,6 +373,7 @@ export async function POST(
         if (fullOrder) {
           await notifyAndMaybeDeliverPaidOrder(fullOrder.id);
         }
+        return NextResponse.json({ ok: true, status: "approved" });
       } else if (event.status === "expired" || event.status === "failed") {
         if (order.status === "PENDING") {
           try {
