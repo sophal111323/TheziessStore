@@ -152,6 +152,8 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
     finalAmountUsd: number;
     discountType: string;
     discountValue: number;
+    allowedPackageIds?: string[];
+    claimed?: boolean;
   } | null>(null);
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
@@ -168,6 +170,12 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
   const [nicknameStatus, setNicknameStatus] = useState<NicknameStatus>("idle");
   const [nickname, setNickname] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  const isIdChecked = isVoucherGame
+    ? true
+    : supportsLookup
+      ? nicknameStatus === "verified"
+      : isValidUid(uid);
 
   const resetLookup = useCallback(() => {
     if (abortRef.current) abortRef.current.abort();
@@ -281,44 +289,31 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
     }
   }, [uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 🎟️ If user changes product after applying promo, recalculate discount
+  // 🎟️ If user changes product after applying promo, recalculate discount locally
   useEffect(() => {
     if (promoApplied && selectedProduct) {
-      const codeToReapply = promoApplied.code;
-      fetch("/api/promo-codes/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: codeToReapply,
-          orderAmountUsd: selectedProduct.priceUsd,
-          playerUid: uid.trim() || (isVoucherGame ? "ROBLOX-USER" : undefined),
-          gameId: game.id,
-        }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data?.valid) {
-            setPromoApplied(data);
-            setPromoError(null);
-          } else {
-            setPromoApplied(null);
-            setPromoError(data?.error || "Coupon code is invalid or expired.");
-          }
-        })
-        .catch(() => {
-          setPromoApplied(null);
-        });
+      let discountUsd =
+        promoApplied.discountType === "PERCENT"
+          ? (selectedProduct.priceUsd * promoApplied.discountValue) / 100
+          : promoApplied.discountValue;
+      discountUsd = Math.min(discountUsd, selectedProduct.priceUsd);
+      discountUsd = Math.round(discountUsd * 100) / 100;
+      const finalAmountUsd = Math.max(0, Math.round((selectedProduct.priceUsd - discountUsd) * 100) / 100);
+
+      setPromoApplied((prev) => (prev ? { ...prev, discountUsd, finalAmountUsd } : null));
     }
   }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function applyPromo() {
     if (!promoInput.trim()) return;
-    if (!selectedProduct) {
-      setPromoError("សូមជ្រើសរើសកញ្ចប់ជាមុនសិន");
-      return;
-    }
-    if (!isVoucherGame && !uid.trim()) {
-      setPromoError("សូមបញ្ចូល Game ID / User ID ជាមុនសិន");
+
+    // 🔒 Rule: Must check ID first before having the right to apply
+    if (!isIdChecked) {
+      setPromoError(
+        supportsLookup
+          ? "សូមពិនិត្យមើល ID (Check ID) ឲ្យបានជោគជ័យជាមុនសិន ទើបអាចអនុវត្តកូដបាន"
+          : "សូមបញ្ចូល Player ID ឱ្យបានត្រឹមត្រូវជាមុនសិន"
+      );
       return;
     }
 
@@ -332,16 +327,68 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: promoInput.trim(),
-          orderAmountUsd: selectedProduct.priceUsd,
+          orderAmountUsd: selectedProduct?.priceUsd || undefined,
           playerUid: uid.trim() || (isVoucherGame ? "ROBLOX-USER" : undefined),
           gameId: game.id,
+          productId: selectedProduct?.id || undefined,
+          claim: true,
         }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.valid) {
-        throw new Error(data.error || "Coupon code is invalid or expired.");
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
       }
-      setPromoApplied(data);
+      if (!res.ok || !data.valid) {
+        if (res.status === 429) {
+          throw new Error(data.error || "អ្នកបានសាកល្បងញឹកញាប់ពេក សូមរង់ចាំបន្តិច");
+        }
+        throw new Error(data.error || "កូដបញ្ចុះតម្លៃមិនត្រឹមត្រូវ ឬត្រូវបានប្រើអស់ហើយ");
+      }
+
+      const allowedIds: string[] = Array.isArray(data.allowedPackageIds) ? data.allowedPackageIds : [];
+      let calculatedDiscount = data.discountUsd || 0;
+      let calculatedFinal = data.finalAmountUsd || (selectedProduct?.priceUsd ?? 0);
+
+      if (selectedProduct && !calculatedDiscount) {
+        calculatedDiscount =
+          data.discountType === "PERCENT"
+            ? (selectedProduct.priceUsd * data.discountValue) / 100
+            : data.discountValue;
+        calculatedDiscount = Math.min(calculatedDiscount, selectedProduct.priceUsd);
+        calculatedDiscount = Math.round(calculatedDiscount * 100) / 100;
+        calculatedFinal = Math.max(0, Math.round((selectedProduct.priceUsd - calculatedDiscount) * 100) / 100);
+      }
+
+      setPromoApplied({
+        code: data.code,
+        discountType: data.discountType,
+        discountValue: data.discountValue,
+        discountUsd: calculatedDiscount,
+        finalAmountUsd: calculatedFinal,
+        allowedPackageIds: allowedIds,
+        claimed: Boolean(data.claimed),
+      });
+
+      // 📦 If package restriction is active, keep open only allowed packages and auto-select
+      if (allowedIds.length > 0) {
+        const isCurrentAllowed =
+          selected &&
+          (allowedIds.includes(selected) ||
+            Boolean(selectedProduct?.randomPackageId && allowedIds.includes(selectedProduct.randomPackageId)));
+
+        if (!isCurrentAllowed) {
+          const firstAllowed = products.find(
+            (p) => allowedIds.includes(p.id) || (p.randomPackageId && allowedIds.includes(p.randomPackageId))
+          );
+          if (firstAllowed && firstAllowed.inStock !== false) {
+            setSelected(firstAllowed.id);
+          } else {
+            setSelected(null);
+          }
+        }
+      }
     } catch (err: any) {
       setPromoError(err.message || "Coupon code is invalid or expired.");
     } finally {
@@ -591,6 +638,20 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
             </div>
 
             {/* Categorized Sections */}
+            {promoApplied && Array.isArray(promoApplied.allowedPackageIds) && promoApplied.allowedPackageIds.length > 0 && (
+              <div className="mb-4 p-3 rounded-2xl bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-purple-500/10 border-2 border-purple-400/40 text-purple-900 text-xs sm:text-sm flex items-center gap-2.5 shadow-sm">
+                <span className="text-lg shrink-0">🎟️</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-pink-900">
+                    កូដ <span className="font-mono text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">{promoApplied.code}</span> ត្រូវបានអនុវត្ត!
+                  </p>
+                  <p className="text-[11px] sm:text-xs text-purple-800/80">
+                    បើកឱ្យជ្រើសរើសបានតែលើកញ្ចប់ដែលបានកំណត់ប៉ុណ្ណោះ — កញ្ចប់ផ្សេងទៀតត្រូវបានបិទមិនឱ្យចុចឡើយ។
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-6">
               {groupedProducts.map((group) => (
                 <div key={group.category} className="space-y-3">
@@ -607,21 +668,33 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
                     {group.items.map((p) => {
                       const isSelected = selected === p.id;
                       const isOutOfStock = p.inStock === false;
+                      const isLockedByPromo = Boolean(
+                        promoApplied &&
+                        Array.isArray(promoApplied.allowedPackageIds) &&
+                        promoApplied.allowedPackageIds.length > 0 &&
+                        !promoApplied.allowedPackageIds.includes(p.id) &&
+                        (!p.randomPackageId || !promoApplied.allowedPackageIds.includes(p.randomPackageId))
+                      );
+                      const isItemDisabled = isOutOfStock || isLockedByPromo;
                       return (
                         <button
                           type="button"
                           key={p.id}
-                          disabled={isOutOfStock}
-                          onClick={isOutOfStock ? undefined : () => setSelected(p.id)}
+                          disabled={isItemDisabled}
+                          onClick={isItemDisabled ? undefined : () => setSelected(p.id)}
                           className={`group relative overflow-hidden text-center rounded-2xl border-2 p-2.5 sm:p-3.5 transition-all duration-300 ${
-                            isOutOfStock
+                            isLockedByPromo
+                              ? "opacity-35 grayscale-[70%] bg-gray-100/90 border-gray-200 cursor-not-allowed select-none shadow-none pointer-events-none"
+                              : isOutOfStock
                               ? "opacity-55 grayscale-[40%] bg-gray-50 border-gray-200 cursor-not-allowed select-none shadow-none hover:translate-y-0"
                               : isSelected
                               ? "border-pink-400 bg-gradient-to-b from-pink-50 to-white shadow-lg shadow-pink-300/40 ring-2 ring-pink-400/40 hover:-translate-y-0.5 hover:shadow-lg"
                               : "border-pink-100 bg-white hover:border-pink-300 hover:shadow-pink-200/50 hover:-translate-y-0.5 hover:shadow-lg"
                           }`}
                           style={{
-                            background: isOutOfStock
+                            background: isLockedByPromo
+                              ? "#f3f4f6"
+                              : isOutOfStock
                               ? "#f9fafb"
                               : isSelected
                               ? "linear-gradient(160deg, #faf5ff 0%, #ffffff 100%)"
@@ -629,7 +702,7 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
                           }}
                         >
                           {/* Shimmer on selected */}
-                          {isSelected && !isOutOfStock && (
+                          {isSelected && !isItemDisabled && (
                             <span className="pointer-events-none absolute inset-0 opacity-50">
                               <span className="absolute -inset-y-1 -left-1/3 w-1/3 rotate-12 bg-gradient-to-r from-transparent via-pink-200/60 to-transparent animate-shimmer" />
                             </span>
@@ -638,14 +711,18 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
                           {/* Checkmark or Out of stock indicator top-left */}
                           <span
                             className={`absolute top-2 left-2 flex h-5 w-5 sm:h-5.5 sm:w-5.5 items-center justify-center rounded-full transition-all duration-200 ${
-                              isOutOfStock
+                              isLockedByPromo
+                                ? "bg-gray-200 text-gray-500 scale-90"
+                                : isOutOfStock
                                 ? "bg-rose-100 text-rose-600 scale-90"
                                 : isSelected
                                 ? "bg-pink-500 shadow-sm shadow-pink-300/50 scale-100"
                                 : "bg-pink-100/70 scale-90"
                             }`}
                           >
-                            {isOutOfStock ? (
+                            {isLockedByPromo ? (
+                              <span className="text-[10px] font-extrabold leading-none">🔒</span>
+                            ) : isOutOfStock ? (
                               <span className="text-[10px] font-extrabold leading-none">✕</span>
                             ) : (
                               <svg className={`h-3 w-3 transition-colors ${isSelected ? "text-white" : "text-pink-300"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
@@ -654,8 +731,14 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
                             )}
                           </span>
 
-                          {/* Badge or Out of Stock Tag */}
-                          {isOutOfStock ? (
+                          {/* Badge or Out of Stock Tag or Locked Tag */}
+                          {isLockedByPromo ? (
+                            <div className="absolute -top-1.5 right-2 z-10">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-gray-600 text-white font-extrabold text-[9px] px-2 py-0.5 shadow-sm">
+                                🔒 មិនអនុញ្ញាត
+                              </span>
+                            </div>
+                          ) : isOutOfStock ? (
                             <div className="absolute -top-1.5 right-2 z-10">
                               <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 text-white font-extrabold text-[9px] px-2 py-0.5 shadow-sm shadow-rose-500/30">
                                 <span className="h-1.5 w-1.5 rounded-full bg-white" />
@@ -751,33 +834,56 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
               <div className="flex items-center gap-3 rounded-xl border border-green-600 bg-green-100 p-3">
                 <Tag className="h-4 w-4 text-green-600 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <span className="font-mono font-bold text-green-600 text-sm">{promoApplied.code}</span>
-                  <span className="text-xs text-green-600/80 ml-2">បញ្ចុះតម្លៃ −{format(promoApplied.discountUsd)}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-green-700 text-sm">{promoApplied.code}</span>
+                    <span className="text-[10px] bg-green-200 text-green-800 font-bold px-2 py-0.5 rounded-full">
+                      ✓ បាន Claim
+                    </span>
+                  </div>
+                  <span className="text-xs text-green-700/90 font-medium">
+                    {promoApplied.discountUsd > 0
+                      ? `បញ្ចុះតម្លៃ −${format(promoApplied.discountUsd)}`
+                      : promoApplied.discountType === "PERCENT"
+                      ? `បញ្ចុះតម្លៃ ${promoApplied.discountValue}%`
+                      : `បញ្ចុះតម្លៃ $${promoApplied.discountValue}`}
+                  </span>
                 </div>
-                <button type="button" onClick={removePromo} className="text-xs text-pink-500 hover:text-red-500 transition-colors">
+                <button type="button" onClick={removePromo} className="text-xs text-pink-500 hover:text-red-500 transition-colors font-medium">
                   លុប
                 </button>
               </div>
             ) : (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={promoInput}
-                  onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoError(null); }}
-                  placeholder="បញ្ចូលកូដបញ្ចុះតម្លៃ"
-                  className="input font-mono uppercase text-sm flex-1"
-                />
-                <button
-                  type="button"
-                  onClick={applyPromo}
-                  disabled={promoLoading || !promoInput.trim() || !selectedProduct}
-                  className="btn-ghost text-sm shrink-0"
-                >
-                  {promoLoading ? "..." : "អនុវត្ត"}
-                </button>
+              <div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={promoInput}
+                    onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoError(null); }}
+                    placeholder="បញ្ចូលកូដបញ្ចុះតម្លៃ"
+                    className="input font-mono uppercase text-sm flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={applyPromo}
+                    disabled={promoLoading || !promoInput.trim() || !isIdChecked}
+                    className="btn-ghost text-sm shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {promoLoading ? "..." : "អនុវត្ត"}
+                  </button>
+                </div>
+                {!isIdChecked && (
+                  <p className="mt-1.5 text-[11px] text-amber-600 font-medium flex items-center gap-1">
+                    <span>⚠️</span>
+                    <span>
+                      {supportsLookup
+                        ? "ទាល់តែពិនិត្យមើល ID (Check ID) រួចរាល់ ទើបអាចចុចអនុវត្តកូដបាន"
+                        : "ទាល់តែបញ្ចូល Player ID រួចរាល់ ទើបអាចចុចអនុវត្តកូដបាន"}
+                    </span>
+                  </p>
+                )}
               </div>
             )}
-            {promoError && <p className="mt-2 text-xs text-red-500">{promoError}</p>}
+            {promoError && <p className="mt-2 text-xs text-red-500 font-medium">{promoError}</p>}
           </div>
 
           {/* Step 3: Payment */}

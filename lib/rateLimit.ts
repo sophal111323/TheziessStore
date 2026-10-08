@@ -60,7 +60,11 @@ export async function checkRateLimitDb(
 
     return true;
   } catch (err) {
-    // ✅ Fail-closed: block request ពេល DB មិន available
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[rateLimit] DB unreachable in development, falling back to memory:", (err as Error).message);
+      return checkRateLimitMemory(key, max, windowMs);
+    }
+    // ✅ Fail-closed: block request ពេល DB មិន available (production only)
     // មិន fallback ទៅ memory ទេ — ការពារ bypass after server restart
     console.error("[rateLimit] DB error, blocking as precaution:", err);
     logSecurityEvent({
@@ -78,6 +82,15 @@ export async function applyRateLimit(
   windowMs: number,
   ip?: string
 ): Promise<Response | null> {
+  if (
+    process.env.NODE_ENV !== "production" ||
+    ip === "127.0.0.1" ||
+    ip === "::1" ||
+    ip === "unknown"
+  ) {
+    return null;
+  }
+
   const allowed = await checkRateLimitDb(key, max, windowMs, ip);
   if (!allowed) {
     return new Response(

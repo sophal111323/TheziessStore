@@ -15,7 +15,10 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "bot": "tsx scripts/telegram-bot.ts",
+    "test:auth": "tsx --env-file=.env scripts/test-telegram-auth.ts",
+    "test:db": "tsx --env-file=.env scripts/test-database.ts"
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.6.1",

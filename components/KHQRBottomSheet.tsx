@@ -14,6 +14,7 @@ import {
   Check,
   Sparkles,
   X,
+  Gift,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { playPaymentSuccessSound } from "@/lib/sound";
@@ -450,6 +451,15 @@ export default function KHQRBottomSheet({
                   <ExternalLink className="h-4 w-4" />
                 </a>
 
+                <a
+                  href={`/gift/${encodeURIComponent(currentOrder.orderNumber)}`}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-3.5 text-sm font-black text-white shadow-lg shadow-purple-300 hover:scale-[1.01] active:scale-[0.98] transition-all"
+                >
+                  <Gift className="h-4 w-4 text-yellow-300 animate-bounce" />
+                  <span>🎁 បើកកាដូសំណាង (Pick Gift)</span>
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+
                 <button
                   type="button"
                   onClick={copyOrderNumber}
@@ -596,7 +606,19 @@ export default function KHQRBottomSheet({
                 </p>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {/* 🎁 Pick Mystery Gift Button */}
+              <div className="mt-4">
+                <a
+                  href={`/gift/${encodeURIComponent(currentOrder.orderNumber)}`}
+                  className="w-full inline-flex items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 px-6 py-3.5 text-base font-black text-white shadow-xl shadow-purple-500/30 hover:shadow-purple-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all border border-purple-300/40 animate-pulse"
+                >
+                  <Gift className="h-6 w-6 text-yellow-300 animate-bounce" />
+                  <span>🎁 បើកកាដូសំណាង (Pick Gift)</span>
+                  <ExternalLink className="h-4 w-4 text-purple-200" />
+                </a>
+              </div>
+
+              <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <button
                   type="button"
                   onClick={copyOrderNumber}

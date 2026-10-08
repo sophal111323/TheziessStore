@@ -18,6 +18,7 @@ import {
   Download,
   Sparkles,
   ExternalLink,
+  Gift,
 } from "lucide-react";
 
 interface OrderPayment {
@@ -626,6 +627,13 @@ export default function CheckoutClient() {
                         <span>បង្វិលកងសំណាងឥឡូវនេះ (Spin Now)</span>
                       </Link>
                       <Link
+                        href={`/gift/${order.orderNumber}`}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 text-base font-bold text-white shadow-xl shadow-purple-200 hover:shadow-purple-300 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                      >
+                        <Gift className="w-5 h-5 text-yellow-300 animate-bounce" />
+                        <span>បើកកាដូ (Open Gift)</span>
+                      </Link>
+                      <Link
                         href={`/order?number=${order.orderNumber}`}
                         className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                       >
@@ -770,6 +778,17 @@ export default function CheckoutClient() {
                         </div>
                       </div>
                     )}
+
+                    {/* 🎁 Open Mystery Gift Button */}
+                    <div className="my-5">
+                      <Link
+                        href={`/gift/${order.orderNumber}`}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 px-8 py-4 text-base font-black text-white shadow-xl shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all border border-purple-300/40 animate-pulse"
+                      >
+                        <Gift className="h-6 w-6 text-yellow-300 animate-bounce" />
+                        <span>🎁 បើកកាដូសំណាង (Open Gift)</span>
+                      </Link>
+                    </div>
 
                     <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
                       <Link href="/" className="inline-flex items-center justify-center rounded-xl border border-pink-400 px-6 py-3 text-sm font-semibold text-pink-600 hover:bg-pink-50 transition-colors">

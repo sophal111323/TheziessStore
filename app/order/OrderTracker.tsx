@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   Search,
   Package,
@@ -12,6 +13,7 @@ import {
   Copy,
   Check,
   ExternalLink,
+  Gift,
 } from "lucide-react";
 
 interface OrderInfo {
@@ -631,6 +633,27 @@ export default function OrderTracker() {
                 )}
               </div>
             </div>
+
+            {["PAID", "PROCESSING", "DELIVERED"].includes(orderStatus) && (
+              <div className="mx-5 mb-5 rounded-2xl border-2 border-purple-300 bg-gradient-to-r from-purple-900/10 via-purple-600/10 to-pink-600/10 p-4 sm:mx-6 sm:mb-6 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md shadow-purple-500/5">
+                <div className="flex items-center gap-3 text-center sm:text-left">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-purple-600 to-fuchsia-600 text-white shadow-md shadow-purple-500/20">
+                    <Gift className="h-6 w-6 text-yellow-300 animate-bounce" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-purple-950">កាដូសំណាងរង់ចាំអ្នក! (Mystery Gift)</p>
+                    <p className="text-xs text-purple-700">អ្នកមានសិទ្ធិចាប់កាដូសំណាង 1 លើកក្នុងចំណោម 9 ប្រអប់</p>
+                  </div>
+                </div>
+                <Link
+                  href={`/gift/${order.orderNumber}`}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-2.5 text-xs font-black text-white shadow-md shadow-purple-500/25 hover:from-purple-500 hover:to-indigo-500 active:scale-95 transition-all"
+                >
+                  <span>បើកកាដូ (Open Gift)</span>
+                  <span>🎁</span>
+                </Link>
+              </div>
+            )}
 
             {orderStatus === "FAILED" && (
               <div className="mx-5 mb-5 rounded-lg border border-red-300 bg-red-100 p-4 text-sm text-red-500 sm:mx-6 sm:mb-6">

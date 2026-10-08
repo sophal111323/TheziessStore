@@ -17,6 +17,8 @@ const createSchema = z.object({
   maxUsesPerUser: z.number().int().min(0).default(1),
   expiresAt: z.string().nullable().optional(),
   active: z.boolean().default(true),
+  gameId: z.string().nullable().optional(),
+  allowedPackageIds: z.array(z.string()).optional().default([]),
 });
 
 export const GET = withAdminAuth(
@@ -24,6 +26,7 @@ export const GET = withAdminAuth(
     const codes = await prisma.promoCode.findMany({
       orderBy: { createdAt: "desc" },
       include: {
+        game: { select: { id: true, name: true, slug: true } },
         _count: {
           select: {
             orders: true,
@@ -63,6 +66,11 @@ export const POST = withAdminAuth(
         maxUsesPerUser: data.maxUsesPerUser,
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
         active: data.active,
+        gameId: data.gameId || null,
+        allowedPackageIds: JSON.stringify(data.allowedPackageIds || []),
+      },
+      include: {
+        game: { select: { id: true, name: true, slug: true } },
       },
     });
 

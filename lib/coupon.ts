@@ -3,13 +3,16 @@ import type { Prisma } from "@prisma/client";
 
 export interface ValidateCouponParams {
   code: string;
-  orderAmountUsd: number;
+  orderAmountUsd?: number | null;
   playerUid?: string | null;
   gameId?: string | null;
+  productId?: string | null;
+  claimNow?: boolean;
 }
 
 export interface ValidateCouponResult {
   valid: boolean;
+  claimed?: boolean;
   error?: string;
   code?: string;
   promoCodeId?: string;
@@ -18,20 +21,24 @@ export interface ValidateCouponResult {
   discountUsd?: number;
   finalAmountUsd?: number;
   onePerUser?: boolean;
+  gameId?: string | null;
+  allowedPackageIds?: string[];
+  usageId?: string;
 }
 
 /**
- * Validates a promo code without consuming it.
+ * Validates a promo code.
+ * If claimNow is true, atomically records usage and increments usedCount right away (claim on apply).
  * Checks code existence, active status, expiration date, max uses limit,
- * minimum order requirement, and per-user/game ID usage limit.
+ * minimum order requirement, game restriction, package restriction, and per-user/game ID usage limit.
  */
 export async function validatePromoCode(
   params: ValidateCouponParams
 ): Promise<ValidateCouponResult> {
-  const { code, orderAmountUsd, playerUid } = params;
+  const { code, orderAmountUsd, playerUid, gameId, productId, claimNow } = params;
 
   if (!code || !code.trim()) {
-    return { valid: false, error: "Coupon code is invalid or expired." };
+    return { valid: false, error: "សូមបញ្ចូលកូដបញ្ចុះតម្លៃ" };
   }
 
   const normalizedCode = code.toUpperCase().trim();
@@ -39,33 +46,108 @@ export async function validatePromoCode(
 
   const promo = await prisma.promoCode.findUnique({
     where: { code: normalizedCode },
+    include: { game: { select: { id: true, name: true, slug: true } } },
   });
 
   if (!promo || !promo.active) {
-    return { valid: false, error: "Coupon code is invalid or expired." };
+    return { valid: false, error: "កូដបញ្ចុះតម្លៃមិនត្រឹមត្រូវ ឬត្រូវបានបិទ" };
   }
 
   // Check expiration
   if (promo.expiresAt && promo.expiresAt < new Date()) {
-    return { valid: false, error: "Coupon code is invalid or expired." };
+    return { valid: false, error: "កូដបញ្ចុះតម្លៃនេះបានផុតកំណត់ហើយ" };
   }
 
   // Check global usage limit
   if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) {
-    return { valid: false, error: "This coupon has reached its usage limit." };
+    return { valid: false, error: "កូដនេះត្រូវបានអ្នកផ្សេង Claim អស់ហើយ (ត្រូវបានប្រើប្រាស់អស់កំណត់)" };
   }
 
-  // Check minimum order amount
-  if (orderAmountUsd < promo.minOrderUsd) {
+  // Check game restriction
+  if (promo.gameId && gameId && promo.gameId !== gameId) {
     return {
       valid: false,
-      error: `Minimum order of $${promo.minOrderUsd.toFixed(2)} required`,
+      error: `កូដនេះអាចប្រើបានតែសម្រាប់ហ្គេម "${promo.game?.name || "ជាក់លាក់"}" ប៉ុណ្ណោះ`,
     };
+  }
+
+  // Parse allowed package IDs
+  let allowedPackageIds: string[] = [];
+  try {
+    allowedPackageIds = JSON.parse(promo.allowedPackageIds || "[]");
+  } catch {
+    allowedPackageIds = [];
+  }
+
+  // Check package restriction if a productId is passed
+  if (productId && allowedPackageIds.length > 0 && !allowedPackageIds.includes(productId)) {
+    return {
+      valid: false,
+      error: "កូដនេះមិនអាចប្រើសម្រាប់កញ្ចប់ដែលបានជ្រើសរើសនេះទេ",
+      allowedPackageIds,
+    };
+  }
+
+  const basePrice = typeof orderAmountUsd === "number" && orderAmountUsd > 0 ? orderAmountUsd : 0;
+
+  // Check minimum order amount if price is known
+  if (basePrice > 0 && promo.minOrderUsd > 0 && basePrice < promo.minOrderUsd) {
+    return {
+      valid: false,
+      error: `ទាមទារការកុម្ម៉ង់យ៉ាងតិច $${promo.minOrderUsd.toFixed(2)}`,
+      allowedPackageIds,
+    };
+  }
+
+  // Calculate discount safely
+  let discountUsd = 0;
+  let finalAmountUsd = basePrice;
+  if (basePrice > 0) {
+    discountUsd =
+      promo.discountType === "PERCENT"
+        ? (basePrice * promo.discountValue) / 100
+        : promo.discountValue;
+
+    discountUsd = Math.min(discountUsd, basePrice);
+    discountUsd = Math.round(discountUsd * 100) / 100;
+    finalAmountUsd = Math.round((basePrice - discountUsd) * 100) / 100;
   }
 
   // Check per-user / game ID usage limit
   if (normalizedUid && (promo.onePerUser || promo.maxUsesPerUser > 0)) {
     const maxAllowed = promo.maxUsesPerUser > 0 ? promo.maxUsesPerUser : 1;
+
+    // If order creation is checking an already-claimed coupon (!claimNow), see if unlinked claim exists
+    if (!claimNow) {
+      const unlinkedClaim = await prisma.couponUsage.findFirst({
+        where: {
+          promoCodeId: promo.id,
+          userIdentifier: normalizedUid,
+          status: "USED",
+          orderId: null,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (unlinkedClaim) {
+        // User already claimed this code on Apply, so allow attaching it to the order
+        return {
+          valid: true,
+          claimed: true,
+          code: promo.code,
+          promoCodeId: promo.id,
+          discountType: promo.discountType,
+          discountValue: promo.discountValue,
+          discountUsd,
+          finalAmountUsd,
+          onePerUser: promo.onePerUser,
+          gameId: promo.gameId,
+          allowedPackageIds,
+          usageId: unlinkedClaim.id,
+        };
+      }
+    }
+
     const completedUses = await prisma.couponUsage.count({
       where: {
         promoCodeId: promo.id,
@@ -75,22 +157,63 @@ export async function validatePromoCode(
     });
 
     if (completedUses >= maxAllowed) {
-      return { valid: false, error: "You have already used this coupon." };
+      return { valid: false, error: "អ្នក (Player ID នេះ) បាន Claim ឬប្រើប្រាស់កូដនេះរួចហើយ" };
     }
   }
 
-  // Calculate discount safely
-  let discountUsd =
-    promo.discountType === "PERCENT"
-      ? (orderAmountUsd * promo.discountValue) / 100
-      : promo.discountValue;
+  // 🎟️ CLAIM ON APPLY: If claimNow is true and player ID is verified/provided
+  let createdUsageId: string | undefined;
+  if (claimNow && normalizedUid) {
+    try {
+      await prisma.$transaction(async (tx) => {
+        // 1. Double check per-user limit inside transaction to prevent race conditions
+        if (normalizedUid && (promo.onePerUser || promo.maxUsesPerUser > 0)) {
+          const maxAllowed = promo.maxUsesPerUser > 0 ? promo.maxUsesPerUser : 1;
+          const userUses = await tx.couponUsage.count({
+            where: {
+              promoCodeId: promo.id,
+              userIdentifier: normalizedUid,
+              status: "USED",
+            },
+          });
+          if (userUses >= maxAllowed) {
+            throw new Error("អ្នក (Player ID នេះ) បាន Claim ឬប្រើប្រាស់កូដនេះរួចហើយ");
+          }
+        }
 
-  discountUsd = Math.min(discountUsd, orderAmountUsd);
-  discountUsd = Math.round(discountUsd * 100) / 100;
-  const finalAmountUsd = Math.round((orderAmountUsd - discountUsd) * 100) / 100;
+        // 2. Atomic increment of usedCount if maxUses permits (PostgreSQL row-level lock)
+        const updateRes = await tx.promoCode.updateMany({
+          where: {
+            id: promo.id,
+            active: true,
+            ...(promo.maxUses > 0 ? { usedCount: { lt: promo.maxUses } } : {}),
+          },
+          data: { usedCount: { increment: 1 } },
+        });
+
+        if (updateRes.count === 0 && promo.maxUses > 0) {
+          throw new Error("កូដនេះត្រូវបានអ្នកផ្សេង Claim អស់ហើយ (ត្រូវបានប្រើប្រាស់អស់កំណត់)");
+        }
+
+        const usage = await tx.couponUsage.create({
+          data: {
+            promoCodeId: promo.id,
+            userIdentifier: normalizedUid,
+            status: "USED",
+            usedAt: new Date(),
+            discountUsd: discountUsd || 0,
+          },
+        });
+        createdUsageId = usage.id;
+      });
+    } catch (err: any) {
+      return { valid: false, error: err.message || "មិនអាច Claim កូដនេះបានទេ" };
+    }
+  }
 
   return {
     valid: true,
+    claimed: Boolean(claimNow && normalizedUid),
     code: promo.code,
     promoCodeId: promo.id,
     discountType: promo.discountType,
@@ -98,6 +221,9 @@ export async function validatePromoCode(
     discountUsd,
     finalAmountUsd,
     onePerUser: promo.onePerUser,
+    gameId: promo.gameId,
+    allowedPackageIds,
+    usageId: createdUsageId,
   };
 }
 

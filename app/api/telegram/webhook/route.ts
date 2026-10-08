@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { escapeHtml } from "@/lib/telegram";
+import { sendWelcomeStartMessage, escapeHtml } from "@/lib/telegram";
 import {
   generate264Key,
   saveTelegramBotKey,
@@ -49,15 +49,23 @@ export async function POST(req: NextRequest) {
     const text = (message.text || "").trim();
     const command = text.split(" ")[0].toLowerCase().split("@")[0]; // handle /key@bot_name
 
-    // 🔒 Security: Check if sender is the authorized admin chat ID
-    if (authorizedChatId && chatId !== authorizedChatId) {
+    // ── Command: /start (Accessible to all customers) ────────────────────────
+    if (command === "/start") {
+      await sendWelcomeStartMessage(chatId);
+      return NextResponse.json({ ok: true });
+    }
+
+    // 🔒 Security: Check if sender is the authorized admin for admin commands
+    const isAdmin = authorizedChatId && chatId === authorizedChatId;
+    if (!isAdmin) {
       await sendBotMessage(
         chatId,
-        "⛔ <b>គ្មានសិទ្ធិចូលប្រើប្រាស់ (Access Denied)</b>\nអ្នកមិនមែនជាម្ចាស់ហាង ឬ Admin របស់ TheziessStore ឡើយ។",
+        "⛔ <b>គ្មានសិទ្ធិចូលប្រើប្រាស់ (Access Denied)</b>\nសូមចុច /start ដើម្បីបើកកម្មវិធី TheziessStore Top-Up។",
         botToken
       );
       return NextResponse.json({ ok: true });
     }
+
 
     // ── Command: /getkey, /key, /genkey ─────────────────────────────────────
     if (command === "/getkey" || command === "/key" || command === "/genkey") {

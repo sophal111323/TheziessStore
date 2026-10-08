@@ -17,6 +17,8 @@ const updateSchema = z.object({
   maxUsesPerUser: z.number().int().min(0).optional(),
   expiresAt: z.string().nullable().optional(),
   active: z.boolean().optional(),
+  gameId: z.string().nullable().optional(),
+  allowedPackageIds: z.array(z.string()).optional(),
 });
 
 export const GET = withAdminAuth(
@@ -25,6 +27,7 @@ export const GET = withAdminAuth(
     const promo = await prisma.promoCode.findUnique({
       where: { id },
       include: {
+        game: { select: { id: true, name: true, slug: true } },
         _count: {
           select: {
             orders: true,
@@ -65,6 +68,11 @@ export const PATCH = withAdminAuth(
           ...(data.maxUsesPerUser !== undefined ? { maxUsesPerUser: data.maxUsesPerUser } : {}),
           ...(data.expiresAt !== undefined ? { expiresAt: data.expiresAt ? new Date(data.expiresAt) : null } : {}),
           ...(data.active !== undefined ? { active: data.active } : {}),
+          ...(data.gameId !== undefined ? { gameId: data.gameId || null } : {}),
+          ...(data.allowedPackageIds !== undefined ? { allowedPackageIds: JSON.stringify(data.allowedPackageIds) } : {}),
+        },
+        include: {
+          game: { select: { id: true, name: true, slug: true } },
         },
       });
 

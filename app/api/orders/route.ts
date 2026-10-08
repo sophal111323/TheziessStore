@@ -266,11 +266,14 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      const selectedItemProductId = randomPackage ? randomPackage.id : product.id;
       const validation = await validatePromoCode({
         code: data.promoCode,
         orderAmountUsd: basePriceUsd,
         playerUid: data.playerUid,
         gameId: game.id,
+        productId: selectedItemProductId,
+        claimNow: false,
       });
 
       if (!validation.valid) {
@@ -308,18 +311,43 @@ export async function POST(req: NextRequest) {
         userAgent,
         promoCodeId,
         discountUsd,
-        couponUsage: promoCodeId
-          ? {
-              create: {
-                promoCodeId,
-                userIdentifier: data.playerUid.trim().toLowerCase(),
-                status: "PENDING",
-                discountUsd,
-              },
-            }
-          : undefined,
       },
     });
+
+    if (promoCodeId) {
+      // Link the claimed coupon usage to this order
+      const normalizedUid = data.playerUid.trim().toLowerCase();
+      const existingUsage = await prisma.couponUsage.findFirst({
+        where: {
+          promoCodeId,
+          userIdentifier: normalizedUid,
+          status: "USED",
+          orderId: null,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (existingUsage) {
+        await prisma.couponUsage.update({
+          where: { id: existingUsage.id },
+          data: {
+            orderId: order.id,
+            discountUsd,
+          },
+        });
+      } else {
+        await prisma.couponUsage.create({
+          data: {
+            promoCodeId,
+            orderId: order.id,
+            userIdentifier: normalizedUid,
+            status: "USED",
+            discountUsd,
+            usedAt: new Date(),
+          },
+        });
+      }
+    }
 
     // ── Track affiliate promoter attribution ($0.04 fixed commission) ──────
     const affiliateCookie = req.cookies.get("theziess_affiliate")?.value;

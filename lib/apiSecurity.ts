@@ -46,6 +46,15 @@ export function publicRateLimit(
   options: RateLimitOptions
 ): NextResponse | null {
   const ip = getClientIp(req);
+  if (
+    process.env.NODE_ENV !== "production" ||
+    ip === "127.0.0.1" ||
+    ip === "::1" ||
+    ip === "unknown"
+  ) {
+    return null;
+  }
+
   const allowed = checkRateLimitMemory(
     `${keyPrefix}:${ip}`,
     options.limit,

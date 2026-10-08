@@ -42,6 +42,7 @@ model Game {
   products       Product[]
   orders         Order[]
   randomPackages RandomPackage[]
+  promoCodes     PromoCode[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 }
@@ -64,6 +65,7 @@ model Product {
   supplier     String   @default("bay2game")
   supplierCode String?
   orders       Order[]
+  giftBoxSlots GiftBoxSlot[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -115,11 +117,11 @@ model Order {
   // (= orderNumber). The @unique constraint is a DB-level guarantee against
   // duplicate top-ups for the same order.
   topupProvider    String?
-  topupProviderRef String?    @unique
+  topupProviderRef String?      @unique
   topupStatus      String?
   supplierResponse String?
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
   paidAt           DateTime?
   deliveredAt      DateTime?
   promoCodeId      String?
@@ -132,6 +134,7 @@ model Order {
   randomPackageId String?
   randomPackage   RandomPackage?         @relation(fields: [randomPackageId], references: [id])
   spinTransaction RandomSpinTransaction?
+  giftClaim       GiftClaim?
 
   @@index([status])
   @@index([isRandomSpin])
@@ -151,24 +154,30 @@ model PromoCode {
   maxUsesPerUser Int           @default(1)
   expiresAt      DateTime?
   active         Boolean       @default(true)
+  gameId         String?
+  game           Game?         @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  allowedPackageIds String     @default("[]")
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   orders         Order[]
   usages         CouponUsage[]
+  giftBoxSlots   GiftBoxSlot[]
+
+  @@index([gameId])
 }
 
 model CouponUsage {
-  id             String     @id @default(cuid())
+  id             String    @id @default(cuid())
   promoCodeId    String
-  promoCode      PromoCode  @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
-  userIdentifier String     // playerUid / Game ID
-  orderId        String?    @unique
-  order          Order?     @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  status         String     @default("PENDING") // PENDING, USED, FAILED, CANCELLED
-  discountUsd    Float      @default(0)
+  promoCode      PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  userIdentifier String // playerUid / Game ID
+  orderId        String?   @unique
+  order          Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  status         String    @default("PENDING") // PENDING, USED, FAILED, CANCELLED
+  discountUsd    Float     @default(0)
   usedAt         DateTime?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([promoCodeId, userIdentifier, status])
   @@index([userIdentifier, status])
@@ -215,9 +224,10 @@ model Settings {
   appForceUpdate         Boolean @default(false)
   appUpdateUrl           String?
 
-  ordersEnabled   Boolean @default(true)
-  paymentsEnabled Boolean @default(true)
-  promosEnabled   Boolean @default(true)
+  ordersEnabled    Boolean @default(true)
+  paymentsEnabled  Boolean @default(true)
+  promosEnabled    Boolean @default(true)
+  giftEventEnabled Boolean @default(true)
 
   logoUrl     String?
   logoText    String?
@@ -549,3 +559,65 @@ model RandomSpinTransaction {
   @@index([playerUid])
   @@index([createdAt])
 }
+
+// ── Mystery Gift Box Models ──────────────────────────────────────────────────
+
+model GiftBoxSlot {
+  id           String      @id @default(cuid())
+  slotNumber   Int         @unique // 1 to 9
+  label        String      // e.g. "💎 100 Diamonds", "🏷️ Discount 20%", "📦 420 Robux"
+  rewardType   String      // "GAME_PACKAGE", "PROMO_CODE", "DIAMOND", "CUSTOM"
+  rewardValue  String?     // code or descriptive value
+  rewardAmount Int         @default(0)
+  productId    String?
+  product      Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  promoCodeId  String?
+  promoCode    PromoCode?  @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+  supplier     String      @default("bay2game") // API Provider Stock (e.g. bay2game, smileone, khmer_topup, frozenyuki, manual)
+  supplierCode String?     // ID Item / Provider Product Code
+  inStock      Boolean     @default(true)
+  probability  Float       @default(11.11)
+  color        String      @default("#9333ea") // purple accent
+  icon         String?     @default("🎁")
+  active       Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model GiftClaim {
+  id           String    @id @default(cuid())
+  orderId      String    @unique
+  orderNumber  String    @unique
+  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  playerUid    String
+  slotNumber   Int
+  rewardType   String
+  rewardTitle  String
+  rewardValue  String?
+  rewardAmount Int       @default(0)
+  promoCodeStr String?
+  productId    String?
+  supplier     String?   @default("bay2game")
+  supplierCode String?
+  status       String    @default("CLAIMED") // CLAIMED, DELIVERED
+  clientIp     String?
+  claimedAt    DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+
+  @@index([playerUid])
+  @@index([claimedAt])
+}
+
+model User {
+  id             String    @id @default(cuid())
+  telegramUserId BigInt    @unique
+  username       String?
+  firstName      String?
+  lastName       String?
+  languageCode   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([telegramUserId])
+}
+

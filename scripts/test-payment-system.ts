@@ -170,7 +170,7 @@ async function runTests() {
 
     // Test JLA status check
     const statusB = await fetchPaymentStatus(initB.paymentRef, "jla");
-    console.log(`- Order B JLA status check: status=${statusB.status}, provider=${statusB.provider}`);
+    console.log(`- Order B JLA status check: status=${statusB?.status}, provider=${statusB?.provider}`);
 
     // Test JLA webhook parser
     const webhookSample = {
@@ -182,8 +182,8 @@ async function runTests() {
       download_receipt: "https://payway.jlastore.com/receipt/123",
     };
     const parsedEvent = parseJlaWebhookEvent(webhookSample);
-    console.log(`- JLA webhook parse test: orderNumber=${parsedEvent.orderNumber}, transactionId=${parsedEvent.transactionId}, status=${parsedEvent.status}`);
-    if (parsedEvent.orderNumber !== orderB.orderNumber || parsedEvent.status !== "paid") {
+    console.log(`- JLA webhook parse test: orderNumber=${parsedEvent?.orderNumber}, transactionId=${parsedEvent?.transactionId}, status=${parsedEvent?.status}`);
+    if (!parsedEvent || parsedEvent.orderNumber !== orderB.orderNumber || parsedEvent.status !== "paid") {
       throw new Error("JLA webhook event parsing failed");
     }
 
