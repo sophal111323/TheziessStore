@@ -103,14 +103,16 @@ export async function validatePromoCode(
   let discountUsd = 0;
   let finalAmountUsd = basePrice;
   if (basePrice > 0) {
+    // Calculate discount safely with strict $0.01 USD payable floor
     discountUsd =
       promo.discountType === "PERCENT"
         ? (basePrice * promo.discountValue) / 100
         : promo.discountValue;
 
-    discountUsd = Math.min(discountUsd, basePrice);
+    // Strict minimum order floor: cannot discount below $0.01 USD
+    discountUsd = Math.min(discountUsd, Math.max(0, basePrice - 0.01));
     discountUsd = Math.round(discountUsd * 100) / 100;
-    finalAmountUsd = Math.round((basePrice - discountUsd) * 100) / 100;
+    finalAmountUsd = Math.max(0.01, Math.round((basePrice - discountUsd) * 100) / 100);
   }
 
   // Check per-user / game ID usage limit
@@ -123,7 +125,7 @@ export async function validatePromoCode(
         where: {
           promoCodeId: promo.id,
           userIdentifier: normalizedUid,
-          status: "USED",
+          status: { in: ["PENDING", "USED"] },
           orderId: null,
         },
         orderBy: { createdAt: "desc" },
@@ -181,30 +183,37 @@ export async function validatePromoCode(
           }
         }
 
-        // 2. Atomic increment of usedCount if maxUses permits (PostgreSQL row-level lock)
-        const updateRes = await tx.promoCode.updateMany({
-          where: {
-            id: promo.id,
-            active: true,
-            ...(promo.maxUses > 0 ? { usedCount: { lt: promo.maxUses } } : {}),
-          },
-          data: { usedCount: { increment: 1 } },
-        });
-
-        if (updateRes.count === 0 && promo.maxUses > 0) {
+        // 2. Atomic check of global usage limit
+        if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) {
           throw new Error("កូដនេះត្រូវបានអ្នកផ្សេង Claim អស់ហើយ (ត្រូវបានប្រើប្រាស់អស់កំណត់)");
         }
 
-        const usage = await tx.couponUsage.create({
-          data: {
+        // Reserve unlinked usage in PENDING state (does not burn usedCount until order is paid and delivered)
+        const existing = await tx.couponUsage.findFirst({
+          where: {
             promoCodeId: promo.id,
             userIdentifier: normalizedUid,
-            status: "USED",
-            usedAt: new Date(),
-            discountUsd: discountUsd || 0,
+            orderId: null,
           },
         });
-        createdUsageId = usage.id;
+
+        if (existing) {
+          await tx.couponUsage.update({
+            where: { id: existing.id },
+            data: { discountUsd: discountUsd || 0, status: "PENDING" },
+          });
+          createdUsageId = existing.id;
+        } else {
+          const usage = await tx.couponUsage.create({
+            data: {
+              promoCodeId: promo.id,
+              userIdentifier: normalizedUid,
+              status: "PENDING",
+              discountUsd: discountUsd || 0,
+            },
+          });
+          createdUsageId = usage.id;
+        }
       });
     } catch (err: any) {
       return { valid: false, error: err.message || "មិនអាច Claim កូដនេះបានទេ" };
@@ -323,13 +332,20 @@ export async function consumeOrderCouponAtomically(
 
     // 3. Atomic conditional update on PromoCode:
     // Only increments if usedCount < maxUses (or maxUses == 0 for unlimited)
+    // This updateMany with WHERE clause checking usedCount < maxUses BEFORE incrementing
+    // prevents race condition where multiple concurrent orders can exceed maxUses quota
     const updateResult = await tx.promoCode.updateMany({
       where: {
         id: promo.id,
         active: true,
         OR: [
           { maxUses: { equals: 0 } },
-          { usedCount: { lt: promo.maxUses } },
+          { 
+            AND: [
+              { maxUses: { gt: 0 } },
+              { usedCount: { lt: promo.maxUses } }
+            ]
+          },
         ],
       },
       data: {
@@ -338,7 +354,7 @@ export async function consumeOrderCouponAtomically(
     });
 
     if (updateResult.count === 0) {
-      // Race condition: another order grabbed the last usage slot
+      // Race condition: another order grabbed the last usage slot or promo became inactive
       await tx.couponUsage.update({
         where: { id: usage.id },
         data: { status: "FAILED" },

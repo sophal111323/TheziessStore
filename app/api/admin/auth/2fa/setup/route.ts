@@ -25,6 +25,9 @@ authenticator.options = { window: 1 };
 const confirmSchema = z.object({
   code: z.string().length(6).regex(/^\d{6}$/),
   secret: z.string().min(16),
+  // Required when a TOTP secret already exists: replacing it needs a valid
+  // code from the current authenticator (ATK-02 permanent-takeover path).
+  currentCode: z.string().length(6).regex(/^\d{6}$/).optional(),
 });
 
 // ── GET: generate a new TOTP secret and return QR provisioning URI ──────────
@@ -73,7 +76,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const { code, secret } = parsed.data;
+  const { code, secret, currentCode } = parsed.data;
+
+  if (admin.totpSecret) {
+    const currentOk =
+      !!currentCode &&
+      authenticator.verify({ token: currentCode, secret: admin.totpSecret });
+
+    if (!currentOk) {
+      logSecurityEvent({
+        event: "admin_2fa_setup_denied",
+        adminId: admin.id,
+        ip,
+        detail: currentCode ? "invalid_current_code" : "missing_current_code",
+      });
+      return NextResponse.json(
+        { error: "Current 2FA code required to replace the existing authenticator." },
+        { status: 403, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+  }
 
   const isValid = authenticator.verify({ token: code, secret });
   if (!isValid) {

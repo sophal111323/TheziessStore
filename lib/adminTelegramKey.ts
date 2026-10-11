@@ -44,7 +44,7 @@ export function signTelegramKeyToken(payload: {
       keyHash: payload.keyHash,
     },
     getAdminJwtSecret(),
-    { expiresIn: TELEGRAM_KEY_TTL_SECONDS }
+    { algorithm: "HS256", expiresIn: TELEGRAM_KEY_TTL_SECONDS }
   );
 }
 
@@ -54,7 +54,9 @@ export function verifyTelegramKeyToken(token: string): {
   keyHash: string;
 } | null {
   try {
-    const decoded = jwt.verify(token, getAdminJwtSecret()) as {
+    const decoded = jwt.verify(token, getAdminJwtSecret(), {
+      algorithms: ["HS256"],
+    }) as {
       type?: string;
       adminId?: string;
       email?: string;
@@ -84,13 +86,17 @@ export function verifyTelegramKeyToken(token: string): {
  * Sends the 264-character key via Telegram Bot
  */
 export async function sendTelegramKeyMessage(email: string, rawKey: string): Promise<boolean> {
-  // Always log in development so the admin is never locked out if Telegram is delayed
-  console.log(
-    `\n🔑 ==================== [ADMIN TELEGRAM 264-CHAR KEY] ====================\n` +
-    `Admin: ${email}\n` +
-    `Key (264 characters):\n${rawKey}\n` +
-    `========================================================================\n`
-  );
+  // Log the raw key only outside production so the admin is never locked out
+  // locally if Telegram is delayed. Production logs must never hold a live
+  // login key (checklist D6).
+  if (process.env.NODE_ENV !== "production") {
+    console.log(
+      `\n🔑 ==================== [ADMIN TELEGRAM 264-CHAR KEY] ====================\n` +
+      `Admin: ${email}\n` +
+      `Key (264 characters):\n${rawKey}\n` +
+      `========================================================================\n`
+    );
+  }
 
   const message = [
     `🔐 <b>TheziessStore — Admin Login Security Key</b>`,

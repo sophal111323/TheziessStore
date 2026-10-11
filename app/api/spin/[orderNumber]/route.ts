@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getClientIp } from "@/lib/getIp";
 import { publicRateLimit } from "@/lib/apiSecurity";
 import { lookupBay2GameNickname } from "@/lib/gameLookup/bay2game";
+import { verifyOrderToken } from "@/lib/orderToken";
+import { logSecurityEvent } from "@/lib/secureLogger";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,19 @@ export async function GET(
     const { orderNumber } = await params;
     if (!orderNumber) {
       return NextResponse.json({ error: "Order number is required" }, { status: 400 });
+    }
+
+    // ── Token validation (FIND-001 fix) ────────────────────────────────────
+    const token = req.nextUrl.searchParams.get("token");
+    const isTokenValid = verifyOrderToken(orderNumber, token);
+    
+    if (!isTokenValid) {
+      logSecurityEvent({
+        event: "spin_lookup_unauthorized",
+        detail: `Attempted spin lookup without valid token: ${orderNumber}`,
+        ip: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown",
+      });
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
     const limited = publicRateLimit(req, `spin_detail:${orderNumber}`, {

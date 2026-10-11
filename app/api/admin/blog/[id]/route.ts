@@ -24,7 +24,7 @@ export const GET = withAdminAuth(async (
   const post = await prisma.blogPost.findUnique({ where: { id: id } });
   if (!post) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(post);
-});
+}, { permission: "blog.read" });
 
 export const PATCH = withAdminAuth(async (
   req,
@@ -49,7 +49,7 @@ export const PATCH = withAdminAuth(async (
   const post = await prisma.blogPost.update({ where: { id: id }, data });
   await writeAudit({ action: "blog.update", targetType: "blog", targetId: id, details: parsed.data });
   return NextResponse.json(post);
-});
+}, { permission: "blog.write" });
 
 export const DELETE = withAdminAuth(async (
   _req,
@@ -59,4 +59,4 @@ export const DELETE = withAdminAuth(async (
   await prisma.blogPost.delete({ where: { id: id } });
   await writeAudit({ action: "blog.delete", targetType: "blog", targetId: id });
   return NextResponse.json({ ok: true });
-});
+}, { permission: "blog.write" });

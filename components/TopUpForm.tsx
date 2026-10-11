@@ -6,6 +6,7 @@ import { isValidUid, isValidServerId, formatUsd } from "@/lib/utils";
 import { useCurrency } from "@/lib/currency";
 import { QrCode, ArrowRight, Lock, Check, Smartphone, Search, UserRoundCheck, AlertCircle, Tag, Loader2,  } from "lucide-react";
 import KHQRBottomSheet from "@/components/KHQRBottomSheet";
+import { saveOrderToken, withOrderToken } from "@/lib/orderAccess";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 
 // Games that support automatic nickname lookup via /api/lookup-uid
@@ -455,10 +456,16 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
         throw new Error("Order number not returned from API");
       }
 
+      // HMAC access token for this order's checkout/gift/spin pages
+      const orderToken: string | undefined =
+        typeof data.orderToken === "string" ? data.orderToken : undefined;
+      saveOrderToken(orderNumber, orderToken);
+
       // ✅ Get order detail + KHQR data
-      const orderRes = await fetch(`/api/orders/${encodeURIComponent(orderNumber)}`, {
-        cache: "no-store",
-      });
+      const orderRes = await fetch(
+        withOrderToken(`/api/orders/${encodeURIComponent(orderNumber)}`, orderToken),
+        { cache: "no-store" }
+      );
 
       const orderData = await orderRes.json();
 
@@ -469,7 +476,7 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
       }
 
       // ✅ Open KHQR popup instead of redirect
-      setPaymentPopup(orderData);
+      setPaymentPopup({ ...orderData, orderToken: orderData.orderToken ?? orderToken });
       setSubmitting(false);
       turnstileRef.current?.reset();
       setTurnstileToken(isLocal ? "dev-bypass-token" : null);

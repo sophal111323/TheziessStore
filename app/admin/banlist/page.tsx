@@ -1,5 +1,6 @@
 "use client";
 
+import { adminFetch } from "@/lib/adminFetch";
 import { useEffect, useState } from "react";
 import { Plus, Trash2, ShieldBan } from "lucide-react";
 
@@ -21,7 +22,7 @@ export default function BanlistPage() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/admin/banlist");
+    const res = await adminFetch("/api/admin/banlist");
     if (res.ok) setItems(await res.json());
     setLoading(false);
   }
@@ -30,7 +31,7 @@ export default function BanlistPage() {
 
   async function add() {
     setSaving(true);
-    const res = await fetch("/api/admin/banlist", {
+    const res = await adminFetch("/api/admin/banlist", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
@@ -45,7 +46,7 @@ export default function BanlistPage() {
 
   async function remove(id: string) {
     if (!confirm("Remove from banlist?")) return;
-    await fetch(`/api/admin/banlist/${id}`, { method: "DELETE" });
+    await adminFetch(`/api/admin/banlist/${id}`, { method: "DELETE" });
     await load();
   }
 

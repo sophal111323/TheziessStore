@@ -23,9 +23,19 @@ async function main() {
   const cleanDomain = domain.replace(/\/+$/, "");
   const webhookUrl = `${cleanDomain}/api/telegram/webhook`;
 
-  console.log(`Setting Telegram webhook to: ${webhookUrl}...`);
+  // Telegram sends this back as x-telegram-bot-api-secret-token; the webhook
+  // route requires it in production (TELEGRAM_WEBHOOK_SECRET).
+  const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
+  if (!secretToken) {
+    console.warn("TELEGRAM_WEBHOOK_SECRET is not set: the production webhook will reject every update.");
+  }
 
-  const res = await fetch(`https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
+  const params = new URLSearchParams({ url: webhookUrl });
+  if (secretToken) params.set("secret_token", secretToken);
+
+  console.log(`Setting Telegram webhook to: ${webhookUrl}${secretToken ? " (with secret_token)" : ""}...`);
+
+  const res = await fetch(`https://api.telegram.org/bot${token}/setWebhook?${params.toString()}`);
   const data = await res.json();
   console.log("Telegram response:", data);
 }

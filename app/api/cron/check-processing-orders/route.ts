@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sweepProcessingOrders, sweepPendingOrders } from "@/lib/order-tracker";
+import { timingSafeEqualString } from "@/lib/secretCompare";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,7 +10,14 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization") || "";
   const headerSecret = req.headers.get("x-cron-secret") || "";
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}` && headerSecret !== cronSecret) {
+  if (!cronSecret) {
+    return NextResponse.json({ error: "CRON_SECRET is not configured" }, { status: 500 });
+  }
+
+  if (
+    !timingSafeEqualString(authHeader, `Bearer ${cronSecret}`) &&
+    !timingSafeEqualString(headerSecret, cronSecret)
+  ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -1,8 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { withAdminAuth } from "@/lib/withAdminAuth";
+import { generateOrderToken } from "@/lib/orderToken";
 
 export const dynamic = "force-dynamic";
+
+function safeOrderToken(orderNumber: string): string | null {
+  try {
+    return generateOrderToken(orderNumber);
+  } catch {
+    return null;
+  }
+}
 
 export const GET = withAdminAuth(async (req) => {
   const searchParams = req.nextUrl.searchParams;
@@ -113,8 +122,14 @@ export const GET = withAdminAuth(async (req) => {
     statusSummary[c.status] = c._count._all;
   });
 
+  // Admin links open the customer spin page, which requires the HMAC order token.
+  const spinsWithToken = spins.map((s) => ({
+    ...s,
+    orderToken: safeOrderToken(s.orderNumber),
+  }));
+
   return NextResponse.json({
-    spins,
+    spins: spinsWithToken,
     pagination: {
       page,
       limit,
@@ -131,5 +146,5 @@ export const GET = withAdminAuth(async (req) => {
       })),
     },
   });
-});
+}, { permission: "orders.read" });
 

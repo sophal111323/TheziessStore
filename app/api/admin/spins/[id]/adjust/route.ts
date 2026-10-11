@@ -1,9 +1,17 @@
 import { prisma } from "@/lib/prisma";
+import { logError } from "@/lib/errorLogger";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAdminAuth } from "@/lib/withAdminAuth";
 import { writeAuditForAdmin } from "@/lib/audit";
 import { getSupplier } from "@/lib/topup";
+import { forbiddenResponse, hasAdminPermission } from "@/lib/adminPermissions";
+import {
+  isSpinOrderPaid,
+  isSpinRetryable,
+  normalizeSpinAdjustAction,
+  spinAdjustPermission,
+} from "@/lib/spinAdjust";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +34,16 @@ export const POST = withAdminAuth<{ id: string }>(async (req, ctx, admin) => {
       );
     }
 
-    const { action, rewardAmount, rewardLabel, reason } = parsed.data;
+    const { rewardAmount, rewardLabel, reason } = parsed.data;
+    const action = normalizeSpinAdjustAction(parsed.data.action);
+    if (!action) {
+      return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
+    }
+
+    // Per-action permission (R-1): banlist / prize edits are OWNER/ADMIN only.
+    if (!hasAdminPermission(admin, spinAdjustPermission(action))) {
+      return forbiddenResponse("Your admin role cannot perform this action.");
+    }
 
     const tx = await prisma.randomSpinTransaction.findUnique({
       where: { id },
@@ -37,7 +54,17 @@ export const POST = withAdminAuth<{ id: string }>(async (req, ctx, admin) => {
       return NextResponse.json({ error: "Spin transaction not found" }, { status: 404 });
     }
 
-    if (action === "RETRY_DELIVERY" || action === "RETRY") {
+    if (
+      (action === "RETRY_DELIVERY" || action === "MARK_COMPLETED") &&
+      !isSpinOrderPaid(tx.order?.status)
+    ) {
+      return NextResponse.json(
+        { error: "The order for this spin is not paid" },
+        { status: 409 }
+      );
+    }
+
+    if (action === "RETRY_DELIVERY") {
       const supplierName = tx.winningSupplier || "bay2game";
       const supplierCode = tx.winningSupplierCode;
 
@@ -48,13 +75,43 @@ export const POST = withAdminAuth<{ id: string }>(async (req, ctx, admin) => {
         );
       }
 
-      const supplier = getSupplier(supplierName);
-      const topupResult = await supplier.createOrder({
-        orderReference: `${tx.orderNumber}-RETRY`,
-        productCode: supplierCode,
-        playerId: tx.playerUid,
-        serverId: tx.serverId || undefined,
+      // Only retry a delivery that definitely did not go through, and lock the
+      // row so concurrent retries (or a customer claim) cannot top up twice.
+      if (!isSpinRetryable(tx)) {
+        return NextResponse.json(
+          { error: "Only failed or pending deliveries can be retried" },
+          { status: 409 }
+        );
+      }
+
+      const locked = await prisma.randomSpinTransaction.updateMany({
+        where: { id, status: tx.status, fulfillmentStatus: tx.fulfillmentStatus },
+        data: { status: "CLAIMING" },
       });
+      if (locked.count !== 1) {
+        return NextResponse.json(
+          { error: "This spin is already being processed" },
+          { status: 409 }
+        );
+      }
+
+      const supplier = getSupplier(supplierName);
+      let topupResult: Awaited<ReturnType<typeof supplier.createOrder>>;
+      try {
+        topupResult = await supplier.createOrder({
+          orderReference: `${tx.orderNumber}-RETRY`,
+          productCode: supplierCode,
+          playerId: tx.playerUid,
+          serverId: tx.serverId || undefined,
+        });
+      } catch (err) {
+        // Release the lock; the outcome is recorded as a failed retry.
+        await prisma.randomSpinTransaction.update({
+          where: { id },
+          data: { status: tx.status, fulfillmentStatus: "FAILED", deliveryError: "Retry failed" },
+        });
+        throw err;
+      }
 
       if (topupResult.success) {
         const ref = topupResult.transactionId || `MANUAL-${Date.now()}`;
@@ -86,6 +143,7 @@ export const POST = withAdminAuth<{ id: string }>(async (req, ctx, admin) => {
         await prisma.randomSpinTransaction.update({
           where: { id },
           data: {
+            status: tx.status,
             deliveryError: topupResult.error || "Retry failed",
             fulfillmentStatus: "FAILED",
           },
@@ -143,7 +201,7 @@ export const POST = withAdminAuth<{ id: string }>(async (req, ctx, admin) => {
       return NextResponse.json({ ok: true, message: "Reward details adjusted" });
     }
 
-    if (action === "BLACKLIST_USER" || action === "BLACKLIST") {
+    if (action === "BLACKLIST") {
       await prisma.blockedIdentity.upsert({
         where: {
           type_value: {
@@ -173,8 +231,8 @@ export const POST = withAdminAuth<{ id: string }>(async (req, ctx, admin) => {
 
     return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
   } catch (err: any) {
-    console.error("Error adjusting spin:", err);
+    logError("Error adjusting spin", err);
     return NextResponse.json({ error: "Failed to adjust spin" }, { status: 500 });
   }
-});
+}, { permission: "orders.update" });
 

@@ -28,6 +28,13 @@ function isValidIp(ip: string): boolean {
  * strips or overwrites these headers before they reach the app.
  */
 export function getClientIp(req: NextRequest): string {
+  // Cloudflare overwrites cf-connecting-ip with the real client IP on every
+  // proxied request, so it can't be spoofed through Cloudflare. It CAN be
+  // spoofed if someone reaches the Render origin directly (*.onrender.com),
+  // so the origin should only accept Cloudflare traffic.
+  const cfIp = req.headers.get("cf-connecting-ip")?.trim();
+  if (cfIp && isValidIp(cfIp)) return cfIp;
+
   // Vercel / Nginx set this to the real client IP directly
   const realIp = req.headers.get("x-real-ip")?.trim();
   if (realIp && isValidIp(realIp)) return realIp;

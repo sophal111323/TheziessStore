@@ -14,6 +14,8 @@ import {
   RotateCcw,
   ChevronRight,
 } from "lucide-react";
+import OrderAccessForm from "@/components/OrderAccessForm";
+import { getOrderToken, withOrderToken } from "@/lib/orderAccess";
 
 interface SpinPageData {
   orderNumber: string;
@@ -62,6 +64,10 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
   const [showVictory, setShowVictory] = useState(false);
   const [copiedUid, setCopiedUid] = useState(false);
   const [wheelSize, setWheelSize] = useState<number>(340);
+  // HMAC order access token from ?token= / localStorage (null on the server;
+  // the first render is the loading state either way, so hydration matches).
+  const [token, setToken] = useState<string | null>(() => getOrderToken(orderNumber));
+  const [needsAccess, setNeedsAccess] = useState(false);
 
   const claimingRef = useRef(false);
   const hasSpunRef = useRef(false);
@@ -97,7 +103,7 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
       setClaimError(null);
 
       try {
-        const res = await fetch(`/api/spin/${encodeURIComponent(orderNumber)}/claim`, {
+        const res = await fetch(withOrderToken(`/api/spin/${encodeURIComponent(orderNumber)}/claim`, token), {
           method: "POST",
         });
         const json = await res.json();
@@ -132,17 +138,30 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
         setClaiming(false);
       }
     },
-    [orderNumber]
+    [orderNumber, token]
   );
 
   // Fetch spin state
   const loadData = useCallback(async () => {
+    if (!token) {
+      // No token known: ask for the Player UID first.
+      setNeedsAccess(true);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`/api/spin/${encodeURIComponent(orderNumber)}`, {
-        cache: "no-store",
-      });
+      setNeedsAccess(false);
+      const res = await fetch(
+        withOrderToken(`/api/spin/${encodeURIComponent(orderNumber)}`, token),
+        { cache: "no-store" }
+      );
+      if (res.status === 404) {
+        // Missing / stale token: offer Player UID recovery.
+        setNeedsAccess(true);
+        return;
+      }
       const json = await res.json();
       if (!res.ok) {
         throw new Error(json.error || "មិនអាចទាញយកព័ត៌មានកងបង្វិលបានទេ");
@@ -178,7 +197,7 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
     } finally {
       setLoading(false);
     }
-  }, [orderNumber, executeAutoClaim]);
+  }, [orderNumber, token, executeAutoClaim]);
 
   useEffect(() => {
     loadData();
@@ -205,7 +224,7 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
       setError(null);
       setClaimError(null);
 
-      const res = await fetch(`/api/spin/${encodeURIComponent(orderNumber)}/spin`, {
+      const res = await fetch(withOrderToken(`/api/spin/${encodeURIComponent(orderNumber)}/spin`, token), {
         method: "POST",
       });
       const json = await res.json();
@@ -280,6 +299,20 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
     );
   }
 
+  if (needsAccess && !data) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-16">
+        <OrderAccessForm
+          orderNumber={orderNumber}
+          onToken={(recovered) => {
+            setError(null);
+            setToken(recovered);
+          }}
+        />
+      </div>
+    );
+  }
+
   if (error || !data) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
@@ -301,7 +334,7 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
               ត្រឡប់ទៅទំព័រដើម
             </Link>
             <Link
-              href={`/checkout/${orderNumber}`}
+              href={withOrderToken(`/checkout/${orderNumber}`, token)}
               className="rounded-2xl bg-gradient-to-r from-pink-600 to-purple-600 px-5 py-3 text-xs font-black text-white shadow-md shadow-pink-300/40 hover:brightness-110"
             >
               ពិនិត្យការទូទាត់
@@ -560,7 +593,7 @@ export default function SpinWheelClient({ orderNumber }: { orderNumber: string }
                 <span>🏠 ត្រឡប់ទៅទំព័រដើម</span>
               </Link>
               <Link
-                href={`/order?number=${data.orderNumber}`}
+                href={withOrderToken(`/order?number=${data.orderNumber}`, token)}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-6 py-4 text-xs sm:text-sm font-bold text-gray-700 shadow-sm hover:bg-gray-50"
               >
                 <span>📋 ពិនិត្យវិក្កយបត្រ</span>

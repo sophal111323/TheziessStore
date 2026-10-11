@@ -20,7 +20,7 @@ services:
       - key: NEXT_PUBLIC_BASE_URL
         sync: false          # set to your Render URL after first deploy
       - key: PAYMENT_SIMULATION_MODE
-        value: "true"
+        value: "false"
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
@@ -40,6 +40,20 @@ services:
       - key: INTERNAL_SECURITY_SECRET
         sync: false
       - key: CRON_SECRET
+        sync: false
+      - key: ORDER_LOOKUP_SECRET
+        sync: false          # signs customer order tokens
+      - key: FROZENYUKI_WEBHOOK_SECRET
+        sync: false          # required: unsigned FrozenYuki webhooks are rejected
+      - key: ADMIN_LOGIN_PATH
+        sync: false          # long random hidden admin login path
+      - key: ORIGIN_SHARED_SECRET
+        sync: false          # set ONLY after the Cloudflare x-origin-secret rule exists (DEPLOY.md)
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false          # required in production; re-run setWebhook with secret_token
+      - key: KHQRPAY_WEBHOOK_SECRET
+        sync: false
+      - key: JLA_WEBHOOK_SECRET
         sync: false
       - key: CLOUDFLARE_API_TOKEN
         sync: false

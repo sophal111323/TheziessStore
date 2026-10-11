@@ -17,6 +17,8 @@ import {
   Flame,
   Heart,
 } from "lucide-react";
+import OrderAccessForm from "@/components/OrderAccessForm";
+import { getOrderToken, withOrderToken } from "@/lib/orderAccess";
 
 interface SlotInfo {
   slotNumber: number;
@@ -65,6 +67,10 @@ export default function GiftBoxClient({ orderNumber }: { orderNumber: string }) 
   const [wonPrize, setWonPrize] = useState<ClaimInfo | null>(null);
   const [showPrizeModal, setShowPrizeModal] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  // HMAC order access token from ?token= / localStorage (null on the server;
+  // the first render is the loading state either way, so hydration matches).
+  const [token, setToken] = useState<string | null>(() => getOrderToken(orderNumber));
+  const [needsAccess, setNeedsAccess] = useState(false);
 
   // Double click guard ref
   const openingLockRef = useRef(false);
@@ -72,12 +78,25 @@ export default function GiftBoxClient({ orderNumber }: { orderNumber: string }) 
 
   // Fetch initial gift data
   const fetchData = useCallback(async () => {
+    if (!token) {
+      // No token known: ask for the Player UID first.
+      setNeedsAccess(true);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`/api/gift/${encodeURIComponent(orderNumber)}`, {
-        cache: "no-store",
-      });
+      setNeedsAccess(false);
+      const res = await fetch(
+        withOrderToken(`/api/gift/${encodeURIComponent(orderNumber)}`, token),
+        { cache: "no-store" }
+      );
+      if (res.status === 404) {
+        // Missing / stale token: offer Player UID recovery.
+        setNeedsAccess(true);
+        return;
+      }
       const json = await res.json();
       if (!res.ok) {
         throw new Error(json.error || "មិនអាចទាញយកទិន្នន័យកាដូបានទេ");
@@ -89,10 +108,10 @@ export default function GiftBoxClient({ orderNumber }: { orderNumber: string }) 
       // If not marked paid yet, attempt quick auto-sync from payment gateway
       if (!isPaid) {
         try {
-          const syncRes = await fetch(`/api/orders/${encodeURIComponent(cleanOrderNum)}/sync-payment`, {
-            method: "POST",
-            cache: "no-store",
-          });
+          const syncRes = await fetch(
+            withOrderToken(`/api/orders/${encodeURIComponent(cleanOrderNum)}/sync-payment`, token),
+            { method: "POST", cache: "no-store" }
+          );
           const syncJson = await syncRes.json();
           if (syncJson?.status === "PAID" || syncJson?.status === "PROCESSING" || syncJson?.status === "DELIVERED") {
             isPaid = true;
@@ -126,7 +145,7 @@ export default function GiftBoxClient({ orderNumber }: { orderNumber: string }) 
     } finally {
       setLoading(false);
     }
-  }, [orderNumber]);
+  }, [orderNumber, token]);
 
   useEffect(() => {
     fetchData();
@@ -225,7 +244,7 @@ export default function GiftBoxClient({ orderNumber }: { orderNumber: string }) 
       // 2. Play tension delay for dramatic effect
       await new Promise((resolve) => setTimeout(resolve, 800));
 
-      const res = await fetch(`/api/gift/${encodeURIComponent(orderNumber)}/open`, {
+      const res = await fetch(withOrderToken(`/api/gift/${encodeURIComponent(orderNumber)}/open`, token), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slotNumber }),
@@ -299,6 +318,21 @@ export default function GiftBoxClient({ orderNumber }: { orderNumber: string }) 
     );
   }
 
+  // ── Player UID verification (no valid token) ──
+  if (needsAccess && !data) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-16">
+        <OrderAccessForm
+          orderNumber={orderNumber}
+          onToken={(recovered) => {
+            setError(null);
+            setToken(recovered);
+          }}
+        />
+      </div>
+    );
+  }
+
   // ── Render Error ──
   if (error && !data) {
     return (
@@ -309,7 +343,7 @@ export default function GiftBoxClient({ orderNumber }: { orderNumber: string }) 
         <h2 className="text-xl font-bold text-white mb-2">មិនអាចបើកកាដូបានទេ</h2>
         <p className="text-sm text-purple-200/70 mb-6">{error}</p>
         <Link
-          href={`/order?number=${encodeURIComponent(orderNumber)}`}
+          href={withOrderToken(`/order?number=${encodeURIComponent(orderNumber)}`, token)}
           className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-purple-500 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -332,7 +366,7 @@ export default function GiftBoxClient({ orderNumber }: { orderNumber: string }) 
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
-            href={`/checkout/${encodeURIComponent(orderNumber)}`}
+            href={withOrderToken(`/checkout/${encodeURIComponent(orderNumber)}`, token)}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-purple-500/25 hover:from-purple-500 hover:to-indigo-500 transition-all"
           >
             ទៅទូទាត់ប្រាក់ឥឡូវនេះ
@@ -360,7 +394,7 @@ export default function GiftBoxClient({ orderNumber }: { orderNumber: string }) 
           Admin បានបិទ Event ចាប់កាដូនេះជាបណ្តោះអាសន្ន។ សូមរង់ចាំការបើកឡើងវិញ ឬទាក់ទងមកកាន់ Page / Telegram Admin។
         </p>
         <Link
-          href={`/order?number=${encodeURIComponent(orderNumber)}`}
+          href={withOrderToken(`/order?number=${encodeURIComponent(orderNumber)}`, token)}
           className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-purple-500 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -389,7 +423,7 @@ export default function GiftBoxClient({ orderNumber }: { orderNumber: string }) 
         {/* Navigation & Order Badge */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <Link
-            href={`/order?number=${encodeURIComponent(orderNumber)}`}
+            href={withOrderToken(`/order?number=${encodeURIComponent(orderNumber)}`, token)}
             className="inline-flex items-center gap-2 rounded-xl border border-purple-500/20 bg-purple-950/40 px-3.5 py-2 text-xs font-semibold text-purple-300 hover:bg-purple-900/40 hover:text-white transition-all backdrop-blur-md"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -657,7 +691,7 @@ export default function GiftBoxClient({ orderNumber }: { orderNumber: string }) 
         {/* ── RETURN BUTTONS ── */}
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link
-            href={`/order?number=${encodeURIComponent(orderNumber)}`}
+            href={withOrderToken(`/order?number=${encodeURIComponent(orderNumber)}`, token)}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-purple-900/60 border border-purple-500/30 px-6 py-3.5 text-sm font-bold text-white hover:bg-purple-800/60 transition-all shadow-lg shadow-purple-950/40"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -746,7 +780,7 @@ export default function GiftBoxClient({ orderNumber }: { orderNumber: string }) 
                 យល់ព្រម (Awesome!)
               </button>
               <Link
-                href={`/order?number=${encodeURIComponent(orderNumber)}`}
+                href={withOrderToken(`/order?number=${encodeURIComponent(orderNumber)}`, token)}
                 className="text-xs text-purple-300/70 hover:text-white py-1 transition-colors"
               >
                 ត្រឡប់ទៅការបញ្ជាទិញ

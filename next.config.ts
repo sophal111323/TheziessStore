@@ -19,9 +19,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  env: {
-    ADMIN_LOGIN_PATH: process.env.ADMIN_LOGIN_PATH || "/admin/theziessstore030511",
-  },
+  // ADMIN_LOGIN_PATH is read at runtime via lib/adminLoginPath.ts (not inlined).
   serverExternalPackages: ["pdfkit", "fontkit"],
   outputFileTracingRoot: path.resolve(__dirname),
   poweredByHeader: false,

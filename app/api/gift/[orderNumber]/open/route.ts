@@ -1,12 +1,44 @@
 export const dynamic = "force-dynamic";
 
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import type { GiftClaim } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getClientIp } from "@/lib/getIp";
 import { applyRateLimit } from "@/lib/rateLimit";
 import { getOrCreateGiftBoxSlots, pickWeightedGiftSlot } from "@/lib/giftBox";
+import { verifyOrderToken } from "@/lib/orderToken";
+import { logSecurityEvent } from "@/lib/secureLogger";
+import { logError } from "@/lib/errorLogger";
 
 const PAID_STATES = new Set(["PAID", "PROCESSING", "DELIVERED"]);
+
+function isPrismaUniqueError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "P2002"
+  );
+}
+
+/** Response for an order whose gift was already opened (built from the DB row only). */
+function alreadyClaimedResponse(claim: GiftClaim) {
+  return NextResponse.json({
+    ok: true,
+    alreadyClaimed: true,
+    message: "ការកុម្ម៉ង់នេះបានបើកកាដូរួចរាល់ហើយ",
+    claim: {
+      slotNumber: claim.slotNumber,
+      rewardType: claim.rewardType,
+      rewardTitle: claim.rewardTitle,
+      rewardValue: claim.rewardValue,
+      rewardAmount: claim.rewardAmount,
+      promoCodeStr: claim.promoCodeStr,
+      claimedAt: claim.claimedAt,
+    },
+  });
+}
 
 export async function POST(
   req: NextRequest,
@@ -21,6 +53,19 @@ export async function POST(
     }
 
     const cleanOrderNumber = orderNumber.toUpperCase().trim();
+
+    // ── Token validation (FIND-001 fix) ──────────────────────────────────
+    const token = req.nextUrl.searchParams.get("token");
+    const isTokenValid = verifyOrderToken(cleanOrderNumber, token);
+    
+    if (!isTokenValid) {
+      logSecurityEvent({
+        event: "gift_open_unauthorized",
+        detail: `Attempted gift open without valid token: ${cleanOrderNumber}`,
+        ip,
+      });
+      return NextResponse.json({ error: "រកមិនឃើញការកុម្ម៉ង់នេះទេ (Order not found)" }, { status: 404 });
+    }
 
     // Rate limit opening attempts per IP
     const rl = await applyRateLimit(`gift-open:${ip}:${cleanOrderNumber}`, 10, 60 * 1000, ip);
@@ -71,20 +116,7 @@ export async function POST(
 
     // 2. Check if already claimed
     if (order.giftClaim) {
-      return NextResponse.json({
-        ok: true,
-        alreadyClaimed: true,
-        message: "ការកុម្ម៉ង់នេះបានបើកកាដូរួចរាល់ហើយ",
-        claim: {
-          slotNumber: order.giftClaim.slotNumber,
-          rewardType: order.giftClaim.rewardType,
-          rewardTitle: order.giftClaim.rewardTitle,
-          rewardValue: order.giftClaim.rewardValue,
-          rewardAmount: order.giftClaim.rewardAmount,
-          promoCodeStr: order.giftClaim.promoCodeStr,
-          claimedAt: order.giftClaim.claimedAt,
-        },
-      });
+      return alreadyClaimedResponse(order.giftClaim);
     }
 
     // 3. Load slots pool
@@ -101,7 +133,7 @@ export async function POST(
       } else if (winningSlot.rewardValue) {
         promoCodeStr = winningSlot.rewardValue.toUpperCase().trim();
       } else {
-        promoCodeStr = `GIFT${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+        promoCodeStr = `GIFT${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
       }
       rewardValue = promoCodeStr;
     } else if (winningSlot.rewardType === "GAME_PACKAGE") {
@@ -111,16 +143,20 @@ export async function POST(
     }
 
     // 4. ATOMIC DATABASE TRANSACTION (Guarantees zero double claims)
-    const claim = await prisma.$transaction(async (tx) => {
-      // Re-check inside transaction
-      const existing = await tx.giftClaim.findUnique({
-        where: { orderId: order.id },
-      });
-      if (existing) {
-        return existing;
-      }
+    // A request that loses the race gets the persisted claim back with
+    // created=false and must answer from it, never from its own local pick.
+    let result: { claim: GiftClaim; created: boolean };
+    try {
+      result = await prisma.$transaction(async (tx) => {
+        // Re-check inside transaction
+        const existing = await tx.giftClaim.findUnique({
+          where: { orderId: order.id },
+        });
+        if (existing) {
+          return { claim: existing, created: false };
+        }
 
-      return tx.giftClaim.create({
+        const created = await tx.giftClaim.create({
         data: {
           orderId: order.id,
           orderNumber: order.orderNumber,
@@ -137,8 +173,23 @@ export async function POST(
           status: winningSlot.rewardType === "THANK_YOU" ? "DELIVERED" : "CLAIMED",
           clientIp: ip,
         },
-      });
-    }, { timeout: 15000, maxWait: 10000 });
+        });
+        return { claim: created, created: true };
+      }, { timeout: 15000, maxWait: 10000 });
+    } catch (txErr) {
+      // Concurrent create hit the unique orderId/orderNumber: re-read the winner.
+      if (!isPrismaUniqueError(txErr)) throw txErr;
+      const winner = await prisma.giftClaim.findUnique({ where: { orderId: order.id } });
+      if (!winner) throw txErr;
+      result = { claim: winner, created: false };
+    }
+
+    if (!result.created) {
+      return alreadyClaimedResponse(result.claim);
+    }
+
+    // Every reward field below comes from the persisted claim.
+    const claim = result.claim;
 
     // Generate reveal map for other boxes so the player sees what was in the remaining boxes
     const revealedBoxes = allSlots.map((s, idx) => {
@@ -147,10 +198,10 @@ export async function POST(
         return {
           slotNumber: boxNum,
           isWinner: true,
-          label: winningSlot.label,
+          label: claim.rewardTitle,
           icon: winningSlot.icon || "🎁",
           color: winningSlot.color,
-          rewardType: winningSlot.rewardType,
+          rewardType: claim.rewardType,
         };
       }
       return {
@@ -168,20 +219,20 @@ export async function POST(
       success: true,
       chosenSlotNumber,
       winningSlot: {
-        slotNumber: chosenSlotNumber,
-        label: winningSlot.label,
-        rewardType: winningSlot.rewardType,
-        rewardTitle: winningSlot.label,
-        rewardValue: rewardValue,
-        rewardAmount: winningSlot.rewardAmount,
-        promoCodeStr: promoCodeStr,
+        slotNumber: claim.slotNumber,
+        label: claim.rewardTitle,
+        rewardType: claim.rewardType,
+        rewardTitle: claim.rewardTitle,
+        rewardValue: claim.rewardValue,
+        rewardAmount: claim.rewardAmount,
+        promoCodeStr: claim.promoCodeStr,
         icon: winningSlot.icon || "🎁",
         color: winningSlot.color,
       },
       revealedBoxes,
       claim: {
         id: claim.id,
-        slotNumber: chosenSlotNumber,
+        slotNumber: claim.slotNumber,
         rewardType: claim.rewardType,
         rewardTitle: claim.rewardTitle,
         rewardValue: claim.rewardValue,
@@ -194,10 +245,10 @@ export async function POST(
         claimedAt: claim.claimedAt,
       },
     });
-  } catch (err: any) {
-    console.error("Gift opening error:", err);
+  } catch (err: unknown) {
+    logError("Gift opening error", err);
     return NextResponse.json(
-      { error: err?.message || "មានបញ្ហាបច្ចេកទេសក្នុងការបើកកាដូ" },
+      { error: "មានបញ្ហាបច្ចេកទេសក្នុងការបើកកាដូ" },
       { status: 500 }
     );
   }

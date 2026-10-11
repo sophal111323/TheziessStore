@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import bcrypt from "bcryptjs";
 import {
   Affiliate,
   AffiliateStats,
@@ -46,7 +47,7 @@ const SEED_AFFILIATES: Affiliate[] = [
     status: "ACTIVE",
     commissionType: "FIXED",
     commissionRate: 0.04, // $0.04 per order
-    passwordHash: "password123",
+    passwordHash: "", // no default password: seeded accounts cannot log in (ATK-05)
     createdAt: "2026-08-01T10:00:00.000Z",
     updatedAt: "2026-09-17T08:00:00.000Z",
   },
@@ -63,7 +64,7 @@ const SEED_AFFILIATES: Affiliate[] = [
     status: "ACTIVE",
     commissionType: "FIXED",
     commissionRate: 0.04,
-    passwordHash: "password123",
+    passwordHash: "", // no default password: seeded accounts cannot log in (ATK-05)
     createdAt: "2026-08-10T12:00:00.000Z",
     updatedAt: "2026-09-17T08:00:00.000Z",
   },
@@ -79,7 +80,7 @@ const SEED_AFFILIATES: Affiliate[] = [
     status: "ACTIVE",
     commissionType: "FIXED",
     commissionRate: 0.04,
-    passwordHash: "password123",
+    passwordHash: "", // no default password: seeded accounts cannot log in (ATK-05)
     createdAt: "2026-08-20T14:00:00.000Z",
     updatedAt: "2026-09-17T08:00:00.000Z",
   },
@@ -95,7 +96,7 @@ const SEED_AFFILIATES: Affiliate[] = [
     status: "ACTIVE",
     commissionType: "FIXED",
     commissionRate: 0.04,
-    passwordHash: "password123",
+    passwordHash: "", // no default password: seeded accounts cannot log in (ATK-05)
     createdAt: "2026-09-01T10:00:00.000Z",
     updatedAt: "2026-09-17T08:00:00.000Z",
   },
@@ -332,26 +333,14 @@ export function authenticateAffiliate(identifier: string, pass: string): Affilia
   const aff = list.find(
     (a) => a.username.toLowerCase() === clean || a.email.toLowerCase() === clean
   );
-  if (!aff) return null;
+  if (!aff || !pass) return null;
 
-  // 1. Password matches exactly
-  if (aff.passwordHash && aff.passwordHash === pass) {
-    return aff;
-  }
-
-  // 2. Common fallback passwords for testing
-  if (pass === "password123" || pass === "davin123") {
-    return aff;
-  }
-
-  // 3. If account was seeded or password is empty, allow user to set their password on login
-  if (!aff.passwordHash || aff.passwordHash === "password123") {
-    if (pass && pass.length >= 6) {
-      aff.passwordHash = pass;
-      aff.updatedAt = new Date().toISOString();
-      saveStoredAffiliates(list);
-      return aff;
-    }
+  // bcrypt only. registerAffiliate always stores a bcrypt hash (or "" when no
+  // password), so the old plaintext branch only ever matched the seeded
+  // "password123" accounts and is removed (ATK-05). Empty/non-bcrypt values
+  // never authenticate.
+  if (aff.passwordHash && (aff.passwordHash.startsWith("$2a$") || aff.passwordHash.startsWith("$2b$"))) {
+    return bcrypt.compareSync(pass, aff.passwordHash) ? aff : null;
   }
 
   return null;
@@ -373,22 +362,18 @@ export function registerAffiliate(data: {
     return { success: false, error: "Invalid username" };
   }
 
+  const cleanEmail = (data.email || "").trim().toLowerCase();
+  if (!cleanEmail) {
+    return { success: false, error: "Invalid email" };
+  }
+
   const list = getStoredAffiliates();
 
-  // If email already registered (e.g. pre-seeded or previously created), update their credentials so they can login immediately!
-  const existingEmailIndex = list.findIndex(
-    (a) => a.email.toLowerCase() === data.email.trim().toLowerCase()
-  );
-  if (existingEmailIndex !== -1) {
-    list[existingEmailIndex].name = data.name.trim();
-    list[existingEmailIndex].username = cleanUsername;
-    list[existingEmailIndex].slug = cleanUsername;
-    list[existingEmailIndex].passwordHash = data.password || list[existingEmailIndex].passwordHash;
-    if (data.phone) list[existingEmailIndex].phone = data.phone.trim();
-    if (data.telegram) list[existingEmailIndex].telegram = data.telegram.trim();
-    list[existingEmailIndex].updatedAt = new Date().toISOString();
-    saveStoredAffiliates(list);
-    return { success: true, affiliate: list[existingEmailIndex] };
+  // Registration never touches an existing account (R-3 / ATK-05): an email
+  // that is already registered (seeded or real promoter) is rejected, so
+  // knowing a promoter's email is not enough to take over the account.
+  if (list.some((a) => (a.email || "").trim().toLowerCase() === cleanEmail)) {
+    return { success: false, error: "Email already registered" };
   }
 
   const existing = list.find(
@@ -398,12 +383,14 @@ export function registerAffiliate(data: {
     return { success: false, error: "Username or slug already taken" };
   }
 
+  const hashedPassword = data.password ? bcrypt.hashSync(data.password, 10) : "";
+
   const newAffiliate: Affiliate = {
     id: `aff-${Date.now()}`,
     name: data.name.trim(),
     username: cleanUsername,
     slug: cleanUsername,
-    email: data.email.trim().toLowerCase(),
+    email: cleanEmail,
     phone: data.phone?.trim() || "",
     telegram: data.telegram?.trim() || "",
     facebook: data.facebook?.trim() || "",
@@ -412,7 +399,7 @@ export function registerAffiliate(data: {
     status: "ACTIVE", // Auto-activated per requirements
     commissionType: "FIXED",
     commissionRate: 0.04, // Fixed $0.04 per order
-    passwordHash: data.password || "password123",
+    passwordHash: hashedPassword,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };

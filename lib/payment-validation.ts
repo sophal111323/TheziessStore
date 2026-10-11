@@ -1,4 +1,5 @@
 import { logSecurityEvent } from "@/lib/secureLogger";
+import type { PaymentStatusResult } from "@/lib/payment/types";
 
 export type OrderPaymentSnapshot = {
   id: string;
@@ -178,6 +179,80 @@ export function validatePaymentForOrder(
     amount: remoteAmount,
     currency: remoteCurrency,
     orderNumber: remoteOrderNumber || order.orderNumber,
+  };
+}
+
+/**
+ * Map a gateway status response (queried server-side) to the snapshot that
+ * validatePaymentForOrder checks.
+ *
+ * JLA is queried by our tran_id (= orderNumber). Whatever JLA echoes must
+ * match (R-5): an echoed tran_id must equal the orderNumber, an echoed Payway
+ * id must equal the stored paymentRef, an echoed currency must equal the order
+ * currency. Any mismatch is passed through so validation fails. When JLA
+ * echoes no identifier at all, the binding falls back to "we queried by this
+ * order's own id" (remote.queryId), and a missing currency falls back to the
+ * order currency; fetchJlaStatus logs payment_binding_fallback for both.
+ * Amount is always checked. Other providers are queried by paymentRef and
+ * echo their own id.
+ */
+export function buildRemoteSnapshotForValidation(
+  order: {
+    orderNumber: string;
+    paymentRef: string | null;
+    paymentProvider?: string | null;
+    currency?: string | null;
+  },
+  remote: PaymentStatusResult
+): RemotePaymentSnapshot {
+  const provider = String(order.paymentProvider ?? "").trim().toLowerCase();
+  const base = {
+    amount: remote.amount,
+    currency: remote.currency,
+    status: remote.status,
+    paid: remote.paid,
+  };
+
+  if (provider === "jla") {
+    const remoteOrderNumber = String(remote.orderNumber ?? "").trim();
+    const remoteTxId = String(remote.transactionId ?? "").trim();
+    const currency = remote.currency || order.currency || "USD";
+
+    // Echoed tran_id for another order: fail with ORDER_NUMBER_MISMATCH.
+    if (remoteOrderNumber && remoteOrderNumber !== order.orderNumber) {
+      return { ...base, orderNumber: remoteOrderNumber, transactionId: remoteTxId || null };
+    }
+
+    // Echoed Payway id must be this order's paymentRef (or our own id echoed
+    // back). Orders whose paymentRef is the orderNumber never stored a Payway
+    // id, so there is nothing to compare against.
+    const paymentRefIsOrderNumber = order.paymentRef === order.orderNumber;
+    if (
+      remoteTxId &&
+      remoteTxId !== order.paymentRef &&
+      remoteTxId !== order.orderNumber &&
+      !paymentRefIsOrderNumber
+    ) {
+      return { ...base, currency, orderNumber: order.orderNumber, transactionId: remoteTxId };
+    }
+
+    const bound =
+      remoteOrderNumber === order.orderNumber ||
+      (remoteTxId !== "" && (remoteTxId === order.paymentRef || remoteTxId === order.orderNumber)) ||
+      String(remote.queryId ?? "").trim() === order.orderNumber;
+
+    if (bound) {
+      return { ...base, currency, orderNumber: order.orderNumber, transactionId: order.paymentRef };
+    }
+
+    // Nothing ties this response to the order: fail with MISSING_TRANSACTION_ID.
+    return { ...base, currency, orderNumber: null, transactionId: null };
+  }
+
+  return {
+    ...base,
+    orderNumber: remote.orderNumber || order.orderNumber,
+    transactionId: remote.transactionId ?? order.paymentRef,
   };
 }
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logError } from "@/lib/errorLogger";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 
@@ -127,7 +128,7 @@ export async function POST(req: NextRequest) {
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {
-    console.error("Admin mobile login error:", error);
+    logError("Admin mobile login error", error);
     return adminApiErrorResponse(error);
   }
 }

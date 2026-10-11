@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCurrency } from "@/lib/currency";
 import { playPaymentSuccessSound } from "@/lib/sound";
+import { getOrderToken, withOrderToken } from "@/lib/orderAccess";
+import OrderAccessForm from "@/components/OrderAccessForm";
 import {
   QrCode,
   Clock,
@@ -44,6 +46,7 @@ interface OrderPayment {
   paidAt: string | null;
   redeemCode?: string | null;
   deliveryNote?: string | null;
+  orderToken?: string | null;
 }
 
 const TERMINAL   = new Set(["DELIVERED", "FAILED", "REFUNDED", "CANCELLED"]);
@@ -453,42 +456,61 @@ export default function CheckoutClient() {
   const [copied,      setCopied]      = useState<string | null>(null);
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
   const [simulating,  setSimulating]  = useState(false);
+  // HMAC order access token from ?token= / localStorage (null on the server;
+  // the first render is the loading state either way, so hydration matches).
+  const [token,       setToken]       = useState<string | null>(() => getOrderToken(orderNumber));
+  const [needsAccess, setNeedsAccess] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasPlayedSoundRef = useRef(false);
 
   const fetchOrder = useCallback(async () => {
+    if (!token) return null;
     try {
-      const res = await fetch(`/api/orders/${encodeURIComponent(orderNumber)}`, { cache: "no-store" });
+      const res = await fetch(
+        withOrderToken(`/api/orders/${encodeURIComponent(orderNumber)}`, token),
+        { cache: "no-store" }
+      );
+      if (res.status === 404) {
+        // Missing / stale token: offer Player UID recovery.
+        setNeedsAccess(true);
+        return null;
+      }
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || "Order not found");
       }
       const data: OrderPayment = await res.json();
-      setOrder(data);
+      setOrder({ ...data, orderToken: data.orderToken || token });
       return data;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load order");
       return null;
     }
-  }, [orderNumber]);
+  }, [orderNumber, token]);
 
   const syncPaymentThenFetchOrder = useCallback(async () => {
     try {
-      await fetch(`/api/orders/${encodeURIComponent(orderNumber)}/sync-payment`, {
-        method: "POST",
-        cache: "no-store",
-      });
+      await fetch(
+        withOrderToken(`/api/orders/${encodeURIComponent(orderNumber)}/sync-payment`, token),
+        { method: "POST", cache: "no-store" }
+      );
     } catch {
       // Webhook is still the primary payment path; sync is a safe fallback.
     }
 
     return fetchOrder();
-  }, [orderNumber, fetchOrder]);
+  }, [orderNumber, token, fetchOrder]);
 
   useEffect(() => {
+    if (!token) {
+      setNeedsAccess(true);
+      setLoading(false);
+      return;
+    }
+    setNeedsAccess(false);
     setLoading(true);
     fetchOrder().finally(() => setLoading(false));
-  }, [fetchOrder]);
+  }, [token, fetchOrder]);
 
   // Polling — restart only when status changes to avoid infinite re-render.
   // Extract primitive values so exhaustive-deps is satisfied without
@@ -568,11 +590,13 @@ export default function CheckoutClient() {
   useEffect(() => {
     if (isPaid && order?.isRandomSpin && order.orderNumber) {
       const timer = setTimeout(() => {
-        window.location.replace(`/spin/${encodeURIComponent(order.orderNumber)}`);
+        window.location.replace(
+          withOrderToken(`/spin/${encodeURIComponent(order.orderNumber)}`, token)
+        );
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [isPaid, order?.isRandomSpin, order?.orderNumber]);
+  }, [isPaid, order?.isRandomSpin, order?.orderNumber, token]);
 
   return (
     <>
@@ -584,6 +608,17 @@ export default function CheckoutClient() {
             <Loader2 className="h-6 w-6 animate-spin mr-2" />
             កំពុងដំណើរការ...
           </div>
+        )}
+
+        {/* ── Player UID verification (no valid token) ── */}
+        {!loading && needsAccess && !order && orderNumber && (
+          <OrderAccessForm
+            orderNumber={orderNumber}
+            onToken={(recovered) => {
+              setError(null);
+              setToken(recovered);
+            }}
+          />
         )}
 
         {/* ── Error ── */}
@@ -620,21 +655,21 @@ export default function CheckoutClient() {
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
                       <Link
-                        href={`/spin/${order.orderNumber}`}
+                        href={withOrderToken(`/spin/${order.orderNumber}`, token)}
                         className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 px-8 py-4 text-base font-bold text-white shadow-xl shadow-pink-200 hover:shadow-pink-300 hover:scale-[1.02] active:scale-[0.98] transition-all"
                       >
                         <Sparkles className="w-5 h-5 text-white" />
                         <span>បង្វិលកងសំណាងឥឡូវនេះ (Spin Now)</span>
                       </Link>
                       <Link
-                        href={`/gift/${order.orderNumber}`}
+                        href={withOrderToken(`/gift/${order.orderNumber}`, token)}
                         className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 text-base font-bold text-white shadow-xl shadow-purple-200 hover:shadow-purple-300 hover:scale-[1.02] active:scale-[0.98] transition-all"
                       >
                         <Gift className="w-5 h-5 text-yellow-300 animate-bounce" />
                         <span>បើកកាដូ (Open Gift)</span>
                       </Link>
                       <Link
-                        href={`/order?number=${order.orderNumber}`}
+                        href={withOrderToken(`/order?number=${order.orderNumber}`, token)}
                         className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         Track Order
@@ -782,7 +817,7 @@ export default function CheckoutClient() {
                     {/* 🎁 Open Mystery Gift Button */}
                     <div className="my-5">
                       <Link
-                        href={`/gift/${order.orderNumber}`}
+                        href={withOrderToken(`/gift/${order.orderNumber}`, token)}
                         className="w-full sm:w-auto inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 px-8 py-4 text-base font-black text-white shadow-xl shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all border border-purple-300/40 animate-pulse"
                       >
                         <Gift className="h-6 w-6 text-yellow-300 animate-bounce" />
@@ -794,7 +829,7 @@ export default function CheckoutClient() {
                       <Link href="/" className="inline-flex items-center justify-center rounded-xl border border-pink-400 px-6 py-3 text-sm font-semibold text-pink-600 hover:bg-pink-50 transition-colors">
                         Back to Home
                       </Link>
-                      <Link href={`/order?number=${order.orderNumber}`} className="inline-flex items-center justify-center rounded-xl bg-pink-600 px-6 py-3 text-sm font-semibold text-white hover:bg-pink-700 transition-colors">
+                      <Link href={withOrderToken(`/order?number=${order.orderNumber}`, token)} className="inline-flex items-center justify-center rounded-xl bg-pink-600 px-6 py-3 text-sm font-semibold text-white hover:bg-pink-700 transition-colors">
                         Track Order
                       </Link>
                     </div>

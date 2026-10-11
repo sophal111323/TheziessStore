@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentCreator } from "@/lib/affiliate/session";
+import { getCurrentCreator, toSafeAffiliate } from "@/lib/affiliate/session";
 import { updateAffiliateProfile } from "@/lib/affiliate/store";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Failed to update profile" }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true, creator: updated });
+    return NextResponse.json({ success: true, creator: toSafeAffiliate(updated) });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Failed to update profile" }, { status: 500 });
   }

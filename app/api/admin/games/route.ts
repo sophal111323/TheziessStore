@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { logError } from "@/lib/errorLogger";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
@@ -79,7 +80,7 @@ export const GET = withAdminAuth(
       });
       return NextResponse.json(games, { headers: ADMIN_HEADERS });
     } catch (error) {
-      console.error("[ADMIN_GAMES_API_ERROR]", error);
+      logError("[ADMIN_GAMES_API_ERROR]", error);
       return NextResponse.json(
         { error: "Internal server error" },
         { status: 500, headers: ADMIN_HEADERS }
@@ -117,7 +118,7 @@ export const POST = withAdminAuth(
           { status: 409, headers: ADMIN_HEADERS }
         );
       }
-      console.error("[ADMIN_GAMES_API_ERROR]", err);
+      logError("[ADMIN_GAMES_API_ERROR]", err);
       return NextResponse.json(
         { error: "Internal server error" },
         { status: 500, headers: ADMIN_HEADERS }

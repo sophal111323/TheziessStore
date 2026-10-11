@@ -1,5 +1,6 @@
 "use client";
 
+import { adminFetch } from "@/lib/adminFetch";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
@@ -11,14 +12,14 @@ export default function AdminGamesPage() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/admin/games");
+    const res = await adminFetch("/api/admin/games");
     setGames(await res.json());
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
 
   async function toggleActive(game: any) {
-    await fetch(`/api/admin/games/${game.id}`, {
+    await adminFetch(`/api/admin/games/${game.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ active: !game.active }),
@@ -27,7 +28,7 @@ export default function AdminGamesPage() {
   }
 
   async function toggleFeatured(game: any) {
-    await fetch(`/api/admin/games/${game.id}`, {
+    await adminFetch(`/api/admin/games/${game.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ featured: !game.featured }),
@@ -37,12 +38,12 @@ export default function AdminGamesPage() {
 
   async function deleteGame(game: any) {
     if (!confirm(`Delete "${game.name}" and all its products/orders? This cannot be undone.`)) return;
-    await fetch(`/api/admin/games/${game.id}`, { method: "DELETE" });
+    await adminFetch(`/api/admin/games/${game.id}`, { method: "DELETE" });
     await load();
   }
 
   async function reorder(id: string, direction: "up" | "down") {
-    await fetch("/api/admin/games/reorder", {
+    await adminFetch("/api/admin/games/reorder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, direction }),
@@ -211,7 +212,7 @@ function GameForm({ initial, onCancel, onSaved }: { initial: any; onCancel: () =
     };
     const url = initial ? `/api/admin/games/${initial.id}` : "/api/admin/games";
     const method = initial ? "PATCH" : "POST";
-    const res = await fetch(url, {
+    const res = await adminFetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -379,7 +380,7 @@ function ImageField({
     const fd = new FormData();
     fd.append("file", file);
     try {
-      const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const res = await adminFetch("/api/admin/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
       onChange(data.url);

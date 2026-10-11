@@ -12,6 +12,8 @@ import {
   updateAffiliateStatus,
 } from "@/lib/affiliate/store";
 
+import { toSafeAffiliate } from "@/lib/affiliate/session";
+
 export const dynamic = "force-dynamic";
 
 export const GET = withAdminAuth(
@@ -29,7 +31,7 @@ export const GET = withAdminAuth(
     const adjustments = getAffiliateAdjustments(affiliate.id);
 
     return NextResponse.json({
-      affiliate,
+      affiliate: toSafeAffiliate(affiliate),
       stats,
       orders,
       payouts,

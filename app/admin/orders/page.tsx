@@ -1,7 +1,9 @@
 "use client";
 
+import { adminFetch } from "@/lib/adminFetch";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { fulfillNeedsOwnerOverride } from "@/lib/manualOrderOverride";
 
 const STATUSES = ["ALL", "PENDING", "PAID", "PROCESSING", "DELIVERED", "FAILED", "REFUNDED", "CANCELLED"];
 
@@ -30,7 +32,7 @@ export default function AdminOrdersPage() {
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/promoters")
+    adminFetch("/api/admin/promoters")
       .then((r) => r.json())
       .then((d) => {
         if (d.promoters) setPromoters(d.promoters);
@@ -43,7 +45,7 @@ export default function AdminOrdersPage() {
     const params = new URLSearchParams({ status, page: String(page) });
     if (q) params.set("q", q);
     if (promoter && promoter !== "ALL") params.set("promoter", promoter);
-    const res = await fetch(`/api/admin/orders?${params}`);
+    const res = await adminFetch(`/api/admin/orders?${params}`);
     const data = await res.json();
     setOrders(data.orders || []);
     setTotalPages(data.totalPages || 1);
@@ -51,7 +53,7 @@ export default function AdminOrdersPage() {
 
     // Always fetch count of orders that need fulfillment (PAID)
     try {
-      const countRes = await fetch(`/api/admin/orders?status=PAID&page=1`);
+      const countRes = await adminFetch(`/api/admin/orders?status=PAID&page=1`);
       const countData = await countRes.json();
       setPendingCount(countData.total ?? countData.orders?.length ?? 0);
     } catch {
@@ -59,7 +61,12 @@ export default function AdminOrdersPage() {
     }
   }
 
-  async function handleCallApi(orderNumber: string, orderStatus: string) {
+  async function handleCallApi(
+    orderNumber: string,
+    orderStatus: string,
+    paidAt?: string | null,
+    deliveredAt?: string | null
+  ) {
     if (orderStatus === "DELIVERED") {
       const ok = window.confirm(
         `Order #${orderNumber} is already DELIVERED.\n\nAre you sure you want to call the supplier API again? (May charge your supplier balance again)`
@@ -72,15 +79,25 @@ export default function AdminOrdersPage() {
       if (!ok) return;
     }
 
+    const force = orderStatus === "FAILED" || orderStatus === "DELIVERED" || orderStatus === "PENDING";
+    const isOverride = fulfillNeedsOwnerOverride({ status: orderStatus, paidAt, deliveredAt }, force);
+    if (isOverride && orderStatus === "FAILED") {
+      const ok = window.confirm(
+        `Order #${orderNumber} has no verified payment or was already delivered.\n\nCall the supplier API anyway? (owner override)`
+      );
+      if (!ok) return;
+    }
+
     setCallingOrder(orderNumber);
     setFeedback(null);
 
     try {
-      const res = await fetch(`/api/admin/orders/${orderNumber}/fulfill`, {
+      const res = await adminFetch(`/api/admin/orders/${orderNumber}/fulfill`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          force: orderStatus === "FAILED" || orderStatus === "DELIVERED" || orderStatus === "PENDING",
+          force,
+          ...(isOverride ? { confirmManualPaid: true } : {}),
         }),
       });
 
@@ -116,7 +133,7 @@ export default function AdminOrdersPage() {
     setFeedback(null);
 
     try {
-      const res = await fetch("/api/admin/orders/bulk", {
+      const res = await adminFetch("/api/admin/orders/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ allPaid: true }),
@@ -152,7 +169,7 @@ export default function AdminOrdersPage() {
     );
     if (typed !== "DELETE") return;
 
-    const res = await fetch("/api/admin/orders/bulk", {
+    const res = await adminFetch("/api/admin/orders/bulk", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ confirm: "DELETE", status }),
@@ -388,7 +405,7 @@ export default function AdminOrdersPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleCallApi(o.orderNumber, o.status);
+                          handleCallApi(o.orderNumber, o.status, o.paidAt, o.deliveredAt);
                         }}
                         disabled={callingOrder === o.orderNumber}
                         title={

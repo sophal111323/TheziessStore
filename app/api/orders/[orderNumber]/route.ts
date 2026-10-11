@@ -3,6 +3,7 @@ import { logSecurityEvent } from "@/lib/secureLogger";
 import { NextRequest } from "next/server";
 import { fetchPaymentStatus } from "@/lib/payment";
 import {
+  buildRemoteSnapshotForValidation,
   isRemotePaid,
   logPaymentValidationFailure,
   validatePaymentForOrder,
@@ -10,6 +11,7 @@ import {
 import { API_NO_STORE, publicRateLimit, safeJson } from "@/lib/apiSecurity";
 import { refreshTopupStatus } from "@/lib/fulfillment";
 import { extractRedeemCode } from "@/lib/redeem";
+import { verifyOrderToken } from "@/lib/orderToken";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -55,6 +57,20 @@ export async function GET(
   if (limited) return limited;
 
   if (!/^[A-Z0-9-]{3,40}$/.test(normalizedOrderNumber)) {
+    return safeJson({ error: "Order not found" }, { status: 404 }, API_NO_STORE);
+  }
+
+  // ── Token validation (FIND-001 fix) ────────────────────────────────────
+  // Require valid HMAC token to prevent unauthorized order enumeration
+  const token = req.nextUrl.searchParams.get("token");
+  const isTokenValid = verifyOrderToken(normalizedOrderNumber, token);
+  
+  if (!isTokenValid) {
+    logSecurityEvent({
+      event: "order_lookup_unauthorized",
+      detail: `Attempted order lookup without valid token: ${normalizedOrderNumber}`,
+      ip: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown",
+    });
     return safeJson({ error: "Order not found" }, { status: 404 }, API_NO_STORE);
   }
 
@@ -115,17 +131,17 @@ export async function GET(
     !order.paymentRef.startsWith("SIM-")
   ) {
     try {
-      const remote = await fetchPaymentStatus(order.paymentRef, order.paymentProvider);
+      const remote = await fetchPaymentStatus(
+        order.paymentRef,
+        order.paymentProvider,
+        order.orderNumber
+      );
 
-      if (isRemotePaid(remote)) {
-        const validation = validatePaymentForOrder(order, {
-          orderNumber: order.orderNumber,
-          transactionId: remote?.transactionId ?? order.paymentRef,
-          amount: remote?.amount,
-          currency: remote?.currency,
-          status: remote?.status,
-          paid: remote?.paid,
-        });
+      if (remote && isRemotePaid(remote)) {
+        const validation = validatePaymentForOrder(
+          order,
+          buildRemoteSnapshotForValidation(order, remote)
+        );
 
         if (validation.ok) {
           order = await prisma.order.update({
@@ -197,9 +213,13 @@ export async function GET(
     paymentRef:        safePaymentRef,   // null for real orders; SIM- only in dev
     paymentExpiresAt:  order.paymentExpiresAt?.toISOString() ?? null,
 
-    // ── Masked customer data ───────────────────────────────────────────────
-    customerEmail: maskEmail(order.customerEmail),
-    customerPhone: maskPhone(order.customerPhone),
+    // Echo the (already verified) access token so clients keep it when they
+    // replace local state with this response.
+    orderToken:        token,
+
+    // ── Masked customer data (return null for unauthenticated lookups) ────
+    customerEmail: null,
+    customerPhone: null,
 
     // ── Nested payment object (backward-compat) ────────────────────────────
     payment: {

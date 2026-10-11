@@ -1,5 +1,6 @@
 "use client";
 
+import { adminFetch } from "@/lib/adminFetch";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -115,7 +116,7 @@ export default function AdminPromoCodesPage() {
   async function loadCodes() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/promo-codes");
+      const res = await adminFetch("/api/admin/promo-codes");
       const data = await res.json();
       if (Array.isArray(data)) setCodes(data);
     } catch (err) {
@@ -127,7 +128,7 @@ export default function AdminPromoCodesPage() {
 
   async function loadGames() {
     try {
-      const res = await fetch("/api/admin/games");
+      const res = await adminFetch("/api/admin/games");
       const data = await res.json();
       if (Array.isArray(data)) {
         setGames(data.map((g: any) => ({ id: g.id, name: g.name, slug: g.slug })));
@@ -146,7 +147,7 @@ export default function AdminPromoCodesPage() {
       if (cId) params.set("codeId", cId);
       if (q) params.set("search", q);
 
-      const res = await fetch(`/api/admin/promo-codes/history?${params.toString()}`);
+      const res = await adminFetch(`/api/admin/promo-codes/history?${params.toString()}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         setHistoryRecords(data);
@@ -182,8 +183,8 @@ export default function AdminPromoCodesPage() {
     setLoadingPackages(true);
 
     Promise.all([
-      fetch(`/api/admin/products?gameId=${selectedGameId}`).then((r) => r.json()).catch(() => []),
-      fetch(`/api/admin/random-packages?gameId=${selectedGameId}`).then((r) => r.json()).catch(() => []),
+      adminFetch(`/api/admin/products?gameId=${selectedGameId}`).then((r) => r.json()).catch(() => []),
+      adminFetch(`/api/admin/random-packages?gameId=${selectedGameId}`).then((r) => r.json()).catch(() => []),
     ])
       .then(([products, randomPkgs]) => {
         if (isCancelled) return;
@@ -237,7 +238,7 @@ export default function AdminPromoCodesPage() {
     }
 
     try {
-      const res = await fetch("/api/admin/promo-codes", {
+      const res = await adminFetch("/api/admin/promo-codes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -271,7 +272,7 @@ export default function AdminPromoCodesPage() {
   }
 
   async function toggleActive(id: string, active: boolean) {
-    await fetch(`/api/admin/promo-codes/${id}`, {
+    await adminFetch(`/api/admin/promo-codes/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ active: !active }),
@@ -281,7 +282,7 @@ export default function AdminPromoCodesPage() {
 
   async function deleteCode(id: string) {
     if (!confirm("Delete this promo code?")) return;
-    await fetch(`/api/admin/promo-codes/${id}`, { method: "DELETE" });
+    await adminFetch(`/api/admin/promo-codes/${id}`, { method: "DELETE" });
     loadCodes();
   }
 

@@ -34,4 +34,4 @@ export const DELETE = withAdminAuth(async (_req, ctx, _admin) => {
   });
 
   return NextResponse.json({ ok: true });
-});
+}, { permission: "banlist.write" });

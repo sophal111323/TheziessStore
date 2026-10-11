@@ -11,6 +11,8 @@ import {
   updateAffiliatePayoutStatus,
 } from "@/lib/affiliate/store";
 
+import { toSafeAffiliate } from "@/lib/affiliate/session";
+
 export const dynamic = "force-dynamic";
 
 export const GET = withAdminAuth(
@@ -20,7 +22,7 @@ export const GET = withAdminAuth(
     const listWithStats = affiliates.map((a) => {
       const stats = getAffiliateStats(a.id);
       return {
-        ...a,
+        ...toSafeAffiliate(a),
         stats,
       };
     });

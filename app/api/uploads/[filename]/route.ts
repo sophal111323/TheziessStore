@@ -14,12 +14,18 @@ const MIME_MAP: Record<string, string> = {
   svg: "image/svg+xml",
 };
 
+// Uploaded files (incl. SVG) must never run script or be MIME-sniffed.
+const UPLOAD_SECURITY_HEADERS = {
+  "Content-Security-Policy": "default-src 'none'; sandbox",
+  "X-Content-Type-Options": "nosniff",
+};
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ filename: string }> }
 ) {
   const { filename } = await params;
-  if (!filename || filename.includes("..") || filename.includes("/")) {
+  if (!filename || !/^[a-zA-Z0-9._-]+\.(png|jpg|jpeg|webp|gif|svg)$/i.test(filename)) {
     return new NextResponse("Invalid filename", { status: 400 });
   }
 
@@ -36,6 +42,7 @@ export async function GET(
           "Content-Type": file.mimeType,
           "Content-Length": file.size.toString(),
           "Cache-Control": "public, max-age=31536000, immutable",
+          ...UPLOAD_SECURITY_HEADERS,
         },
       });
     }
@@ -53,6 +60,7 @@ export async function GET(
           "Content-Type": mimeType,
           "Content-Length": buffer.length.toString(),
           "Cache-Control": "public, max-age=31536000, immutable",
+          ...UPLOAD_SECURITY_HEADERS,
         },
       });
     }

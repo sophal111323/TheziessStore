@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getClientIp } from "@/lib/getIp";
 
 export const dynamic = "force-dynamic";
 
 const WINDOW_MS = 60_000;
 const MAX_ATTEMPTS = 10;
+const MAX_LOGGED_KEYS = 10;
+const MAX_KEY_LENGTH = 50;
 
 type RateLimitRecord = {
   count: number;
@@ -11,18 +14,6 @@ type RateLimitRecord = {
 };
 
 const rateLimitStore = new Map<string, RateLimitRecord>();
-
-function getClientIp(req: NextRequest): string {
-  const cfIp = req.headers.get("cf-connecting-ip");
-  const realIp = req.headers.get("x-real-ip");
-  const forwardedFor = req.headers.get("x-forwarded-for");
-
-  if (cfIp) return cfIp;
-  if (realIp) return realIp;
-  if (forwardedFor) return forwardedFor.split(",")[0]?.trim() || "unknown";
-
-  return "unknown";
-}
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -58,12 +49,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: unknown = null;
+  // Never log submitted values (attacker-typed passwords, log flooding):
+  // only the body's key names (max 10) and its JSON length.
+  const rawBody = await req.text().catch(() => "");
+  let bodyKeys: string[] = [];
 
   try {
-    body = await req.json();
+    const parsed: unknown = rawBody ? JSON.parse(rawBody) : null;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      bodyKeys = Object.keys(parsed)
+        .slice(0, MAX_LOGGED_KEYS)
+        .map((k) => k.slice(0, MAX_KEY_LENGTH));
+    }
   } catch {
-    body = null;
+    bodyKeys = [];
   }
 
   const userAgent = req.headers.get("user-agent") || "unknown";
@@ -73,7 +72,8 @@ export async function POST(req: NextRequest) {
     ip,
     userAgent,
     referer,
-    body,
+    bodyKeys,
+    bodyLength: rawBody.length,
     createdAt: new Date().toISOString(),
   });
 

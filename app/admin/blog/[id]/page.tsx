@@ -1,5 +1,6 @@
 "use client";
 
+import { adminFetch } from "@/lib/adminFetch";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Save, ArrowLeft, Trash2, Image as ImageIcon, ExternalLink } from "lucide-react";
@@ -27,7 +28,7 @@ export default function EditBlogPostPage() {
   const [uploading, setUploading] = useState(false);
 
   async function load() {
-    const res = await fetch(`/api/admin/blog/${params.id}`);
+    const res = await adminFetch(`/api/admin/blog/${params.id}`);
     if (res.ok) {
       const p = await res.json();
       setForm({
@@ -52,7 +53,7 @@ export default function EditBlogPostPage() {
     setUploading(true);
     const fd = new FormData();
     fd.append("file", file);
-    const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+    const res = await adminFetch("/api/admin/upload", { method: "POST", body: fd });
     if (res.ok) {
       const data = await res.json();
       setForm({ ...form, coverUrl: data.url });
@@ -63,7 +64,7 @@ export default function EditBlogPostPage() {
   async function save() {
     if (!form) return;
     setSaving(true);
-    const res = await fetch(`/api/admin/blog/${params.id}`, {
+    const res = await adminFetch(`/api/admin/blog/${params.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
@@ -77,7 +78,7 @@ export default function EditBlogPostPage() {
 
   async function remove() {
     if (!confirm("Delete this post permanently?")) return;
-    await fetch(`/api/admin/blog/${params.id}`, { method: "DELETE" });
+    await adminFetch(`/api/admin/blog/${params.id}`, { method: "DELETE" });
     router.push("/admin/blog");
   }
 

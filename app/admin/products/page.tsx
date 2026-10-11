@@ -1,5 +1,6 @@
 "use client";
 
+import { adminFetch } from "@/lib/adminFetch";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -55,9 +56,9 @@ export default function AdminProductsPage() {
   async function loadAll() {
     setLoading(true);
     const [gRes, pRes, rRes] = await Promise.all([
-      fetch("/api/admin/games").then((r) => r.json()),
-      fetch(`/api/admin/products${selectedGame ? `?gameId=${selectedGame}` : ""}`).then((r) => r.json()),
-      fetch("/api/admin/random-packages").then((r) => r.json()),
+      adminFetch("/api/admin/games").then((r) => r.json()),
+      adminFetch(`/api/admin/products${selectedGame ? `?gameId=${selectedGame}` : ""}`).then((r) => r.json()),
+      adminFetch("/api/admin/random-packages").then((r) => r.json()),
     ]);
     setGames(Array.isArray(gRes) ? gRes : []);
     setProducts(Array.isArray(pRes) ? pRes : []);
@@ -71,7 +72,7 @@ export default function AdminProductsPage() {
   }, [selectedGame]);
 
   async function toggleActive(p: any) {
-    await fetch(`/api/admin/products/${p.id}`, {
+    await adminFetch(`/api/admin/products/${p.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ active: !p.active }),
@@ -81,7 +82,7 @@ export default function AdminProductsPage() {
 
   async function toggleStock(p: any) {
     const nextInStock = p.inStock === false ? true : false;
-    await fetch(`/api/admin/products/${p.id}`, {
+    await adminFetch(`/api/admin/products/${p.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ inStock: nextInStock }),
@@ -91,12 +92,12 @@ export default function AdminProductsPage() {
 
   async function deleteProduct(p: any) {
     if (!confirm(`Delete "${p.name}"?`)) return;
-    await fetch(`/api/admin/products/${p.id}`, { method: "DELETE" });
+    await adminFetch(`/api/admin/products/${p.id}`, { method: "DELETE" });
     await loadAll();
   }
 
   async function changeProductCategory(productId: string, newCategory: string) {
-    await fetch(`/api/admin/products/${productId}`, {
+    await adminFetch(`/api/admin/products/${productId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ category: newCategory }),
@@ -160,7 +161,7 @@ export default function AdminProductsPage() {
     const [moved] = updated.splice(fromIndex, 1);
     updated.splice(toIndex, 0, moved);
 
-    await fetch(`/api/admin/games/${currentGame.id}`, {
+    await adminFetch(`/api/admin/games/${currentGame.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ categoryOrder: JSON.stringify(updated) }),
@@ -171,7 +172,7 @@ export default function AdminProductsPage() {
   async function setAsSlot1(slotName: string) {
     if (!currentGame) return;
     const updated = [slotName, ...currentOrderedSlots.filter((s) => s !== slotName)];
-    await fetch(`/api/admin/games/${currentGame.id}`, {
+    await adminFetch(`/api/admin/games/${currentGame.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ categoryOrder: JSON.stringify(updated) }),
@@ -540,7 +541,7 @@ function ProductForm({ games, products = [], defaultGameId, initial, onCancel, o
     };
     const url = initial ? `/api/admin/products/${initial.id}` : "/api/admin/products";
     const method = initial ? "PATCH" : "POST";
-    const res = await fetch(url, {
+    const res = await adminFetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -840,7 +841,7 @@ function ProductForm({ games, products = [], defaultGameId, initial, onCancel, o
                   try {
                     const fd = new FormData();
                     fd.append("file", file);
-                    const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+                    const res = await adminFetch("/api/admin/upload", { method: "POST", body: fd });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || "Upload failed");
                     setForm((f: any) => ({ ...f, imageUrl: data.url }));

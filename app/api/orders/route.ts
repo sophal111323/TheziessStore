@@ -10,6 +10,8 @@ import { withAdminAuth } from "@/lib/withAdminAuth";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { recordAffiliateOrder } from "@/lib/affiliate/store";
 import { validatePromoCode } from "@/lib/coupon";
+import { logError } from "@/lib/errorLogger";
+import { generateOrderToken, isOrderTokenConfigured } from "@/lib/orderToken";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -56,11 +58,25 @@ const createOrderSchema = z
     playerNickname: z.string().max(100).optional(),
     turnstileToken: z.string().min(1),
   })
-  .refine((d) => d.productId || d.randomPackageId, {
-    message: "Either productId or randomPackageId is required",
-  });
+  .refine(
+    (d) =>
+      (Boolean(d.productId) && !d.randomPackageId) ||
+      (!d.productId && Boolean(d.randomPackageId)),
+    {
+      message: "Specify either productId or randomPackageId, never both",
+    }
+  );
 
 export async function POST(req: NextRequest) {
+  // Fail closed before any DB write: without an order-token secret the customer
+  // could never access the order they are about to pay for.
+  if (!isOrderTokenConfigured()) {
+    logError("Order create blocked", new Error("ORDER_LOOKUP_SECRET / ADMIN_JWT_SECRET not configured"));
+    return NextResponse.json(
+      { error: "Ordering is temporarily unavailable. Please try again later." },
+      { status: 503, headers: { "Cache-Control": "no-store" } }
+    );
+  }
 
   // ── Rate limit: tunable per-IP order creation limit (Issue #4) ─────────
   // Defaults preserve the historical 10 orders / 10 minutes / IP.
@@ -179,6 +195,27 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 🛡️ Rapid Double-Submit Guard (prevents accidental duplicate orders within 2s for same player + item)
+    // Fixed FIND-012: Use normalized playerUid + item (not IP-only, to avoid blocking NAT users)
+    const orderItemKey = (data.productId || data.randomPackageId || "").trim();
+    if (data.playerUid && orderItemKey) {
+      // Normalize playerUid: trim, lowercase, strip all whitespace
+      const normalizedUid = data.playerUid.trim().toLowerCase().replace(/\s+/g, '');
+      
+      const doubleClickLock = await applyRateLimit(
+        `order-lock:${normalizedUid}:${orderItemKey}`,
+        1,
+        2000,
+        ipAddress
+      );
+      if (doubleClickLock) {
+        return NextResponse.json(
+          { error: "កំពុងដំណើរការការកុម្ម៉ង់ សូមរង់ចាំបន្តិច (Your order is already being processed, please wait a moment)." },
+          { status: 429 }
+        );
+      }
+    }
+
     if (game.requiresServer && !data.serverId) {
       return NextResponse.json({ error: "Server is required for this game" }, { status: 400 });
     }
@@ -222,12 +259,12 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (data.productId) {
-        product = await prisma.product.findUnique({ where: { id: data.productId } });
-      }
-      if (!product) {
-        product = await prisma.product.findFirst({ where: { gameId: game.id, active: true } });
-      }
+      // For Mystery Box orders, strictly bind to the game's designated active product to satisfy the foreign key.
+      // Disallow any user-controlled package substitution.
+      product = await prisma.product.findFirst({
+        where: { gameId: game.id, active: true },
+        orderBy: { sortOrder: "asc" },
+      });
       if (!product) {
         return NextResponse.json({ error: "No products available for this game" }, { status: 404 });
       }
@@ -249,7 +286,7 @@ export async function POST(req: NextRequest) {
     const userAgent = req.headers.get("user-agent") ?? "unknown";
     const exchangeRate = settings?.exchangeRate ?? 4100;
     const basePriceUsd = randomPackage ? randomPackage.priceUsd : product.priceUsd;
-    let finalPrice = basePriceUsd;
+    let finalPrice = Number(basePriceUsd.toFixed(2));
 
     // ── Promo code handling (Apply ≠ Consume) ────────────────────────────────
     // When the order is placed, validate the coupon against the player UID and
@@ -284,9 +321,21 @@ export async function POST(req: NextRequest) {
       }
 
       promoCodeId = validation.promoCodeId || null;
-      discountUsd = validation.discountUsd || 0;
-      finalPrice = validation.finalAmountUsd || basePriceUsd;
+      discountUsd = typeof validation.discountUsd === "number" ? Math.max(0, validation.discountUsd) : 0;
+      finalPrice = typeof validation.finalAmountUsd === "number" ? validation.finalAmountUsd : basePriceUsd;
     }
+
+    // Math.max(0.01, NaN) is NaN, so reject non-finite prices before the floor.
+    if (!Number.isFinite(finalPrice)) {
+      logError("Order create: non-finite price", new Error(`finalPrice=${finalPrice}`));
+      return NextResponse.json(
+        { error: "Invalid price" },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    // Strict security floor: every order must have a positive price >= $0.01 USD
+    finalPrice = Math.max(0.01, Math.round(finalPrice * 100) / 100);
 
     const activeProvider = await getActivePaymentProvider();
 
@@ -314,24 +363,29 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // HMAC access token for the customer's order/gift/spin pages
+    const orderToken = generateOrderToken(order.orderNumber);
+
     if (promoCodeId) {
-      // Link the claimed coupon usage to this order
       const normalizedUid = data.playerUid.trim().toLowerCase();
-      const existingUsage = await prisma.couponUsage.findFirst({
+      // Atomically attach or record PENDING coupon usage for this order.
+      // Crucial: status must be PENDING so that consumeOrderCouponAtomically()
+      // executes upon payment confirmation to increment usedCount and verify quotas.
+      const unlinkedUsage = await prisma.couponUsage.findFirst({
         where: {
           promoCodeId,
           userIdentifier: normalizedUid,
-          status: "USED",
           orderId: null,
         },
         orderBy: { createdAt: "desc" },
       });
 
-      if (existingUsage) {
+      if (unlinkedUsage) {
         await prisma.couponUsage.update({
-          where: { id: existingUsage.id },
+          where: { id: unlinkedUsage.id },
           data: {
             orderId: order.id,
+            status: "PENDING",
             discountUsd,
           },
         });
@@ -341,9 +395,8 @@ export async function POST(req: NextRequest) {
             promoCodeId,
             orderId: order.id,
             userIdentifier: normalizedUid,
-            status: "USED",
+            status: "PENDING",
             discountUsd,
-            usedAt: new Date(),
           },
         });
       }
@@ -362,7 +415,7 @@ export async function POST(req: NextRequest) {
           amountUsd: order.amountUsd,
         });
       } catch (affErr) {
-        console.error("Failed to record affiliate order:", affErr);
+        logError("Failed to record affiliate order", affErr);
       }
     }
 
@@ -378,7 +431,7 @@ export async function POST(req: NextRequest) {
       amountUsd: order.amountUsd,
       currency: order.currency,
       method: data.paymentMethod as any,
-      returnUrl: `${publicUrl}/order?number=${order.orderNumber}`,
+      returnUrl: `${publicUrl}/order?number=${order.orderNumber}&token=${orderToken}`,
       cancelUrl: `${publicUrl}/games/${game.slug}`,
       callbackUrl: `${publicUrl}/api/payment/webhook/${webhookPath}`,
       note: randomPackage
@@ -410,10 +463,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       orderNumber: order.orderNumber,
-      redirectUrl: `${baseUrl}/checkout/${order.orderNumber}`,
+      orderToken,
+      redirectUrl: `${baseUrl}/checkout/${order.orderNumber}?token=${orderToken}`,
     });
   } catch (err) {
-    console.error("Order create error:", err);
+    logError("Order create error", err);
     // Security: never expose internal error messages to public users
     return NextResponse.json(
       { error: "Something went wrong. Please try again or contact support." },

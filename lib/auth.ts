@@ -10,6 +10,7 @@ import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 import { prisma } from "./prisma";
 import { getAdminFromBearerToken, isAllowedAdminRole } from "@/lib/adminMobileAuth";
+import { ADMIN_SESSION_TOKEN_TYPE, isAdminSessionClaims } from "@/lib/adminSessionClaims";
 
 const ADMIN_COOKIE_NAME = "admin_token";
 
@@ -25,15 +26,26 @@ function getAdminJwtSecret() {
 }
 
 export function signAdminToken(adminId: string) {
-  return jwt.sign({ adminId }, getAdminJwtSecret(), {
+  return jwt.sign({ adminId, typ: ADMIN_SESSION_TOKEN_TYPE }, getAdminJwtSecret(), {
+    algorithm: "HS256",
     expiresIn: SESSION_MAX_AGE_SECONDS,
   });
 }
 
+/**
+ * Verifies a full admin session JWT. HS256 is pinned and the typed claims are
+ * required, so pending-2FA / Telegram-key / lock-hint tokens and any other
+ * JWT signed with the same secret are rejected (ATK-02).
+ */
 export function verifyAdminToken(token: string) {
   try {
-    return jwt.verify(token, getAdminJwtSecret()) as {
+    const payload = jwt.verify(token, getAdminJwtSecret(), {
+      algorithms: ["HS256"],
+    });
+    if (!isAdminSessionClaims(payload)) return null;
+    return payload as {
       adminId: string;
+      typ: string;
       iat: number;
       exp: number;
     };
@@ -91,16 +103,29 @@ export async function getCurrentAdmin() {
   }
 }
 
+type AuthenticatedAdmin = NonNullable<Awaited<ReturnType<typeof getCurrentAdmin>>>;
+
+export type AdminAuthResult = {
+  admin: AuthenticatedAdmin;
+  /**
+   * "bearer": authenticated via Authorization header (mobile session or JWT).
+   * "cookie": authenticated via the HttpOnly admin_token cookie (browser; needs CSRF).
+   * An invalid Bearer header that falls back to the cookie counts as "cookie".
+   */
+  method: "bearer" | "cookie";
+};
+
 /**
- * Returns the current admin from either:
- * 1. Flutter/mobile Bearer token, or
- * 2. Existing web admin HttpOnly cookie.
- *
- * Bearer token is checked first so mobile API calls can reuse existing admin APIs.
+ * Returns the current admin plus how they authenticated, checking in order:
+ * 1. Flutter/mobile Bearer session token,
+ * 2. Bearer admin JWT,
+ * 3. Existing web admin HttpOnly cookie.
  */
-export async function getCurrentAdminFromRequest(req: NextRequest) {
+export async function getAdminAuthFromRequest(
+  req: NextRequest
+): Promise<AdminAuthResult | null> {
   const bearerAdmin = await getAdminFromBearerToken(req).catch(() => null);
-  if (bearerAdmin) return bearerAdmin;
+  if (bearerAdmin) return { admin: bearerAdmin, method: "bearer" };
 
   const header = req.headers.get("authorization") || req.headers.get("Authorization");
   const bearerToken = header?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
@@ -112,12 +137,24 @@ export async function getCurrentAdminFromRequest(req: NextRequest) {
       });
 
       if (admin?.active && isAllowedAdminRole(admin.role)) {
-        return admin;
+        return { admin, method: "bearer" };
       }
     }
   }
 
-  return getCurrentAdmin();
+  const cookieAdmin = await getCurrentAdmin();
+  return cookieAdmin ? { admin: cookieAdmin, method: "cookie" } : null;
+}
+
+/**
+ * Returns the current admin from either:
+ * 1. Flutter/mobile Bearer token, or
+ * 2. Existing web admin HttpOnly cookie.
+ *
+ * Bearer token is checked first so mobile API calls can reuse existing admin APIs.
+ */
+export async function getCurrentAdminFromRequest(req: NextRequest) {
+  return (await getAdminAuthFromRequest(req))?.admin ?? null;
 }
 
 export { ADMIN_COOKIE_NAME, SESSION_MAX_AGE_SECONDS };

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logError } from "@/lib/errorLogger";
 
 import { prisma } from "@/lib/prisma";
 import { getClientIp } from "@/lib/getIp";
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     return res;
   } catch (err) {
-    console.error("Admin key resend error:", err);
+    logError("Admin key resend error", err);
     return adminApiErrorResponse(err);
   }
 }

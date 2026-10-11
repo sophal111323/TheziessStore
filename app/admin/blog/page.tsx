@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Plus, Edit3 } from "lucide-react";
+import { requireAdminPage } from "@/lib/adminPageAuth";
 
 export const dynamic = "force-dynamic";
 
 export default async function BlogAdminPage() {
+  await requireAdminPage("blog.read");
+
   const posts = await prisma.blogPost.findMany({
     orderBy: { createdAt: "desc" },
     select: {

@@ -2,14 +2,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { detectProvider, parseUserAgent } from "@/lib/requestInfo";
+import { timingSafeEqualString } from "@/lib/secretCompare";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const secret = req.headers.get("x-internal-secret");
+  const expected = process.env.INTERNAL_SECURITY_SECRET;
 
-  if (!secret || secret !== process.env.INTERNAL_SECURITY_SECRET) {
+  // Fail closed: no configured secret → nobody may write request logs.
+  if (!expected) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const secret = req.headers.get("x-internal-secret");
+  if (!timingSafeEqualString(secret, expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

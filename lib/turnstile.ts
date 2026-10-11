@@ -19,24 +19,6 @@ function getClientIp(req: Request) {
   );
 }
 
-function isLocalRequest(req: NextRequest | Request): boolean {
-  const host =
-    req.headers.get("x-forwarded-host") ||
-    req.headers.get("host") ||
-    "";
-  const origin = req.headers.get("origin") || "";
-  const referer = req.headers.get("referer") || "";
-
-  return (
-    host.includes("localhost") ||
-    host.includes("127.0.0.1") ||
-    origin.includes("localhost") ||
-    origin.includes("127.0.0.1") ||
-    referer.includes("localhost") ||
-    referer.includes("127.0.0.1")
-  );
-}
-
 function getSecret(kind: TurnstileKind) {
   if (kind === "admin") {
     return process.env.TURNSTILE_SECRET_KEY_ADMIN || process.env.TURNSTILE_SECRET_KEY || "";
@@ -73,18 +55,31 @@ export async function verifyTurnstileToken({
   kind: TurnstileKind;
   expectedAction?: string;
 }): Promise<boolean> {
-  const isLocal = isLocalRequest(req);
-  const isProduction = process.env.NODE_ENV === "production" && !isLocal;
+  // Production is decided by the runtime only, never by request headers.
+  // Host/Origin/Referer are client-controlled, so a remote caller could send
+  // "Referer: http://localhost" to look local. The site runs on Render, where
+  // VERCEL_ENV is never set, so NODE_ENV must count on its own (FIND-007).
+  const isProduction =
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production";
+  const bypassEnabled = process.env.TURNSTILE_BYPASS_ENABLED === "true";
 
-  // Development / Localhost bypass tokens
+  // Development / Localhost bypass tokens (FIND-007 fix)
   if (
     token === "dev-bypass-token" ||
     token === "dev-bypass" ||
     token === CLOUDFLARE_TEST_TOKEN ||
     token.startsWith(CLOUDFLARE_TEST_TOKEN_PREFIX)
   ) {
-    if (!isProduction) return true;
-    console.warn("Turnstile: rejected Cloudflare test token in production");
+    // Bypass tokens are never honored in production, even if the flag is set.
+    if (!isProduction) {
+      console.warn("Turnstile: bypass token accepted in non-production environment");
+      return true;
+    }
+    if (bypassEnabled) {
+      console.warn("Turnstile: TURNSTILE_BYPASS_ENABLED is set in production — ignored");
+    }
+    console.warn("Turnstile: rejected bypass token in production");
     return false;
   }
 

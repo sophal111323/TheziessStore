@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { clearCsrfToken } from "@/lib/adminFetch";
 
 export default function LogoutButton({
   redirectTo = "/admin/login",
@@ -10,7 +11,9 @@ export default function LogoutButton({
   const router = useRouter();
 
   async function handleLogout() {
+    // Auth routes are not CSRF-wrapped, so a raw fetch is fine here.
     await fetch("/api/admin/auth", { method: "DELETE", credentials: "include" });
+    clearCsrfToken();
     // ✅ ចាកចេញ → redirect ទៅ admin login path (configured via ADMIN_LOGIN_PATH)
     router.push(redirectTo);
     router.refresh();

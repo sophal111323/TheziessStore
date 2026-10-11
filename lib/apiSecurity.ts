@@ -45,15 +45,13 @@ export function publicRateLimit(
   keyPrefix: string,
   options: RateLimitOptions
 ): NextResponse | null {
-  const ip = getClientIp(req);
-  if (
-    process.env.NODE_ENV !== "production" ||
-    ip === "127.0.0.1" ||
-    ip === "::1" ||
-    ip === "unknown"
-  ) {
+  // Only skipped outside production. In production loopback/"unknown" keys are
+  // limited like any other key, so a forged cf-connecting-ip: 127.0.0.1 on
+  // the origin cannot switch the limiter off (ATK-06).
+  if (process.env.NODE_ENV !== "production") {
     return null;
   }
+  const ip = getClientIp(req);
 
   const allowed = checkRateLimitMemory(
     `${keyPrefix}:${ip}`,

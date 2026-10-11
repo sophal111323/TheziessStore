@@ -33,5 +33,5 @@ export const GET = withAdminAuth(async (req: NextRequest) => {
     displayName: supplier.displayName,
     ...categories,
   });
-});
+}, { permission: "topup.read" });
 

@@ -37,7 +37,11 @@ export async function GET(
       return new NextResponse("Image Not Found", { status: upstreamRes.status });
     }
 
-    const contentType = upstreamRes.headers.get("content-type") || "image/jpeg";
+    // Only proxy images: never serve upstream HTML/JS from our origin.
+    const contentType = upstreamRes.headers.get("content-type") || "";
+    if (!contentType.toLowerCase().startsWith("image/")) {
+      return new NextResponse("Unsupported Media Type", { status: 415 });
+    }
     const arrayBuffer = await upstreamRes.arrayBuffer();
 
     return new NextResponse(arrayBuffer, {
@@ -46,6 +50,7 @@ export async function GET(
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800, immutable",
         "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; sandbox",
       },
     });
   } catch {

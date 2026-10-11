@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { logError } from "@/lib/errorLogger";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAdminAuth } from "@/lib/withAdminAuth";
@@ -52,7 +53,7 @@ export const GET = withAdminAuth<{ id: string }>(async (_req, ctx) => {
   }
 
   return NextResponse.json(pkg);
-});
+}, { permission: "randomPackages.read" });
 
 export const PUT = withAdminAuth<{ id: string }>(async (req, ctx, admin) => {
   try {
@@ -142,10 +143,10 @@ export const PUT = withAdminAuth<{ id: string }>(async (req, ctx, admin) => {
     revalidateAdminChange("products");
     return NextResponse.json(updated);
   } catch (err: any) {
-    console.error("Error updating random package:", err);
+    logError("Error updating random package", err);
     return NextResponse.json({ error: "Failed to update package" }, { status: 500 });
   }
-});
+}, { permission: "randomPackages.write" });
 
 export const DELETE = withAdminAuth<{ id: string }>(async (req, ctx, admin) => {
   try {
@@ -179,8 +180,8 @@ export const DELETE = withAdminAuth<{ id: string }>(async (req, ctx, admin) => {
     revalidateAdminChange("products");
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    console.error("Error deleting random package:", err);
+    logError("Error deleting random package", err);
     return NextResponse.json({ error: "Failed to delete package" }, { status: 500 });
   }
-});
+}, { permission: "randomPackages.write" });
 

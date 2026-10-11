@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       playerUid: playerUid || undefined,
       gameId: gameId || undefined,
       productId: productId || undefined,
-      claimNow: claim !== false,
+      claimNow: false,
     });
 
     if (!validation.valid) {

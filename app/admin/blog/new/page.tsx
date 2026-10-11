@@ -1,5 +1,6 @@
 "use client";
 
+import { adminFetch } from "@/lib/adminFetch";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Save, ArrowLeft, Image as ImageIcon } from "lucide-react";
@@ -32,7 +33,7 @@ export default function NewBlogPostPage() {
     setUploading(true);
     const fd = new FormData();
     fd.append("file", file);
-    const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+    const res = await adminFetch("/api/admin/upload", { method: "POST", body: fd });
     if (res.ok) {
       const data = await res.json();
       setForm((f) => ({ ...f, coverUrl: data.url }));
@@ -43,7 +44,7 @@ export default function NewBlogPostPage() {
   async function save() {
     setSaving(true);
     const slug = form.slug || slugify(form.title);
-    const res = await fetch("/api/admin/blog", {
+    const res = await adminFetch("/api/admin/blog", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, slug }),

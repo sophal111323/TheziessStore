@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { logError } from "@/lib/errorLogger";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAdminAuth } from "@/lib/withAdminAuth";
@@ -56,7 +57,7 @@ export const GET = withAdminAuth(async (req) => {
   });
 
   return NextResponse.json(packages);
-});
+}, { permission: "randomPackages.read" });
 
 export const POST = withAdminAuth(async (req, _ctx, admin) => {
   try {
@@ -132,8 +133,8 @@ export const POST = withAdminAuth(async (req, _ctx, admin) => {
     revalidateAdminChange("products");
     return NextResponse.json(created, { status: 201 });
   } catch (err: any) {
-    console.error("Error creating random package:", err);
+    logError("Error creating random package", err);
     return NextResponse.json({ error: "Failed to create random package" }, { status: 500 });
   }
-});
+}, { permission: "randomPackages.write" });
 

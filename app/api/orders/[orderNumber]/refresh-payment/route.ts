@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { initiatePayment, getActivePaymentProvider } from "@/lib/payment";
 import { applyRateLimit } from "@/lib/rateLimit";
 import { getClientIp } from "@/lib/getIp";
-import { safeJson } from "@/lib/apiSecurity";
+import { API_NO_STORE, safeJson } from "@/lib/apiSecurity";
+import { verifyOrderToken } from "@/lib/orderToken";
+import { logSecurityEvent } from "@/lib/secureLogger";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +16,18 @@ export async function POST(
   const { orderNumber } = await params;
   const normalizedOrderNumber = orderNumber.trim().toUpperCase();
   const ip = getClientIp(req);
+
+  // HMAC order-token gate (checked before the DB-backed rate limit so
+  // unauthenticated callers cannot generate DB writes or new payments).
+  const token = req.nextUrl.searchParams.get("token");
+  if (!verifyOrderToken(normalizedOrderNumber, token)) {
+    logSecurityEvent({
+      event: "order_lookup_unauthorized",
+      detail: `Attempted payment refresh without valid token: ${normalizedOrderNumber}`,
+      ip,
+    });
+    return safeJson({ error: "Order not found" }, { status: 404 }, API_NO_STORE);
+  }
 
   const rl = await applyRateLimit(
     `refresh-payment:${normalizedOrderNumber}:${ip}`,
@@ -96,7 +110,7 @@ export async function POST(
 
   const orderProvider = (order.paymentProvider as "khqrpay" | "jla") || "khqrpay";
   const webhookPath = orderProvider === "jla" ? "jla" : "khqrpay";
-  const returnUrl = `${baseUrl}/checkout/${encodeURIComponent(order.orderNumber)}`;
+  const returnUrl = `${baseUrl}/checkout/${encodeURIComponent(order.orderNumber)}?token=${token}`;
   const cancelUrl = `${baseUrl}/games/${encodeURIComponent(order.game.slug)}`;
   const callbackUrl = `${baseUrl}/api/payment/webhook/${webhookPath}`;
 

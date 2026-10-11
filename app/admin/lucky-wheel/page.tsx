@@ -1,8 +1,10 @@
 "use client";
 
+import { adminFetch } from "@/lib/adminFetch";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import LuckyWheel, { WheelSlot } from "@/components/LuckyWheel";
+import { withOrderToken } from "@/lib/orderAccess";
 import {
   Sparkles,
   Plus,
@@ -82,6 +84,8 @@ interface SpinAuditItem {
   createdAt: string;
   spunAt?: string | null;
   claimedAt?: string | null;
+  /** HMAC order token so the admin can open the customer spin page. */
+  orderToken?: string | null;
   package?: { id: string; name: string; priceUsd: number };
   order?: {
     id: string;
@@ -202,8 +206,8 @@ export default function AdminLuckyWheelPage() {
     try {
       setLoading(true);
       const [gRes, pRes] = await Promise.all([
-        fetch("/api/admin/games"),
-        fetch("/api/admin/random-packages"),
+        adminFetch("/api/admin/games"),
+        adminFetch("/api/admin/random-packages"),
       ]);
       const gData = await gRes.json();
       const pData = await pRes.json();
@@ -230,7 +234,7 @@ export default function AdminLuckyWheelPage() {
       setGameProducts([]);
       return;
     }
-    fetch(`/api/admin/products?gameId=${selectedGameId}`)
+    adminFetch(`/api/admin/products?gameId=${selectedGameId}`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setGameProducts(data);
@@ -249,7 +253,7 @@ export default function AdminLuckyWheelPage() {
       if (historySearch) q.set("search", historySearch);
       if (historyStatus) q.set("status", historyStatus);
 
-      const res = await fetch(`/api/admin/spins?${q.toString()}`);
+      const res = await adminFetch(`/api/admin/spins?${q.toString()}`);
       const data = await res.json();
       if (res.ok) {
         setSpins(data.spins || []);
@@ -409,7 +413,7 @@ export default function AdminLuckyWheelPage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const res = await adminFetch("/api/admin/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
       setPackageImageUrl(data.url);
@@ -430,7 +434,7 @@ export default function AdminLuckyWheelPage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const res = await adminFetch("/api/admin/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
       handleUpdateSlot(index, "icon", data.url);
@@ -502,7 +506,7 @@ export default function AdminLuckyWheelPage() {
         : "/api/admin/random-packages";
       const method = editingPackageId ? "PUT" : "POST";
 
-      const res = await fetch(url, {
+      const res = await adminFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -527,7 +531,7 @@ export default function AdminLuckyWheelPage() {
             ? ["🎡 Mystery Box", ...cleanList]
             : [...cleanList, "🎡 Mystery Box"];
 
-          await fetch(`/api/admin/games/${selectedGameId}`, {
+          await adminFetch(`/api/admin/games/${selectedGameId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ categoryOrder: JSON.stringify(newOrder) }),
@@ -551,7 +555,7 @@ export default function AdminLuckyWheelPage() {
   const handleDeletePackage = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete package "${name}"? This action cannot be undone.`)) return;
     try {
-      const res = await fetch(`/api/admin/random-packages/${id}`, { method: "DELETE" });
+      const res = await adminFetch(`/api/admin/random-packages/${id}`, { method: "DELETE" });
       if (res.ok) {
         showToast("Package deleted successfully");
         loadInitialData();
@@ -567,7 +571,7 @@ export default function AdminLuckyWheelPage() {
   // Toggle active status
   const handleToggleActive = async (pkg: AdminPackage) => {
     try {
-      const res = await fetch(`/api/admin/random-packages/${pkg.id}`, {
+      const res = await adminFetch(`/api/admin/random-packages/${pkg.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: !pkg.active }),
@@ -587,7 +591,7 @@ export default function AdminLuckyWheelPage() {
   const handleToggleStock = async (pkg: AdminPackage) => {
     try {
       const nextInStock = pkg.inStock === false ? true : false;
-      const res = await fetch(`/api/admin/random-packages/${pkg.id}`, {
+      const res = await adminFetch(`/api/admin/random-packages/${pkg.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ inStock: nextInStock }),
@@ -610,7 +614,7 @@ export default function AdminLuckyWheelPage() {
     if (!confirm("Retry top-up delivery for this spin? This will call the supplier API again.")) return;
     setActionLoadingId(spinId);
     try {
-      const res = await fetch(`/api/admin/spins/${spinId}/adjust`, {
+      const res = await adminFetch(`/api/admin/spins/${spinId}/adjust`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "retry_delivery" }),
@@ -635,7 +639,7 @@ export default function AdminLuckyWheelPage() {
     if (!reason) return;
     setActionLoadingId(spinId);
     try {
-      const res = await fetch(`/api/admin/spins/${spinId}/adjust`, {
+      const res = await adminFetch(`/api/admin/spins/${spinId}/adjust`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "blacklist", reason }),
@@ -1057,7 +1061,7 @@ export default function AdminLuckyWheelPage() {
                 {spins.map((s) => (
                   <tr key={s.id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="py-3.5 px-4 font-mono font-bold text-pink-600">
-                      <a href={`/spin/${s.orderNumber}`} target="_blank" rel="noreferrer" className="hover:underline">
+                      <a href={withOrderToken(`/spin/${s.orderNumber}`, s.orderToken)} target="_blank" rel="noreferrer" className="hover:underline">
                         {s.orderNumber}
                       </a>
                     </td>

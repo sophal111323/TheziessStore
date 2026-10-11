@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupplier } from "@/lib/topup";
 import { notifyTelegram, escapeHtml } from "@/lib/telegram";
 import { publicRateLimit } from "@/lib/apiSecurity";
+import { verifyOrderToken } from "@/lib/orderToken";
+import { logSecurityEvent } from "@/lib/secureLogger";
+import { getClientIp } from "@/lib/getIp";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +17,19 @@ export async function POST(
     const { orderNumber } = await params;
     if (!orderNumber) {
       return NextResponse.json({ error: "Order number is required" }, { status: 400 });
+    }
+
+    // ── Token validation (FIND-001 fix) ────────────────────────────────────
+    const token = req.nextUrl.searchParams.get("token");
+    const isTokenValid = verifyOrderToken(orderNumber, token);
+    
+    if (!isTokenValid) {
+      logSecurityEvent({
+        event: "spin_claim_unauthorized",
+        detail: `Attempted spin claim without valid token: ${orderNumber}`,
+        ip: getClientIp(req),
+      });
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
     const limited = publicRateLimit(req, `claim:${orderNumber}`, {
@@ -55,6 +71,14 @@ export async function POST(
       return NextResponse.json(
         { error: "Please spin the wheel before claiming your reward" },
         { status: 400 }
+      );
+    }
+
+    // Refunded / cancelled / unpaid orders cannot claim a reward.
+    if (!["PAID", "PROCESSING", "DELIVERED"].includes(tx.order.status)) {
+      return NextResponse.json(
+        { error: "Order is not paid" },
+        { status: 402 }
       );
     }
 

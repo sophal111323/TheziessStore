@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { fetchPaymentStatus } from "@/lib/payment";
 import {
+  buildRemoteSnapshotForValidation,
   isRemotePaid,
   logPaymentValidationFailure,
   validatePaymentForOrder,
@@ -12,6 +13,7 @@ import { applyRateLimit } from "@/lib/rateLimit";
 import { getClientIp } from "@/lib/getIp";
 import { logSecurityEvent } from "@/lib/secureLogger";
 import { notifyAndMaybeDeliverPaidOrder } from "@/lib/order-fulfillment";
+import { verifyOrderToken } from "@/lib/orderToken";
 
 function isPrismaUniqueError(error: unknown): boolean {
   return (
@@ -40,8 +42,22 @@ export async function POST(
   { params }: { params: Promise<{ orderNumber: string }> }
 ) {
   const { orderNumber } = await params;
-  const normalizedOrderNumber = orderNumber.toUpperCase();
+  const normalizedOrderNumber = orderNumber.trim().toUpperCase();
   const ip = getClientIp(req);
+
+  // HMAC order-token gate (checked before the DB-backed rate limit so
+  // unauthenticated callers cannot generate DB writes).
+  if (!verifyOrderToken(normalizedOrderNumber, req.nextUrl.searchParams.get("token"))) {
+    logSecurityEvent({
+      event: "order_lookup_unauthorized",
+      detail: `Attempted payment sync without valid token: ${normalizedOrderNumber}`,
+      ip,
+    });
+    return NextResponse.json(
+      { error: "Order not found" },
+      { status: 404, headers: { "Cache-Control": "no-store" } }
+    );
+  }
 
   const rl = await applyRateLimit(
     `payment-sync:${normalizedOrderNumber}:${ip}`,
@@ -68,7 +84,11 @@ export async function POST(
     );
   }
 
-  const remote = await fetchPaymentStatus(order.paymentRef, order.paymentProvider);
+  const remote = await fetchPaymentStatus(
+    order.paymentRef,
+    order.paymentProvider,
+    order.orderNumber
+  );
   if (!remote) {
     return NextResponse.json(
       { ok: false, status: order.status, error: "Unable to fetch remote payment status" },
@@ -85,14 +105,10 @@ export async function POST(
     });
   }
 
-  const validation = validatePaymentForOrder(order, {
-    orderNumber: remote.orderNumber || order.orderNumber,
-    transactionId: remote.transactionId ?? order.paymentRef,
-    amount: remote.amount,
-    currency: remote.currency,
-    status: remote.status,
-    paid: remote.paid,
-  });
+  const validation = validatePaymentForOrder(
+    order,
+    buildRemoteSnapshotForValidation(order, remote)
+  );
 
   if (!validation.ok) {
     logPaymentValidationFailure("public_sync", validation);

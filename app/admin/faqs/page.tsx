@@ -1,5 +1,6 @@
 "use client";
 
+import { adminFetch } from "@/lib/adminFetch";
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Save, X } from "lucide-react";
 
@@ -23,7 +24,7 @@ export default function FaqsAdminPage() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/admin/faqs");
+    const res = await adminFetch("/api/admin/faqs");
     if (res.ok) setItems(await res.json());
     setLoading(false);
   }
@@ -40,7 +41,7 @@ export default function FaqsAdminPage() {
     setSaving(true);
     const url = editing ? `/api/admin/faqs/${editing.id}` : "/api/admin/faqs";
     const method = editing ? "PATCH" : "POST";
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    const res = await adminFetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
     if (res.ok) { setForm(empty); setEditing(null); await load(); }
     else alert("Save failed");
     setSaving(false);
@@ -48,7 +49,7 @@ export default function FaqsAdminPage() {
 
   async function remove(id: string) {
     if (!confirm("Delete this FAQ?")) return;
-    await fetch(`/api/admin/faqs/${id}`, { method: "DELETE" });
+    await adminFetch(`/api/admin/faqs/${id}`, { method: "DELETE" });
     await load();
   }
 

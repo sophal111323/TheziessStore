@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isPaymentSimulationAllowed } from "@/lib/payment";
 import { markAffiliateOrderCompleted } from "@/lib/affiliate/store";
 import { consumeOrderCouponAtomically } from "@/lib/coupon";
+import { generateOrderToken } from "@/lib/orderToken";
 
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const RATE_LIMIT_MAX = 10; // 10 requests per minute
@@ -232,11 +233,19 @@ export async function GET(req: NextRequest) {
   const safeOrderNumberForUrl = encodeURIComponent(orderNumber);
   const safeOrderNumberForHtml = escapeHtml(orderNumber);
 
+  // Order tracker requires the HMAC order token (omitted if no secret is configured).
+  let tokenQuery = "";
+  try {
+    tokenQuery = `&token=${generateOrderToken(orderNumber)}`;
+  } catch {
+    tokenQuery = "";
+  }
+
   const html = `<!doctype html>
 <html>
 <head>
 <title>Payment Simulated — DYTOPUP</title>
-<meta http-equiv="refresh" content="3;url=${baseUrl}/order?number=${safeOrderNumberForUrl}">
+<meta http-equiv="refresh" content="3;url=${baseUrl}/order?number=${safeOrderNumberForUrl}${tokenQuery}">
 <style>
   body {
     font-family: system-ui;
@@ -290,7 +299,7 @@ export async function GET(req: NextRequest) {
     </p>
     <p>Redirecting to order tracker in 3s...</p>
     <p>
-      <a href="${baseUrl}/order?number=${safeOrderNumberForUrl}">
+      <a href="${baseUrl}/order?number=${safeOrderNumberForUrl}${tokenQuery}">
         Continue now →
       </a>
     </p>

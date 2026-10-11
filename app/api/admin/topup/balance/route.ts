@@ -43,5 +43,5 @@ export const GET = withAdminAuth(async (req: NextRequest) => {
   }
 
   return NextResponse.json(payload);
-});
+}, { permission: "topup.read" });
 

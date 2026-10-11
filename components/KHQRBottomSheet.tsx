@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { playPaymentSuccessSound } from "@/lib/sound";
+import { withOrderToken } from "@/lib/orderAccess";
 
 type OrderPayment = {
   orderNumber: string;
@@ -37,6 +38,8 @@ type OrderPayment = {
   paymentExpiresAt?: string | null;
   canPay?: boolean;
   isExpired?: boolean;
+  /** HMAC order access token (?token=) required by the order/gift/spin APIs. */
+  orderToken?: string | null;
 };
 
 type KHQRBottomSheetProps = {
@@ -44,6 +47,11 @@ type KHQRBottomSheetProps = {
   onClose: () => void;
   onRetry?: () => void;
 };
+
+/** API responses may omit the token; keep the one we already have. */
+function mergeOrderKeepingToken(prev: OrderPayment, data: OrderPayment): OrderPayment {
+  return { ...data, orderToken: data.orderToken || prev.orderToken || null };
+}
 
 function isPaid(status: string) {
   return ["PAID", "PROCESSING", "DELIVERED"].includes(status);
@@ -66,6 +74,12 @@ export default function KHQRBottomSheet({
   onClose,
 }: KHQRBottomSheetProps) {
   const [currentOrder, setCurrentOrder] = useState<OrderPayment>(order);
+  const orderToken = currentOrder.orderToken || order.orderToken || null;
+
+  /** Replace order state with fresh API data without dropping the access token. */
+  function replaceOrder(data: OrderPayment) {
+    setCurrentOrder((prev) => mergeOrderKeepingToken(prev, data));
+  }
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [refreshing, setRefreshing] = useState(false);
@@ -88,15 +102,19 @@ export default function KHQRBottomSheet({
   useEffect(() => {
     if (isPaid(currentOrder.status) && currentOrder.isRandomSpin) {
       const timer = setTimeout(() => {
-        window.location.href = `/spin/${encodeURIComponent(currentOrder.orderNumber)}`;
+        window.location.href = withOrderToken(
+          `/spin/${encodeURIComponent(currentOrder.orderNumber)}`,
+          orderToken
+        );
       }, 1200);
       return () => clearTimeout(timer);
     }
-  }, [currentOrder.status, currentOrder.isRandomSpin, currentOrder.orderNumber]);
+  }, [currentOrder.status, currentOrder.isRandomSpin, currentOrder.orderNumber, orderToken]);
 
-  const orderPageUrl = `/order?orderNumber=${encodeURIComponent(
-    currentOrder.orderNumber
-  )}`;
+  const orderPageUrl = withOrderToken(
+    `/order?number=${encodeURIComponent(currentOrder.orderNumber)}`,
+    orderToken
+  );
 
   const expireValue =
     currentOrder.expiresAt ?? currentOrder.paymentExpiresAt ?? null;
@@ -232,22 +250,26 @@ export default function KHQRBottomSheet({
       try {
         if (!isPaid(currentOrder.status)) {
           await fetch(
-            `/api/orders/${encodeURIComponent(
-              currentOrder.orderNumber
-            )}/sync-payment`,
+            withOrderToken(
+              `/api/orders/${encodeURIComponent(currentOrder.orderNumber)}/sync-payment`,
+              orderToken
+            ),
             { method: "POST", cache: "no-store" }
           ).catch(() => null);
         }
 
         const res = await fetch(
-          `/api/orders/${encodeURIComponent(currentOrder.orderNumber)}`,
+          withOrderToken(
+            `/api/orders/${encodeURIComponent(currentOrder.orderNumber)}`,
+            orderToken
+          ),
           { cache: "no-store" }
         );
 
         if (!res.ok) return;
 
         const data = await res.json();
-        setCurrentOrder(data);
+        setCurrentOrder((prev) => mergeOrderKeepingToken(prev, data));
       } catch {
         // Webhook remains the primary payment path; polling is a safe fallback.
       } finally {
@@ -273,7 +295,7 @@ export default function KHQRBottomSheet({
     }, pollInterval);
 
     return () => clearInterval(timer);
-  }, [currentOrder.orderNumber, currentOrder.status, currentOrder.redeemCode, currentOrder.deliveryNote, currentOrder.isRandomSpin]);
+  }, [currentOrder.orderNumber, currentOrder.status, currentOrder.redeemCode, currentOrder.deliveryNote, currentOrder.isRandomSpin, orderToken]);
 
   async function downloadKHQRCard() {
     if (!currentOrder.qrString || expired) return;
@@ -365,9 +387,10 @@ export default function KHQRBottomSheet({
       setRefreshing(true);
 
       const res = await fetch(
-        `/api/orders/${encodeURIComponent(
-          currentOrder.orderNumber
-        )}/refresh-payment`,
+        withOrderToken(
+          `/api/orders/${encodeURIComponent(currentOrder.orderNumber)}/refresh-payment`,
+          orderToken
+        ),
         {
           method: "POST",
           cache: "no-store",
@@ -380,7 +403,7 @@ export default function KHQRBottomSheet({
         throw new Error(data.error || "Failed to create new KHQR");
       }
 
-      setCurrentOrder(data);
+      replaceOrder(data);
       setNow(Date.now());
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to create new KHQR");
@@ -443,7 +466,7 @@ export default function KHQRBottomSheet({
 
               <div className="mt-6 flex flex-col gap-3">
                 <a
-                  href={`/spin/${encodeURIComponent(currentOrder.orderNumber)}`}
+                  href={withOrderToken(`/spin/${encodeURIComponent(currentOrder.orderNumber)}`, orderToken)}
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-pink-600 via-rose-500 to-purple-600 px-6 py-4 text-sm sm:text-base font-black text-white shadow-xl shadow-pink-300 hover:scale-[1.02] active:scale-[0.98] transition-all"
                 >
                   <Sparkles className="h-4 w-4 text-amber-300" />
@@ -452,7 +475,7 @@ export default function KHQRBottomSheet({
                 </a>
 
                 <a
-                  href={`/gift/${encodeURIComponent(currentOrder.orderNumber)}`}
+                  href={withOrderToken(`/gift/${encodeURIComponent(currentOrder.orderNumber)}`, orderToken)}
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-3.5 text-sm font-black text-white shadow-lg shadow-purple-300 hover:scale-[1.01] active:scale-[0.98] transition-all"
                 >
                   <Gift className="h-4 w-4 text-yellow-300 animate-bounce" />
@@ -609,7 +632,7 @@ export default function KHQRBottomSheet({
               {/* 🎁 Pick Mystery Gift Button */}
               <div className="mt-4">
                 <a
-                  href={`/gift/${encodeURIComponent(currentOrder.orderNumber)}`}
+                  href={withOrderToken(`/gift/${encodeURIComponent(currentOrder.orderNumber)}`, orderToken)}
                   className="w-full inline-flex items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 px-6 py-3.5 text-base font-black text-white shadow-xl shadow-purple-500/30 hover:shadow-purple-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all border border-purple-300/40 animate-pulse"
                 >
                   <Gift className="h-6 w-6 text-yellow-300 animate-bounce" />

@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
+import { logError } from "@/lib/errorLogger";
 import { authenticator } from "otplib";
 
 import { getClientIp } from "@/lib/getIp";
@@ -59,7 +60,9 @@ function getAdminJwtSecret() {
 
 function decodePendingToken(token: string): Pending2FAPayload | null {
   try {
-    return jwt.verify(token, getAdminJwtSecret()) as Pending2FAPayload;
+    return jwt.verify(token, getAdminJwtSecret(), {
+      algorithms: ["HS256"],
+    }) as Pending2FAPayload;
   } catch {
     return null;
   }
@@ -109,7 +112,7 @@ export async function GET(req: NextRequest) {
       totpConfigured: !!admin?.totpSecret,
     });
   } catch (error) {
-    console.error("Admin 2FA status error:", error);
+    logError("Admin 2FA status error", error);
     return adminApiErrorResponse(error);
   }
 }
@@ -135,7 +138,7 @@ export async function POST(req: NextRequest) {
 
     return handleWeb2FA(req, parsed.data.code.trim());
   } catch (error) {
-    console.error("Admin 2FA error:", error);
+    logError("Admin 2FA error", error);
     return adminApiErrorResponse(error);
   }
 }

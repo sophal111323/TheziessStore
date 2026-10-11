@@ -45,6 +45,8 @@ export type PaymentStatusResult = {
   amount?: string;
   currency?: string;
   provider?: PaymentProviderType;
+  /** Id the gateway was queried by (JLA: our orderNumber). */
+  queryId?: string;
 };
 
 export interface NormalizedWebhookEvent {

@@ -3,6 +3,15 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAdminAuth } from "@/lib/withAdminAuth";
+import { generateOrderToken } from "@/lib/orderToken";
+
+function safeOrderToken(orderNumber: string): string | null {
+  try {
+    return generateOrderToken(orderNumber);
+  } catch {
+    return null;
+  }
+}
 
 export const GET = withAdminAuth(
   async (req: NextRequest) => {
@@ -36,7 +45,13 @@ export const GET = withAdminAuth(
       },
     });
 
-    return NextResponse.json(claims);
+    // Admin links open the customer order page, which requires the HMAC order token.
+    const claimsWithToken = claims.map((c) => ({
+      ...c,
+      orderToken: safeOrderToken(c.orderNumber),
+    }));
+
+    return NextResponse.json(claimsWithToken);
   },
   { permission: "settings.read" }
 );

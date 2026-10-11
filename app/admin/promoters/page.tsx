@@ -1,5 +1,6 @@
 "use client";
 
+import { adminFetch } from "@/lib/adminFetch";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -67,7 +68,7 @@ export default function AdminPromotersPage() {
 
     setClearing(true);
     try {
-      const res = await fetch("/api/admin/promoters", {
+      const res = await adminFetch("/api/admin/promoters", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -126,7 +127,7 @@ export default function AdminPromotersPage() {
 
     setAdjusting(true);
     try {
-      const res = await fetch("/api/admin/promoters", {
+      const res = await adminFetch("/api/admin/promoters", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -161,7 +162,7 @@ export default function AdminPromotersPage() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/promoters");
+      const res = await adminFetch("/api/admin/promoters");
       if (res.ok) {
         const data = await res.json();
         setPromoters(data.promoters || []);
@@ -187,7 +188,7 @@ export default function AdminPromotersPage() {
     const maxVal = typeof newMax === "number" ? newMax : targetMaxPromoters;
 
     try {
-      const res = await fetch("/api/admin/promoters", {
+      const res = await adminFetch("/api/admin/promoters", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -230,7 +231,7 @@ export default function AdminPromotersPage() {
 
     setUpdatingId(promoter.id);
     try {
-      const res = await fetch("/api/admin/promoters", {
+      const res = await adminFetch("/api/admin/promoters", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

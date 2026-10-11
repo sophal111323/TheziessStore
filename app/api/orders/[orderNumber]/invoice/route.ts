@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import PDFDocument from "pdfkit";
 import { applyRateLimit } from "@/lib/rateLimit";
 import { getClientIp } from "@/lib/getIp";
+import { verifyOrderToken } from "@/lib/orderToken";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -363,10 +364,17 @@ export async function GET(
   //      page, so the customer always has it.  An attacker would need BOTH
   //      a valid orderNumber AND the correct UID — two independent unknowns.
   //
-  // If neither check passes → 401.
-  const admin = await getCurrentAdmin().catch(() => null);
+  //   3. Customer with a valid HMAC order token (?token=), as issued at
+  //      checkout or recovered via POST /api/orders/access.
+  //
+  // If no check passes → 401.
+  const hasValidToken = verifyOrderToken(
+    normalizedOrderNumber,
+    req.nextUrl.searchParams.get("token")
+  );
+  const admin = hasValidToken ? null : await getCurrentAdmin().catch(() => null);
 
-  if (!admin) {
+  if (!admin && !hasValidToken) {
     const uidParam = req.nextUrl.searchParams.get("uid")?.trim() ?? "";
     if (
       !uidParam ||

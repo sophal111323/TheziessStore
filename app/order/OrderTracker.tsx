@@ -15,6 +15,8 @@ import {
   ExternalLink,
   Gift,
 } from "lucide-react";
+import OrderAccessForm from "@/components/OrderAccessForm";
+import { getOrderToken, getStoredOrderToken, withOrderToken } from "@/lib/orderAccess";
 
 interface OrderInfo {
   orderNumber: string;
@@ -109,15 +111,37 @@ function cleanOrderNumber(value: string) {
   return value.trim().toUpperCase();
 }
 
+class OrderLookupError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+  }
+}
+
+/** Current page URL without the private order token, safe to share publicly. */
+function shareableUrl(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("token");
+    return url.toString();
+  } catch {
+    return window.location.origin;
+  }
+}
+
 export default function OrderTracker() {
   const [orderNumber, setOrderNumber] = useState("");
   const [order, setOrder] = useState<OrderInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedOrder, setCopiedOrder] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+  /** Order number awaiting Player UID verification (no valid token known). */
+  const [accessOrderNumber, setAccessOrderNumber] = useState<string | null>(null);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoLoadedRef = useRef(false);
+  const knownTokenRef = useRef<{ orderNumber: string; token: string } | null>(null);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -126,16 +150,17 @@ export default function OrderTracker() {
     }
   }, []);
 
-  const fetchOrder = useCallback(async (orderNum: string) => {
+  const fetchOrder = useCallback(async (orderNum: string, orderToken: string) => {
     const clean = cleanOrderNumber(orderNum);
 
-    const res = await fetch(`/api/orders/status?orderNumber=${encodeURIComponent(clean)}`, {
-      cache: "no-store",
-    });
+    const res = await fetch(
+      withOrderToken(`/api/orders/status?orderNumber=${encodeURIComponent(clean)}`, orderToken),
+      { cache: "no-store" }
+    );
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      throw new Error(data?.error || "Order not found");
+      throw new OrderLookupError(data?.error || "Order not found", res.status);
     }
 
     const data: OrderInfo = await res.json();
@@ -147,14 +172,14 @@ export default function OrderTracker() {
   }, []);
 
   const startPolling = useCallback(
-    (orderNum: string) => {
+    (orderNum: string, orderToken: string) => {
       stopPolling();
 
       pollRef.current = setInterval(async () => {
         try {
           await syncPayment(orderNum);
 
-          const data = await fetchOrder(orderNum);
+          const data = await fetchOrder(orderNum, orderToken);
           const status = normalizeStatus(data.status);
 
           setOrder(data);
@@ -172,33 +197,64 @@ export default function OrderTracker() {
 
 
   const loadOrderByNumber = useCallback(
-    async (rawOrderNumber: string, options?: { silent?: boolean }) => {
+    async (
+      rawOrderNumber: string,
+      options?: { silent?: boolean; token?: string | null }
+    ) => {
       const clean = cleanOrderNumber(rawOrderNumber);
       if (!clean) return;
+
+      // Explicit token (URL / just recovered) wins, then the token already in use
+      // for this order, then localStorage. The URL ?token= is only trusted for the
+      // order number in the URL (handled by the initial-load effect).
+      const known = knownTokenRef.current;
+      const orderToken =
+        options?.token ||
+        (known && known.orderNumber === clean ? known.token : null) ||
+        getStoredOrderToken(clean);
 
       if (!options?.silent) {
         setLoading(true);
         setError(null);
         setOrder(null);
+        setAccessOrderNumber(null);
+      }
+
+      if (!orderToken) {
+        // No token known for this order: ask for the Player UID first.
+        stopPolling();
+        setToken(null);
+        setAccessOrderNumber(clean);
+        setLoading(false);
+        return;
       }
 
       try {
         await syncPayment(clean);
 
-        const data = await fetchOrder(clean);
+        const data = await fetchOrder(clean, orderToken);
         const status = normalizeStatus(data.status);
 
         setOrder(data);
         setOrderNumber(data.orderNumber);
+        setToken(orderToken);
+        knownTokenRef.current = { orderNumber: clean, token: orderToken };
 
         if (!TERMINAL_STATUSES.has(status)) {
-          startPolling(data.orderNumber);
+          startPolling(data.orderNumber, orderToken);
         } else {
           stopPolling();
         }
       } catch (err) {
         if (!options?.silent) {
-          setError(err instanceof Error ? err.message : "Order not found");
+          if (err instanceof OrderLookupError && err.status === 404) {
+            // Stale or wrong token: offer Player UID recovery.
+            setToken(null);
+            knownTokenRef.current = null;
+            setAccessOrderNumber(clean);
+          } else {
+            setError(err instanceof Error ? err.message : "Order not found");
+          }
         }
       } finally {
         if (!options?.silent) {
@@ -219,13 +275,17 @@ export default function OrderTracker() {
 
     const params = new URLSearchParams(window.location.search);
     const initialOrderNumber =
-      params.get("orderNumber") || params.get("order") || params.get("q");
+      params.get("number") ||
+      params.get("orderNumber") ||
+      params.get("order") ||
+      params.get("q");
 
     if (!initialOrderNumber) return;
 
     const clean = cleanOrderNumber(initialOrderNumber);
     setOrderNumber(clean);
-    void loadOrderByNumber(clean);
+    // getOrderToken() reads and persists ?token= from the URL.
+    void loadOrderByNumber(clean, { token: getOrderToken(clean) });
   }, [loadOrderByNumber]);
 
   async function lookup(e: React.FormEvent) {
@@ -335,6 +395,17 @@ export default function OrderTracker() {
             </p>
           )}
         </form>
+
+        {accessOrderNumber && !order && (
+          <OrderAccessForm
+            key={accessOrderNumber}
+            orderNumber={accessOrderNumber}
+            className="card mb-8 p-5 sm:p-6"
+            onToken={(recovered) =>
+              void loadOrderByNumber(accessOrderNumber, { token: recovered })
+            }
+          />
+        )}
 
         {order && meta && (
           <div className="card fade-up overflow-hidden">
@@ -646,7 +717,7 @@ export default function OrderTracker() {
                   </div>
                 </div>
                 <Link
-                  href={`/gift/${order.orderNumber}`}
+                  href={withOrderToken(`/gift/${order.orderNumber}`, token)}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-2.5 text-xs font-black text-white shadow-md shadow-purple-500/25 hover:from-purple-500 hover:to-indigo-500 active:scale-95 transition-all"
                 >
                   <span>បើកកាដូ (Open Gift)</span>
@@ -671,7 +742,7 @@ export default function OrderTracker() {
 
                 <a
                   href={`https://t.me/share/url?url=${encodeURIComponent(
-                    typeof window !== "undefined" ? window.location.href : ""
+                    shareableUrl()
                   )}&text=${encodeURIComponent(
                     `⚡ Just topped up ${order.productName} for ${order.gameName} on TheziessStore! Fast & easy 🔥`
                   )}`}

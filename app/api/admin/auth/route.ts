@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logError } from "@/lib/errorLogger";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -7,7 +8,7 @@ import { getClientIp } from "@/lib/getIp";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rateLimit";
 import { logSecurityEvent } from "@/lib/secureLogger";
-import { ADMIN_COOKIE_NAME } from "@/lib/auth";
+import { ADMIN_COOKIE_NAME, SESSION_MAX_AGE_SECONDS, signAdminToken } from "@/lib/auth";
 import { getLockDurationMs, formatLockDuration } from "@/lib/lockPolicy";
 import { adminApiErrorResponse } from "@/lib/adminApiError";
 import { verifyTurnstileToken } from "@/lib/turnstile";
@@ -53,13 +54,15 @@ function signLockHintToken(identifier: string) {
   return jwt.sign(
     { type: "admin-lock-hint", identifier },
     getAdminJwtSecret(),
-    { expiresIn: LOCK_HINT_TTL_SECONDS }
+    { algorithm: "HS256", expiresIn: LOCK_HINT_TTL_SECONDS }
   );
 }
 
 function verifyLockHintToken(token: string): string | null {
   try {
-    const payload = jwt.verify(token, getAdminJwtSecret()) as {
+    const payload = jwt.verify(token, getAdminJwtSecret(), {
+      algorithms: ["HS256"],
+    }) as {
       type?: unknown;
       identifier?: unknown;
     };
@@ -173,7 +176,7 @@ export async function GET(req: NextRequest) {
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {
-    console.error("Admin login lock check error:", error);
+    logError("Admin login lock check error", error);
     return adminApiErrorResponse(error);
   }
 }
@@ -327,7 +330,7 @@ export async function POST(req: NextRequest) {
           email: admin.email,
         },
         getAdminJwtSecret(),
-        { expiresIn: ttlSeconds }
+        { algorithm: "HS256", expiresIn: ttlSeconds }
       );
 
       const res = NextResponse.json(
@@ -354,16 +357,8 @@ export async function POST(req: NextRequest) {
       return res;
     }
 
-    // If 2FA is NOT configured, log in directly!
-    const sessionToken = jwt.sign(
-      {
-        adminId: String(admin.id),
-        email: admin.email,
-        role: admin.role,
-      },
-      getAdminJwtSecret(),
-      { expiresIn: "7d" }
-    );
+    // If 2FA is NOT configured, log in directly with the typed session JWT.
+    const sessionToken = signAdminToken(String(admin.id));
 
     const res = NextResponse.json(
       {
@@ -380,7 +375,7 @@ export async function POST(req: NextRequest) {
       secure: true,
       sameSite: "strict",
       path: "/",
-      maxAge: 7 * 24 * 60 * 60,
+      maxAge: SESSION_MAX_AGE_SECONDS,
     });
 
     res.cookies.set(PENDING_2FA_COOKIE, "", {
@@ -396,7 +391,7 @@ export async function POST(req: NextRequest) {
 
     return res;
   } catch (error) {
-    console.error("Admin login error:", error);
+    logError("Admin login error", error);
 
     return adminApiErrorResponse(error);
   }

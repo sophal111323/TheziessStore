@@ -75,5 +75,5 @@ export const POST = withAdminAuth(async (
     result,
     order: updated,
   });
-});
+}, { permission: "orders.update" });
 

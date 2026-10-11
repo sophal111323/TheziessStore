@@ -24,6 +24,8 @@ import type {
   NormalizedWebhookEvent,
   IPaymentProvider,
 } from "../types";
+import { parseJlaStatusResponse } from "./jlaStatus";
+import { logSecurityEvent } from "@/lib/secureLogger";
 
 try {
   dns.setDefaultResultOrder("ipv4first");
@@ -171,57 +173,33 @@ export async function fetchJlaStatus(
     const data = await res.json().catch(() => null);
     if (!data) return null;
 
-    // Check upstream response indicators documented in llms.txt:
-    // data.status?.message === "approved" || data.data?.action === "approved"
-    // or status: "approved"
-    const statusMsg = String(
-      data?.status?.message ||
-        data?.data?.action ||
-        data?.status ||
-        data?.data?.status?.message ||
-        data?.message ||
-        ""
-    ).toLowerCase();
+    // Only explicit approval fields count as paid, and identifiers/currency
+    // are reported only when JLA echoes them (R-5). The binding itself is
+    // enforced by buildRemoteSnapshotForValidation.
+    const parsed = parseJlaStatusResponse(data, transactionId);
+    if (!parsed) return null;
 
-    const statusCode = String(
-      data?.data?.status?.code || data?.status?.code || ""
-    );
+    if (parsed.statusCodeOnly) {
+      logSecurityEvent({
+        event: "payment_status_ambiguous",
+        detail: `jla status code 00 without a payment status field; tran_id=${transactionId}; not treated as paid`,
+      });
+    }
 
-    const paid =
-      statusMsg === "approved" ||
-      statusMsg === "paid" ||
-      statusCode === "00";
+    if (parsed.result.paid) {
+      const omitted = [
+        parsed.missing.orderNumber && parsed.missing.paywayTranId ? "tran_id" : "",
+        parsed.missing.currency ? "currency" : "",
+      ].filter(Boolean);
+      if (omitted.length > 0) {
+        logSecurityEvent({
+          event: "payment_binding_fallback",
+          detail: `jla approved status omitted ${omitted.join("+")}; tran_id=${transactionId}; using query-id/amount/order-currency matching`,
+        });
+      }
+    }
 
-    const amount =
-      data?.amount !== undefined
-        ? String(data.amount)
-        : data?.data?.total_amount !== undefined
-          ? String(data.data.total_amount)
-          : data?.total_amount !== undefined
-            ? String(data.total_amount)
-            : undefined;
-
-    const currency = String(
-      data?.currency || data?.data?.currency || "USD"
-    ).toUpperCase();
-
-    const resolvedStatus = paid
-      ? "PAID"
-      : statusMsg === "expired"
-        ? "EXPIRED"
-        : statusMsg === "failed" || statusMsg === "declined"
-          ? "FAILED"
-          : "PENDING";
-
-    return {
-      status: resolvedStatus,
-      paid,
-      transactionId: String(data?.payway_tran_id || data?.tran_id || transactionId),
-      orderNumber: String(data?.tran_id || transactionId),
-      amount,
-      currency,
-      provider: "jla",
-    };
+    return parsed.result;
   } catch (err) {
     console.error("[jla] fetchJlaStatus error:", err);
     return null;

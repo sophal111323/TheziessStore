@@ -23,7 +23,26 @@ export type AdminPermission =
   | "customers.update"
   | "auditLogs.read"
   | "notifications.read"
-  | "notifications.write";
+  | "notifications.write"
+  | "banlist.read"
+  | "banlist.write"
+  | "blog.read"
+  | "blog.write"
+  | "randomPackages.read"
+  | "randomPackages.write"
+  | "topup.read";
+
+// OWNER/ADMIN only (ATK-04): SUPPORT must not edit mystery boxes, blog,
+// banlist or read the supplier balance/catalog.
+const CONTENT_AND_SUPPLY_PERMISSIONS: AdminPermission[] = [
+  "banlist.read",
+  "banlist.write",
+  "blog.read",
+  "blog.write",
+  "randomPackages.read",
+  "randomPackages.write",
+  "topup.read",
+];
 
 export function normalizeAdminRole(role: string | null | undefined): NormalizedAdminRole | null {
   const value = (role || "").toUpperCase().trim();
@@ -55,6 +74,7 @@ const rolePermissions: Record<NormalizedAdminRole, AdminPermission[]> = {
     "auditLogs.read",
     "notifications.read",
     "notifications.write",
+    ...CONTENT_AND_SUPPLY_PERMISSIONS,
   ],
   ADMIN: [
     "dashboard.read",
@@ -74,6 +94,7 @@ const rolePermissions: Record<NormalizedAdminRole, AdminPermission[]> = {
     "auditLogs.read",
     "notifications.read",
     "notifications.write",
+    ...CONTENT_AND_SUPPLY_PERMISSIONS,
   ],
   SUPPORT: [
     "dashboard.read",

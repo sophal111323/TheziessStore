@@ -1,11 +1,23 @@
 import { prisma } from "@/lib/prisma";
 import { fetchPaymentStatus } from "@/lib/payment";
 import {
+  buildRemoteSnapshotForValidation,
   isRemotePaid,
   logPaymentValidationFailure,
   validatePaymentForOrder,
 } from "@/lib/payment-validation";
 import { notifyAndMaybeDeliverPaidOrder } from "@/lib/order-fulfillment";
+
+export type SyncAndConfirmOptions = {
+  /** Who asked for the sync; used in validation-failure logs. */
+  source?: "webhook" | "internal_sync";
+  /**
+   * Skip the local paymentExpiresAt cut-off. Used when a signed webhook says
+   * "paid": the gateway is still queried and validated, but a late delivery
+   * must not drop a real payment.
+   */
+  ignoreExpiry?: boolean;
+};
 
 /**
  * Server-side payment synchronization and order confirmation.
@@ -15,7 +27,10 @@ import { notifyAndMaybeDeliverPaidOrder } from "@/lib/order-fulfillment";
  *
  * Fully idempotent: safe to call from background trackers, webhooks, or public sync.
  */
-export async function syncAndConfirmOrderPayment(orderNumber: string): Promise<{
+export async function syncAndConfirmOrderPayment(
+  orderNumber: string,
+  opts: SyncAndConfirmOptions = {}
+): Promise<{
   paid: boolean;
   orderNumber: string;
   error?: string;
@@ -55,7 +70,11 @@ export async function syncAndConfirmOrderPayment(orderNumber: string): Promise<{
   }
 
   // Check if expired
-  if (order.paymentExpiresAt && order.paymentExpiresAt.getTime() < Date.now()) {
+  if (
+    !opts.ignoreExpiry &&
+    order.paymentExpiresAt &&
+    order.paymentExpiresAt.getTime() < Date.now()
+  ) {
     return {
       paid: false,
       orderNumber: normalized,
@@ -64,7 +83,11 @@ export async function syncAndConfirmOrderPayment(orderNumber: string): Promise<{
     };
   }
 
-  const remote = await fetchPaymentStatus(order.paymentRef, order.paymentProvider);
+  const remote = await fetchPaymentStatus(
+    order.paymentRef,
+    order.paymentProvider,
+    order.orderNumber
+  );
   if (!remote) {
     return {
       paid: false,
@@ -81,17 +104,13 @@ export async function syncAndConfirmOrderPayment(orderNumber: string): Promise<{
     };
   }
 
-  const validation = validatePaymentForOrder(order, {
-    orderNumber: remote.orderNumber || order.orderNumber,
-    transactionId: remote.transactionId ?? order.paymentRef,
-    amount: remote.amount,
-    currency: remote.currency,
-    status: remote.status,
-    paid: remote.paid,
-  });
+  const validation = validatePaymentForOrder(
+    order,
+    buildRemoteSnapshotForValidation(order, remote)
+  );
 
   if (!validation.ok) {
-    logPaymentValidationFailure("internal_sync", validation);
+    logPaymentValidationFailure(opts.source ?? "internal_sync", validation);
     return {
       paid: false,
       orderNumber: normalized,

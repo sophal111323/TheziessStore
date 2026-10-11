@@ -8,6 +8,7 @@ type SecurityEvent =
   | "admin_login_success"
   | "admin_2fa_fail"
   | "admin_2fa_success"
+  | "admin_2fa_setup_denied"
   | "admin_locked_forever"
   | "admin_settings_changed"
   | "webhook_invalid_signature"
@@ -24,8 +25,11 @@ type SecurityEvent =
   | "payment_config_error"
   | "payment_public_sync_blocked"
   | "payment_validation_failed"
+  | "payment_binding_fallback"
+  | "payment_status_ambiguous"
   | "rate_limit_exceeded"
   | "origin_blocked"
+  | "origin_lock_blocked"
   | "upload_rejected"
   | "admin_logout"
   | "admin_turnstile_fail"
@@ -35,7 +39,15 @@ type SecurityEvent =
   | "admin_mobile_2fa_fail"
   | "admin_mobile_2fa_success"
   | "admin_telegram_key_fail"
-  | "admin_telegram_key_success";
+  | "admin_telegram_key_success"
+  | "order_lookup_unauthorized"
+  | "order_access_denied"
+  | "gift_lookup_unauthorized"
+  | "gift_open_unauthorized"
+  | "spin_lookup_unauthorized"
+  | "spin_action_unauthorized"
+  | "spin_claim_unauthorized"
+  | "admin_path_scan_rate_limit";
 
 interface LogPayload {
   event: SecurityEvent;

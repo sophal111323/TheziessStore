@@ -8,6 +8,9 @@ import {
 } from "@/lib/apiSecurity";
 import { refreshTopupStatus } from "@/lib/fulfillment";
 import { extractRedeemCode } from "@/lib/redeem";
+import { verifyOrderToken } from "@/lib/orderToken";
+import { logSecurityEvent } from "@/lib/secureLogger";
+import { getClientIp } from "@/lib/getIp";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -38,6 +41,18 @@ export async function GET(req: NextRequest) {
   if (limited) return limited;
 
   if (!/^[A-Z0-9-]{3,40}$/.test(orderNumber)) {
+    return safeJson({ error: "Order not found" }, { status: 404 }, API_NO_STORE);
+  }
+
+  // ── Token validation: same HMAC gate as GET /api/orders/[orderNumber] ──
+  // Without it this route leaks status + redeemCode by order number alone.
+  const token = req.nextUrl.searchParams.get("token");
+  if (!verifyOrderToken(orderNumber, token)) {
+    logSecurityEvent({
+      event: "order_lookup_unauthorized",
+      detail: `Attempted order status lookup without valid token: ${orderNumber}`,
+      ip: getClientIp(req),
+    });
     return safeJson({ error: "Order not found" }, { status: 404 }, API_NO_STORE);
   }
 
@@ -139,6 +154,7 @@ export async function GET(req: NextRequest) {
       paidAt: order.paidAt?.toISOString() ?? null,
       deliveredAt: order.deliveredAt?.toISOString() ?? null,
       redeemCode: redeemCode,
+      orderToken: token,
       payment: {
         canPay: isPending && !isExpired,
         expiresAt: order.paymentExpiresAt?.toISOString() ?? null,

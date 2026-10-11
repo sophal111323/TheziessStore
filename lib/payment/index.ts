@@ -43,6 +43,10 @@ export {
 } from "./providers/jla";
 
 export { parseTolaSaintWebhookEvent } from "./providers/tola-saint";
+import { verifyTolaSaintWebhookSignature } from "./providers/tola-saint";
+import { resolveWebhookProvider } from "./webhookRouting";
+export { resolveWebhookProvider } from "./webhookRouting";
+export type { WebhookProvider } from "./webhookRouting";
 
 import type {
   InitiatePaymentArgs,
@@ -217,17 +221,20 @@ export async function initiatePayment(
  */
 export async function fetchPaymentStatus(
   transactionId: string,
-  providerHint?: string | null
+  providerHint?: string | null,
+  orderNumber?: string | null
 ): Promise<PaymentStatusResult | null> {
   assertProductionPaymentConfig();
 
   if (!transactionId || transactionId.startsWith("SIM-")) return null;
 
   const normalizedHint = String(providerHint || "").trim().toLowerCase();
+  // JLA check-payment-status is keyed by our tran_id (= orderNumber).
+  const jlaQueryId = orderNumber || transactionId;
 
   // If order explicitly recorded JLA, verify with JLA only
   if (normalizedHint === "jla") {
-    return JlaPaywayProvider.fetchStatus(transactionId);
+    return JlaPaywayProvider.fetchStatus(jlaQueryId);
   }
 
   // If order explicitly recorded KHQRPay, verify with KHQRPay only
@@ -238,56 +245,34 @@ export async function fetchPaymentStatus(
   // If no providerHint was stored (e.g. legacy order), try active provider then fallback
   const active = await getActivePaymentProvider();
   if (active === "jla") {
-    const jlaRes = await JlaPaywayProvider.fetchStatus(transactionId);
+    const jlaRes = await JlaPaywayProvider.fetchStatus(jlaQueryId);
     if (jlaRes) return jlaRes;
     return KhqrPayProvider.fetchStatus(transactionId);
   }
 
   const khqrRes = await KhqrPayProvider.fetchStatus(transactionId);
   if (khqrRes) return khqrRes;
-  return JlaPaywayProvider.fetchStatus(transactionId);
+  return JlaPaywayProvider.fetchStatus(jlaQueryId);
 }
 
 /**
- * Verify a webhook signature against the appropriate provider.
+ * Verify a webhook signature with the provider named by the URL method only.
+ * Headers and body never select the verifier; unknown methods fail closed.
  */
 export function verifyWebhook(
   method: PaymentMethod | string,
   rawBody: string,
   headers: Record<string, string>
 ): boolean {
-  const norm = String(method || "").toUpperCase();
-  const isSupported =
-    norm === "KHQRPAY" ||
-    norm === "JLA" ||
-    norm === "TOLASAINT" ||
-    norm === "ABA" ||
-    norm === "BAKONG" ||
-    norm === "KHQR" ||
-    norm === "1";
-
-  if (!isSupported) return false;
-
-  if (norm === "JLA") {
-    return JlaPaywayProvider.verifyWebhook(rawBody, headers);
+  switch (resolveWebhookProvider(method)) {
+    case "khqrpay":
+      return KhqrPayProvider.verifyWebhook(rawBody, headers);
+    case "jla":
+      return JlaPaywayProvider.verifyWebhook(rawBody, headers);
+    case "tolasaint":
+      // Fails closed when TOLA_SAINT_WEBHOOK_SECRET is unset.
+      return verifyTolaSaintWebhookSignature(headers, rawBody);
+    default:
+      return false;
   }
-
-  const hasKhqrpayHeader = Boolean(
-    headers["x-webhook-event"] ||
-    headers["X-Webhook-Event"] ||
-    headers["x-webhook-delivery"] ||
-    headers["X-Webhook-Delivery"]
-  );
-
-  if (norm === "KHQRPAY" || hasKhqrpayHeader) {
-    return KhqrPayProvider.verifyWebhook(rawBody, headers);
-  }
-
-  // Default to active provider
-  const active = getActivePaymentProviderSync();
-  if (active === "jla") {
-    return JlaPaywayProvider.verifyWebhook(rawBody, headers);
-  }
-
-  return KhqrPayProvider.verifyWebhook(rawBody, headers);
 }

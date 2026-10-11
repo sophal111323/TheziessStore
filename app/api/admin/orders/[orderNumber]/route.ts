@@ -7,6 +7,7 @@ import { createAdminNotification } from "@/lib/adminNotifications";
 import { revalidateAdminChange } from "@/lib/adminRevalidate";
 import { logSecurityEvent } from "@/lib/secureLogger";
 import { normalizeAdminRole } from "@/lib/adminPermissions";
+import { statusChangeNeedsOwnerOverride } from "@/lib/manualOrderOverride";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAdminAuth } from "@/lib/withAdminAuth";
@@ -77,19 +78,31 @@ export const PATCH = withAdminAuth(
     // ── Security: Manual PAID requires explicit confirmation + OWNER role ──
     // This prevents fake payment confirmations from screenshots/messages.
     // Only gateway webhooks or OWNER with explicit confirm can mark PAID.
-    if (nextStatus === "PAID" && order.status !== "PAID") {
+    // Moving an unpaid order to PROCESSING/DELIVERED (which unlocks spin and
+    // gift claims) is the same override (R-2).
+    const needsOwnerOverride = statusChangeNeedsOwnerOverride(order, nextStatus);
+    if (needsOwnerOverride) {
       const role = normalizeAdminRole(admin.role);
+      const isPaidTarget = nextStatus === "PAID";
 
       if (role !== "OWNER") {
         return NextResponse.json(
-          { error: "Only the site owner can manually mark orders as PAID. Use the gateway refresh button for gateway-verified payments." },
+          {
+            error: isPaidTarget
+              ? "Only the site owner can manually mark orders as PAID. Use the gateway refresh button for gateway-verified payments."
+              : "Only the site owner can deliver an unpaid order. Use the gateway refresh button for gateway-verified payments.",
+          },
           { status: 403, headers: { "Cache-Control": "no-store" } }
         );
       }
 
       if (parsed.data.confirmManualPaid !== true) {
         return NextResponse.json(
-          { error: "Manual PAID requires confirmManualPaid:true. Use the gateway refresh button for gateway-verified payments." },
+          {
+            error: isPaidTarget
+              ? "Manual PAID requires confirmManualPaid:true. Use the gateway refresh button for gateway-verified payments."
+              : "Delivering an unpaid order requires confirmManualPaid:true.",
+          },
           { status: 400, headers: { "Cache-Control": "no-store" } }
         );
       }
@@ -97,7 +110,7 @@ export const PATCH = withAdminAuth(
       logSecurityEvent({
         event: "admin_settings_changed",
         adminId: admin.id,
-        detail: `Manual PAID override: order=${orderNumber}, amount=$${order.amountUsd}`,
+        detail: `Manual ${nextStatus} override: order=${orderNumber}, from=${order.status}, amount=$${order.amountUsd}`,
       });
     }
 
@@ -122,10 +135,14 @@ export const PATCH = withAdminAuth(
     });
 
     if (nextStatus && nextStatus !== order.status) {
-      const isManualPaid = nextStatus === "PAID" && parsed.data.confirmManualPaid === true;
+      const isManualPaid = needsOwnerOverride;
 
       await writeAuditForAdmin(admin, req, {
-        action: isManualPaid ? "order.manual_paid" : "order.status.update",
+        action: isManualPaid
+          ? nextStatus === "PAID"
+            ? "order.manual_paid"
+            : "order.manual_override"
+          : "order.status.update",
         targetType: "order",
         targetId: order.orderNumber,
         details: {
@@ -138,7 +155,7 @@ export const PATCH = withAdminAuth(
 
       await createAdminNotification({
         type: "order.updated",
-        title: isManualPaid ? "⚠️ Order manually marked PAID" : "Order status updated",
+        title: isManualPaid ? `⚠️ Order manually marked ${nextStatus}` : "Order status updated",
         message: `${order.orderNumber}: ${order.status} → ${nextStatus}${isManualPaid ? " (MANUAL OVERRIDE)" : ""}`,
         targetType: "order",
         targetId: order.orderNumber,
@@ -150,9 +167,9 @@ export const PATCH = withAdminAuth(
         await releaseOrCancelCouponUsage(order.id, nextStatus as any);
       }
 
-      if (nextStatus === "DELIVERED" || nextStatus === "PAID") {
+      if (nextStatus === "DELIVERED" || nextStatus === "PAID" || isManualPaid) {
         const prefix = isManualPaid
-          ? `⚠️ <b>MANUAL PAID (admin override)</b>`
+          ? `⚠️ <b>MANUAL ${escapeHtml(nextStatus)} (admin override, from ${escapeHtml(order.status)})</b>`
           : `✅ <b>Order ${escapeHtml(nextStatus)}</b>`;
         await notifyTelegram(
           `${prefix}\n` +

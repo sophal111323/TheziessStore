@@ -3,18 +3,24 @@ import type { NextFetchEvent, NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { isOriginAllowedForApi } from "@/lib/originGuard";
 import { logSecurityEvent } from "@/lib/secureLogger";
+import { isAdminSessionClaims } from "@/lib/adminSessionClaims";
+import { getAdminLoginPath } from "@/lib/adminLoginPath";
+import { checkOriginLock, ORIGIN_LOCK_HEADER } from "@/lib/originLock";
+import { normalizePathForChecks } from "@/lib/pathNormalize";
+import { timingSafeEqualString } from "@/lib/secretCompare";
 
 const SESSION_COOKIE = "admin_token";
 
 const ADMIN_HOME_PATH = "/admin";
 
-function getAdminLoginPath(): string {
-  const custom = process.env.ADMIN_LOGIN_PATH?.trim();
-  if (custom && custom.startsWith("/")) {
-    return custom.replace(/\/+$/, "");
-  }
-  return "/admin/login";
-}
+const INTERNAL_REWRITE_HEADER = "x-internal-admin-rewrite";
+
+// Per-instance random token for the internal login-page rewrite (ATK-10).
+// Never derived from a configured secret and never hard-coded.
+const INTERNAL_REWRITE_TOKEN = Array.from(
+  crypto.getRandomValues(new Uint8Array(32)),
+  (b) => b.toString(16).padStart(2, "0")
+).join("");
 
 function isAdminArea(pathname: string, adminLoginPath: string): boolean {
   return (
@@ -43,8 +49,10 @@ async function isValidAdminToken(token?: string) {
   }
 
   try {
-    await jwtVerify(token, secret);
-    return true;
+    // HS256 pinned + typed session claims: pending-2FA, Telegram-key,
+    // lock-hint, customer and creator JWTs are not admin sessions (ATK-02/03).
+    const { payload } = await jwtVerify(token, secret, { algorithms: ["HS256"] });
+    return isAdminSessionClaims(payload);
   } catch {
     return false;
   }
@@ -76,6 +84,12 @@ function parseUserAgent(userAgent: string) {
 }
 
 function getRequestIp(req: NextRequest): string {
+  // Cloudflare overwrites cf-connecting-ip with the real client IP, so a
+  // client can't spoof it when traffic goes through Cloudflare. Keep in sync
+  // with lib/getIp.ts.
+  const cfIp = req.headers.get("cf-connecting-ip")?.trim();
+  if (cfIp) return cfIp;
+
   const realIp = req.headers.get("x-real-ip")?.trim();
   if (realIp) return realIp;
 
@@ -111,6 +125,8 @@ const ORIGIN_GUARD_EXEMPT_PREFIXES = [
   "/api/health", // uptime monitors
   "/api/check-ip", // admin-gated diagnostic (Flutter admin calls)
   "/api/public/", // public metadata (app version) — Flutter apps
+  "/api/uploads/", // public images (hotlinking allowed)
+  "/api/cdn/", // public image proxy (hotlinking allowed)
 ];
 
 function isOriginGuardExempt(pathname: string): boolean {
@@ -245,18 +261,92 @@ function addSecurityHeaders(
   return response;
 }
 
+/** Remove one cookie from a forwarded Cookie header, keeping the others verbatim. */
+function stripRequestCookie(headers: Headers, name: string): void {
+  const raw = headers.get("cookie");
+  if (!raw) return;
+
+  const kept = raw
+    .split(";")
+    .map((part) => part.trim())
+    .filter((part) => part && part.split("=")[0]?.trim() !== name);
+
+  if (kept.length > 0) {
+    headers.set("cookie", kept.join("; "));
+  } else {
+    headers.delete("cookie");
+  }
+}
+
+/** Max distinct IP keys kept by the per-instance admin-path scan limiter. */
+const ADMIN_PATH_RATE_LIMIT_MAX_KEYS = 5000;
+
+/**
+ * Keep the admin-path limiter map bounded (pure Map logic, Edge-compatible).
+ * When over the cap: drop keys whose newest timestamp is outside the window,
+ * then evict the least recently updated keys (Map iteration order) until
+ * the size is back under the cap.
+ */
+function boundAdminPathRateLimit(store: Map<string, number[]>, cutoff: number): void {
+  if (store.size <= ADMIN_PATH_RATE_LIMIT_MAX_KEYS) return;
+
+  for (const [key, timestamps] of store) {
+    const newest = timestamps.length > 0 ? timestamps[timestamps.length - 1] : 0;
+    if (newest <= cutoff) store.delete(key);
+  }
+
+  for (const key of store.keys()) {
+    if (store.size < ADMIN_PATH_RATE_LIMIT_MAX_KEYS) break;
+    store.delete(key);
+  }
+}
+
 export async function middleware(req: NextRequest, event: NextFetchEvent) {
-  const { pathname } = req.nextUrl;
+  // Canonical path for every check below (ATK-11): decoded, no "//", no trailing "/".
+  const pathname = normalizePathForChecks(req.nextUrl.pathname);
+
+  const nonce = generateNonce();
+  const cspHeader = buildCspHeader(nonce);
+
+  // ✅ Opt-in origin lock (ATK-06): when ORIGIN_SHARED_SECRET is set, only
+  // requests carrying the Cloudflare-injected x-origin-secret get through.
+  const originLock = checkOriginLock({
+    pathname,
+    headerValue: req.headers.get(ORIGIN_LOCK_HEADER),
+    secret: process.env.ORIGIN_SHARED_SECRET,
+  });
+  if (!originLock.ok) {
+    logSecurityEvent({
+      event: "origin_lock_blocked",
+      detail: `path=${pathname}; reason=${originLock.reason}`,
+      ip: getRequestIp(req),
+    });
+
+    return addSecurityHeaders(
+      new NextResponse(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        },
+      }),
+      cspHeader,
+      nonce
+    );
+  }
 
   if (shouldTrackRequest(pathname)) {
     event.waitUntil(trackRequest(req, pathname));
   }
 
-  const nonce = generateNonce();
-  const cspHeader = buildCspHeader(nonce);
+  // Read the internal rewrite marker before stripping it from forwarded headers.
+  const incomingRewriteHeader = req.headers.get(INTERNAL_REWRITE_HEADER);
 
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", nonce);
+  // Never forward the origin secret or a client-supplied rewrite marker.
+  requestHeaders.delete(ORIGIN_LOCK_HEADER);
+  requestHeaders.delete(INTERNAL_REWRITE_HEADER);
 
   // ✅ API origin guard (Edge-safe): browser calls to /api/* must be
   // same-origin or explicitly allowlisted via API_ALLOWED_ORIGINS /
@@ -315,11 +405,15 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
   function rewriteResponse(path: string, init?: { status?: number }, internalAdmin = false): NextResponse {
     const url = req.nextUrl.clone();
     url.pathname = path;
-    // Behind reverse proxy (Nginx), internal Next.js rewrite fetches must use http to localhost
-    url.protocol = "http:";
+    // Preserve current protocol so HTTPS/Vercel reverse proxies do not fail
+    if (req.nextUrl.protocol) {
+      url.protocol = req.nextUrl.protocol;
+    }
     const headers = new Headers(requestHeaders);
     if (internalAdmin) {
-      headers.set("x-internal-admin-rewrite", "1");
+      headers.set(INTERNAL_REWRITE_HEADER, INTERNAL_REWRITE_TOKEN);
+    } else {
+      headers.delete(INTERNAL_REWRITE_HEADER);
     }
     return addSecurityHeaders(
       NextResponse.rewrite(url, {
@@ -335,8 +429,13 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
 
   const adminLoginPath = getAdminLoginPath();
 
-  // If this is an internal rewrite intended to render the admin login page, allow it through
-  if (req.headers.get("x-internal-admin-rewrite") === "1" && pathname === "/admin/login") {
+  // If this is an authentic internal rewrite intended to render the admin login page, allow it through
+  const isAuthorizedInternalRewrite = timingSafeEqualString(
+    incomingRewriteHeader,
+    INTERNAL_REWRITE_TOKEN
+  );
+
+  if (isAuthorizedInternalRewrite && pathname === "/admin/login") {
     return nextResponse();
   }
 
@@ -352,6 +451,60 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
     return nextResponse();
   }
 
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  const isLoggedIn = await isValidAdminToken(token);
+
+  // FIND-005 & FIND-013 fix: rate limit admin path scanning.
+  // This runs BEFORE the login-path check, so the real secret path counts and
+  // gets the same 429 as wrong guesses once an IP is over the limit. If the
+  // real path were exempt, a scanner would still see a lone 200 among 429s.
+  const isAdminPathRequest =
+    pathname === "/admin" || pathname.startsWith("/admin/") || pathname === adminLoginPath;
+  if (!isLoggedIn && isAdminPathRequest) {
+    const ip = getRequestIp(req);
+    const rlKey = `admin-path-scan:${ip}`;
+
+    const now = Date.now();
+    const windowMs = 60000; // 1 minute
+    const maxAttempts = 10;
+
+    // Simple in-memory rate limit for middleware (Edge-compatible, per instance)
+    const rateStore = globalThis as any;
+    if (!rateStore.__adminPathRateLimit) {
+      rateStore.__adminPathRateLimit = new Map<string, number[]>();
+    }
+    const adminPathRateLimit: Map<string, number[]> = rateStore.__adminPathRateLimit;
+
+    const cutoff = now - windowMs;
+    const timestamps = (adminPathRateLimit.get(rlKey) ?? []).filter((t: number) => t > cutoff);
+
+    if (timestamps.length >= maxAttempts) {
+      logSecurityEvent({
+        event: "admin_path_scan_rate_limit",
+        detail: `Excessive admin path scanning: ${pathname}`,
+        ip,
+      });
+      return addSecurityHeaders(
+        new NextResponse(JSON.stringify({ error: "Too many requests" }), {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": "60",
+            "Cache-Control": "no-store",
+          },
+        }),
+        cspHeader,
+        nonce
+      );
+    }
+
+    timestamps.push(now);
+    // Re-insert so Map iteration order runs from least to most recently updated.
+    adminPathRateLimit.delete(rlKey);
+    adminPathRateLimit.set(rlKey, timestamps);
+    boundAdminPathRateLimit(adminPathRateLimit, cutoff);
+  }
+
   // 🛡️ Hide old default login paths if a custom ADMIN_LOGIN_PATH is configured
   if (
     (pathname === "/admin/login" || pathname === "/admin/dystore") &&
@@ -360,24 +513,43 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
     return rewriteResponse("/_not-found", { status: 404 });
   }
 
-  const token = req.cookies.get(SESSION_COOKIE)?.value;
-  const isLoggedIn = await isValidAdminToken(token);
-
   // Login page access
   if (pathname === adminLoginPath) {
     if (isLoggedIn) {
       return redirectResponse(new URL(ADMIN_HOME_PATH, req.url));
     }
-    // If custom secret path is configured, rewrite internally to serve the login page
-    if (adminLoginPath !== "/admin/login") {
-      return rewriteResponse("/admin/login", undefined, true);
+
+    // A present-but-invalid session cookie (expired, or issued before the
+    // typed admin-session claim) makes app/admin/layout.tsx redirect back
+    // to this path forever. Drop it from the forwarded request and clear it.
+    const hasStaleSession = Boolean(token);
+    if (hasStaleSession) {
+      stripRequestCookie(requestHeaders, SESSION_COOKIE);
     }
-    return nextResponse();
+
+    // If custom secret path is configured, rewrite internally to serve the login page
+    const response =
+      adminLoginPath !== "/admin/login"
+        ? rewriteResponse("/admin/login", undefined, true)
+        : nextResponse();
+
+    if (hasStaleSession) {
+      response.cookies.set(SESSION_COOKIE, "", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        path: "/",
+        maxAge: 0,
+        expires: new Date(0),
+      });
+    }
+    return response;
   }
 
   // Protected admin routes: if not logged in, pretend they do not exist (404 Not Found)
   // to prevent leaking the secret ADMIN_LOGIN_PATH to unauthorized visitors
   if (!isLoggedIn && (pathname === "/admin" || pathname.startsWith("/admin/"))) {
+    // Rate limiting for this case already ran above (see FIND-005 block).
     return rewriteResponse("/_not-found", { status: 404 });
   }
 
@@ -392,5 +564,9 @@ export const config = {
       but skip Next.js static/image assets and common static files.
     */
     "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js|map|txt|xml)$).*)",
+    // ATK-11: API and admin paths always run middleware, even when they end
+    // in an excluded extension (e.g. /api/orders/X.png, /admin/x.js).
+    "/api/:path*",
+    "/admin/:path*",
   ],
 };

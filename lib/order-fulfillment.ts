@@ -6,6 +6,7 @@ import { startBackgroundOrderTracker } from "@/lib/order-tracker";
 import { markAffiliateOrderCompleted } from "@/lib/affiliate/store";
 import { extractRedeemCode } from "@/lib/redeem";
 import { consumeOrderCouponAtomically } from "@/lib/coupon";
+import { generateOrderToken } from "@/lib/orderToken";
 
 /**
  * Runs post-payment work after an order safely transitions to PAID.
@@ -49,9 +50,16 @@ export async function notifyAndMaybeDeliverPaidOrder(orderId: string) {
 
     const baseUrl =
       process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "";
-    const spinLink = baseUrl
-      ? `\n<a href="${baseUrl}/spin/${fullOrder.orderNumber}">🎡 Open Spin Wheel</a>`
-      : "";
+    let spinLink = "";
+    if (baseUrl) {
+      try {
+        const spinToken = generateOrderToken(fullOrder.orderNumber);
+        spinLink = `\n<a href="${baseUrl}/spin/${fullOrder.orderNumber}?token=${spinToken}">🎡 Open Spin Wheel</a>`;
+      } catch {
+        // Order-token secret missing: omit the link rather than send one that 404s.
+        spinLink = "";
+      }
+    }
 
     await notifyTelegram(
       `🎁 <b>Mystery Box Payment Successful!</b>\n` +

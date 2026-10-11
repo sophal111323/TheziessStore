@@ -1,5 +1,6 @@
 "use client";
 
+import { adminFetch } from "@/lib/adminFetch";
 import { useEffect, useState } from "react";
 
 type AdminSettingsForm = {
@@ -32,7 +33,7 @@ export default function AdminSettingsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/settings", { cache: "no-store" })
+    adminFetch("/api/admin/settings", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         setForm({
@@ -62,7 +63,7 @@ export default function AdminSettingsPage() {
     setSaved(false);
     setError(null);
 
-    const res = await fetch("/api/admin/settings", {
+    const res = await adminFetch("/api/admin/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

@@ -1,7 +1,9 @@
 "use client";
 
+import { adminFetch } from "@/lib/adminFetch";
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { withOrderToken } from "@/lib/orderAccess";
 import {
   Gift,
   CheckCircle2,
@@ -66,6 +68,8 @@ interface ClaimRecord {
   supplierCode?: string | null;
   status: string;
   claimedAt: string;
+  /** HMAC order token so the admin can open the customer order page. */
+  orderToken?: string | null;
   order?: {
     orderNumber: string;
     amountUsd: number;
@@ -128,7 +132,7 @@ export default function AdminGiftBoxesPage() {
   async function loadData() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/gift-boxes");
+      const res = await adminFetch("/api/admin/gift-boxes");
       const data = await res.json();
       if (res.ok) {
         setEventEnabled(data.eventEnabled);
@@ -147,8 +151,8 @@ export default function AdminGiftBoxesPage() {
   async function loadSelectors() {
     try {
       const [prodRes, promoRes] = await Promise.all([
-        fetch("/api/admin/products").then((r) => r.json()).catch(() => []),
-        fetch("/api/admin/promo-codes").then((r) => r.json()).catch(() => []),
+        adminFetch("/api/admin/products").then((r) => r.json()).catch(() => []),
+        adminFetch("/api/admin/promo-codes").then((r) => r.json()).catch(() => []),
       ]);
       if (Array.isArray(prodRes)) setProducts(prodRes);
       if (Array.isArray(promoRes)) setPromoCodes(promoRes);
@@ -163,7 +167,7 @@ export default function AdminGiftBoxesPage() {
     try {
       const q = search !== undefined ? search : historySearch;
       const url = q ? `/api/admin/gift-boxes/claims?search=${encodeURIComponent(q)}` : "/api/admin/gift-boxes/claims";
-      const res = await fetch(url);
+      const res = await adminFetch(url);
       const data = await res.json();
       if (Array.isArray(data)) setClaims(data);
     } catch (err) {
@@ -188,7 +192,7 @@ export default function AdminGiftBoxesPage() {
   async function toggleEvent() {
     setTogglingEvent(true);
     try {
-      const res = await fetch("/api/admin/gift-boxes/toggle", {
+      const res = await adminFetch("/api/admin/gift-boxes/toggle", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled: !eventEnabled }),
@@ -212,7 +216,7 @@ export default function AdminGiftBoxesPage() {
 
     setSaving(true);
     try {
-      const res = await fetch("/api/admin/gift-boxes", {
+      const res = await adminFetch("/api/admin/gift-boxes", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slots: newSlots }),
@@ -234,7 +238,7 @@ export default function AdminGiftBoxesPage() {
     setSaving(true);
     setSaveSuccess(false);
     try {
-      const res = await fetch("/api/admin/gift-boxes", {
+      const res = await adminFetch("/api/admin/gift-boxes", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slots }),
@@ -579,7 +583,7 @@ export default function AdminGiftBoxesPage() {
                   {claims.map((c) => (
                     <tr key={c.id} className="hover:bg-fox-surface/40 transition-colors">
                       <td className="p-3.5 font-mono font-bold text-purple-400">
-                        <Link href={`/order?number=${c.orderNumber}`} target="_blank" className="hover:underline flex items-center gap-1">
+                        <Link href={withOrderToken(`/order?number=${c.orderNumber}`, c.orderToken)} target="_blank" className="hover:underline flex items-center gap-1">
                           <span>{c.orderNumber}</span>
                           <ExternalLink className="h-3 w-3 opacity-60" />
                         </Link>

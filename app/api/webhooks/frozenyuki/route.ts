@@ -78,14 +78,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
 
-  // 0b. FAIL-CLOSED (production): without a signing secret we cannot
-  //     authenticate the sender at all — reject instead of trusting an
-  //     unsigned payload that could forge a "Success" delivery.
-  if (!webhookSecret && process.env.NODE_ENV === "production") {
+  // 0b. FAIL-CLOSED: without a signing secret we cannot authenticate the sender
+  //     at all — reject instead of trusting an unsigned payload that could forge
+  //     a "Success" delivery. Always require signature when secret is configured,
+  //     regardless of NODE_ENV.
+  if (!webhookSecret) {
     logSecurityEvent({
       event: "webhook_secret_missing",
       detail:
-        "FrozenYuki webhook secret not configured — rejecting (fail-closed)",
+        "FrozenYuki webhook secret not configured — rejecting all unsigned webhooks (fail-closed)",
       ip: getClientIp(req),
     });
     return NextResponse.json(
@@ -94,40 +95,32 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 1. Signature validation (if secret is configured)
-  if (webhookSecret) {
-    const rawSig =
-      req.headers.get("x-frozenyuki-signature") ||
-      req.headers.get("x-signature") ||
-      "";
+  // 1. Signature validation (ALWAYS required when secret is configured)
+  const rawSig =
+    req.headers.get("x-frozenyuki-signature") ||
+    req.headers.get("x-signature") ||
+    "";
 
-    const expectedHash = crypto
-      .createHmac("sha256", webhookSecret)
-      .update(rawBody)
-      .digest("hex");
+  const expectedHash = crypto
+    .createHmac("sha256", webhookSecret)
+    .update(rawBody)
+    .digest("hex");
 
-    const expectedSigWithPrefix = `sha256=${expectedHash}`;
-    const isValid =
-      timingSafeEqualStr(rawSig, expectedSigWithPrefix) ||
-      timingSafeEqualStr(rawSig, expectedHash);
+  const expectedSigWithPrefix = `sha256=${expectedHash}`;
+  const isValid =
+    timingSafeEqualStr(rawSig, expectedSigWithPrefix) ||
+    timingSafeEqualStr(rawSig, expectedHash);
 
-    if (!isValid) {
-      logSecurityEvent({
-        event: "webhook_invalid_signature",
-        detail: "FrozenYuki signature verification failed",
-        ip: getClientIp(req),
-      });
+  if (!isValid) {
+    logSecurityEvent({
+      event: "webhook_invalid_signature",
+      detail: "FrozenYuki signature verification failed",
+      ip: getClientIp(req),
+    });
 
-      return NextResponse.json(
-        { ok: false, error: "Invalid signature" },
-        { status: 401 }
-      );
-    }
-  } else if (process.env.NODE_ENV !== "production") {
-    // Non-production convenience only: local flows keep working without
-    // provider credentials. Production is fail-closed (see 0b above).
-    console.warn(
-      "[frozenyuki-webhook] No secret configured — accepting unsigned webhook (non-production only)."
+    return NextResponse.json(
+      { ok: false, error: "Invalid signature" },
+      { status: 401 }
     );
   }
 
@@ -179,6 +172,16 @@ export async function POST(req: NextRequest) {
 
   // 4. Update order status idempotently
   if (normStatus === "success") {
+    // Only a paid order can become DELIVERED (DELIVERED stays a no-op).
+    if (order.status !== "DELIVERED" && order.status !== "PAID" && order.status !== "PROCESSING") {
+      logSecurityEvent({
+        event: "webhook_order_mismatch",
+        detail: `FrozenYuki success for non-paid order #${order.orderNumber} (status=${order.status}) ignored`,
+        ip: getClientIp(req),
+      });
+      return NextResponse.json({ ok: true, ignored: true }, { status: 200 });
+    }
+
     if (order.status !== "DELIVERED") {
       await prisma.order.update({
         where: { id: order.id },

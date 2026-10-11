@@ -15,6 +15,7 @@ import { getSupplier, getTopupStatus } from "@/lib/topup";
 import { notifyTelegram, escapeHtml } from "@/lib/telegram";
 import { extractRedeemCode, extractRedeemCodeFromResponse } from "@/lib/redeem";
 import { consumeOrderCouponAtomically, releaseOrCancelCouponUsage } from "@/lib/coupon";
+import { fulfillNeedsOwnerOverride } from "@/lib/manualOrderOverride";
 
 export interface FulfillmentResult {
   success: boolean;
@@ -27,6 +28,8 @@ export interface FulfillmentResult {
 export interface FulfillOptions {
   silentTelegram?: boolean;
   force?: boolean;
+  /** Set only by the fulfill route after OWNER + confirmManualPaid (R-2). */
+  manualOverride?: boolean;
 }
 
 function manualReviewMessage(
@@ -61,6 +64,17 @@ export async function fulfillPaidOrder(
   });
 
   if (!order) return { success: false, error: "Order not found" };
+
+  // Unpaid or already delivered orders are never topped up without an
+  // explicit owner override (R-2). Covers the bulk route and any caller.
+  if (fulfillNeedsOwnerOverride(order, Boolean(options?.force)) && !options?.manualOverride) {
+    return {
+      success: false,
+      skipped: true,
+      status: "owner_override_required",
+      error: "Unpaid or already delivered orders need an owner override",
+    };
+  }
 
   if (order.status === "DELIVERED") {
     if (!options?.force) {

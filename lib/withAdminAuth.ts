@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentAdminFromRequest } from "@/lib/auth";
+import { getAdminAuthFromRequest } from "@/lib/auth";
 import type { Admin } from "@prisma/client";
 import {
   forbiddenResponse,
@@ -8,6 +8,7 @@ import {
   type AdminPermission,
   type NormalizedAdminRole,
 } from "@/lib/adminPermissions";
+import { verifyCsrfToken } from "@/lib/csrf";
 
 type RouteParams = Record<string, string>;
 
@@ -35,9 +36,9 @@ export function withAdminAuth<TParams extends RouteParams = RouteParams>(
     req: NextRequest,
     ctx: AdminRouteContext<TParams>
   ): Promise<Response> {
-    const admin = await getCurrentAdminFromRequest(req);
+    const auth = await getAdminAuthFromRequest(req);
 
-    if (!admin) {
+    if (!auth) {
       return NextResponse.json(
         { error: "Unauthorized" },
         {
@@ -47,6 +48,31 @@ export function withAdminAuth<TParams extends RouteParams = RouteParams>(
           },
         }
       );
+    }
+
+    const { admin } = auth;
+
+    // CSRF protection for state-changing requests (FIND-010 fix).
+    // Only cookie-authenticated (browser) requests are CSRF-exposed; Bearer
+    // clients (Flutter mobile admin) send credentials explicitly.
+    const method = req.method.toUpperCase();
+    const isStateMutating = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
+    
+    if (isStateMutating && auth.method === "cookie") {
+      const csrfToken = req.headers.get("x-csrf-token");
+      const isValidCsrf = verifyCsrfToken(admin.id, csrfToken);
+      
+      if (!isValidCsrf) {
+        return NextResponse.json(
+          { error: "CSRF token missing or invalid" },
+          {
+            status: 403,
+            headers: {
+              "Cache-Control": "no-store",
+            },
+          }
+        );
+      }
     }
 
     if (options.roles && !isAdminRoleAllowed(admin, options.roles)) {

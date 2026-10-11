@@ -7,6 +7,11 @@ import {
   TELEGRAM_KEY_LENGTH,
 } from "@/lib/adminTelegramKey";
 
+import { publicRateLimit } from "@/lib/apiSecurity";
+import { getClientIp } from "@/lib/getIp";
+import { logSecurityEvent } from "@/lib/secureLogger";
+import { timingSafeEqualString } from "@/lib/secretCompare";
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -31,6 +36,31 @@ async function sendBotMessage(chatId: string | number, text: string, token: stri
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = publicRateLimit(req, "telegram-webhook", {
+      limit: 60,
+      windowMs: 60_000,
+    });
+    if (limited) return limited;
+
+    // Telegram Webhook Secret Token (passed as secret_token to setWebhook, see
+    // scripts/set-telegram-webhook.ts). Required in production (ATK-09).
+    const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
+    if (!secretToken) {
+      if (process.env.NODE_ENV === "production") {
+        logSecurityEvent({
+          event: "webhook_secret_missing",
+          detail: "telegram webhook: TELEGRAM_WEBHOOK_SECRET is not set",
+          ip: getClientIp(req),
+        });
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    } else {
+      const incomingSecret = req.headers.get("x-telegram-bot-api-secret-token");
+      if (!timingSafeEqualString(incomingSecret, secretToken)) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    }
+
     const settings = await prisma.settings.findUnique({ where: { id: 1 } }).catch(() => null);
     const botToken = settings?.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN || "";
     const authorizedChatId = String(settings?.telegramChatId || process.env.TELEGRAM_CHAT_ID || "");

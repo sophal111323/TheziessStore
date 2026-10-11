@@ -1,5 +1,6 @@
 "use client";
 
+import { adminFetch } from "@/lib/adminFetch";
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Save, X, Image as ImageIcon } from "lucide-react";
 
@@ -34,7 +35,7 @@ export default function BannersAdminPage() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/admin/banners");
+    const res = await adminFetch("/api/admin/banners");
     if (res.ok) setItems(await res.json());
     setLoading(false);
   }
@@ -65,7 +66,7 @@ export default function BannersAdminPage() {
     setUploading(true);
     const fd = new FormData();
     fd.append("file", file);
-    const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+    const res = await adminFetch("/api/admin/upload", { method: "POST", body: fd });
     if (res.ok) {
       const data = await res.json();
       setForm((f) => ({ ...f, imageUrl: data.url }));
@@ -77,7 +78,7 @@ export default function BannersAdminPage() {
     setSaving(true);
     const url = editing ? `/api/admin/banners/${editing.id}` : "/api/admin/banners";
     const method = editing ? "PATCH" : "POST";
-    const res = await fetch(url, {
+    const res = await adminFetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -99,7 +100,7 @@ export default function BannersAdminPage() {
 
   async function remove(id: string) {
     if (!confirm("Delete this banner?")) return;
-    await fetch(`/api/admin/banners/${id}`, { method: "DELETE" });
+    await adminFetch(`/api/admin/banners/${id}`, { method: "DELETE" });
     await load();
   }
 

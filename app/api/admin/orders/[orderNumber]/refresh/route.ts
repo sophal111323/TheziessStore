@@ -8,6 +8,7 @@ import { revalidateAdminChange } from "@/lib/adminRevalidate";
 import { createAdminNotification } from "@/lib/adminNotifications";
 import { withAdminAuth } from "@/lib/withAdminAuth";
 import {
+  buildRemoteSnapshotForValidation,
   isRemotePaid,
   logPaymentValidationFailure,
   validatePaymentForOrder,
@@ -42,7 +43,11 @@ export const POST = withAdminAuth(async (
     return NextResponse.json({ error: "No real Tola Saint reference on order" }, { status: 400 });
   }
 
-  const remote = await fetchPaymentStatus(order.paymentRef);
+  const remote = await fetchPaymentStatus(
+    order.paymentRef,
+    order.paymentProvider,
+    order.orderNumber
+  );
   if (!remote) {
     return NextResponse.json(
       { error: "Unable to fetch remote payment status", order },
@@ -52,14 +57,10 @@ export const POST = withAdminAuth(async (
 
   let updated = order;
   if (isRemotePaid(remote)) {
-    const validation = validatePaymentForOrder(order, {
-      orderNumber: remote.orderNumber || order.orderNumber,
-      transactionId: remote.transactionId ?? order.paymentRef,
-      amount: remote.amount,
-      currency: remote.currency,
-      status: remote.status,
-      paid: remote.paid,
-    });
+    const validation = validatePaymentForOrder(
+      order,
+      buildRemoteSnapshotForValidation(order, remote)
+    );
 
     if (!validation.ok) {
       logPaymentValidationFailure("admin_refresh", validation);

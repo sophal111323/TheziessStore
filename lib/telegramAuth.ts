@@ -1,11 +1,14 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET =
-  process.env.TELEGRAM_JWT_SECRET ||
-  process.env.ADMIN_JWT_SECRET ||
-  process.env.INTERNAL_SECURITY_SECRET ||
-  "theziess-telegram-secret-fallback-key-32chars";
+/** Fails closed: no hard-coded fallback secret (ATK-13). */
+function getCustomerJwtSecret(): string {
+  const secret = process.env.TELEGRAM_JWT_SECRET || process.env.ADMIN_JWT_SECRET;
+  if (!secret) {
+    throw new Error("TELEGRAM_JWT_SECRET or ADMIN_JWT_SECRET must be set");
+  }
+  return secret;
+}
 
 export interface VerifiedTelegramUser {
   telegramUserId: number;
@@ -142,7 +145,10 @@ export function createCustomerToken(payload: {
   telegramUserId: string;
   username: string | null;
 }): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "14d" });
+  return jwt.sign(payload, getCustomerJwtSecret(), {
+    algorithm: "HS256",
+    expiresIn: "14d",
+  });
 }
 
 /**
@@ -154,7 +160,9 @@ export function verifyCustomerToken(token: string): {
   username: string | null;
 } | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as any;
+    return jwt.verify(token, getCustomerJwtSecret(), {
+      algorithms: ["HS256"],
+    }) as any;
   } catch {
     return null;
   }

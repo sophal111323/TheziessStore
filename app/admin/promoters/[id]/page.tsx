@@ -1,5 +1,6 @@
 "use client";
 
+import { adminFetch } from "@/lib/adminFetch";
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -43,7 +44,7 @@ export default function AdminPromoterDetailPage({ params }: { params: Promise<{ 
   async function loadData() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/promoters/${promoterId}`);
+      const res = await adminFetch(`/api/admin/promoters/${promoterId}`);
       if (res.ok) {
         const json = await res.json();
         setData(json);
@@ -73,7 +74,7 @@ export default function AdminPromoterDetailPage({ params }: { params: Promise<{ 
 
     setUpdatingStatus(true);
     try {
-      const res = await fetch("/api/admin/promoters", {
+      const res = await adminFetch("/api/admin/promoters", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -125,7 +126,7 @@ export default function AdminPromoterDetailPage({ params }: { params: Promise<{ 
 
     setClearing(true);
     try {
-      const res = await fetch(`/api/admin/promoters/${promoterId}`, {
+      const res = await adminFetch(`/api/admin/promoters/${promoterId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -183,7 +184,7 @@ export default function AdminPromoterDetailPage({ params }: { params: Promise<{ 
 
     setAdjusting(true);
     try {
-      const res = await fetch(`/api/admin/promoters/${promoterId}`, {
+      const res = await adminFetch(`/api/admin/promoters/${promoterId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -222,7 +223,7 @@ export default function AdminPromoterDetailPage({ params }: { params: Promise<{ 
 
     setUpdatingPayoutId(payoutId);
     try {
-      const res = await fetch("/api/admin/promoters", {
+      const res = await adminFetch("/api/admin/promoters", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

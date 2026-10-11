@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { getCurrentAdmin } from "@/lib/auth";
 import { getCambodiaDayRange, getDailyDashboardStats } from "@/lib/dailyStats";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +27,11 @@ function packageName(product: { name: string; amount: number; bonus: number }) {
 const cardClass = "rounded-2xl border border-fox-border bg-fox-card p-5 shadow-sm";
 
 export default async function AdminDashboardPage() {
+  const admin = await getCurrentAdmin();
+  if (!admin) {
+    notFound();
+  }
+
   const range = getCambodiaDayRange();
   const stats = await getDailyDashboardStats(range);
   const cf = stats.cloudflareSecurity;

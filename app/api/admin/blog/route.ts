@@ -33,7 +33,7 @@ export const GET = withAdminAuth(async () => {
     },
   });
   return NextResponse.json(posts);
-});
+}, { permission: "blog.read" });
 
 export const POST = withAdminAuth(async (req) => {
   const body = await req.json().catch(() => ({}));
@@ -57,4 +57,4 @@ export const POST = withAdminAuth(async (req) => {
     }
     throw err;
   }
-});
+}, { permission: "blog.write" });

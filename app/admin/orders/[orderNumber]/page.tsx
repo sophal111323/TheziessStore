@@ -1,8 +1,10 @@
 "use client";
 
+import { adminFetch } from "@/lib/adminFetch";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { fulfillNeedsOwnerOverride, statusChangeNeedsOwnerOverride } from "@/lib/manualOrderOverride";
 
 const STATUSES = ["PENDING", "PAID", "PROCESSING", "DELIVERED", "FAILED", "REFUNDED", "CANCELLED"];
 
@@ -29,7 +31,7 @@ export default function AdminOrderDetailPage() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch(`/api/admin/orders/${orderNumber}`);
+    const res = await adminFetch(`/api/admin/orders/${orderNumber}`);
     if (res.ok) {
       const data = await res.json();
       setOrder(data);
@@ -45,11 +47,13 @@ export default function AdminOrderDetailPage() {
   }, [orderNumber]);
 
   async function updateStatus(newStatus: string) {
-    // Security: manual PAID requires explicit confirmation + server-side OWNER check
-    if (newStatus === "PAID" && order?.status !== "PAID") {
+    // Security: manual PAID (or delivering an unpaid order) requires explicit
+    // confirmation + server-side OWNER check
+    const isOverride = order ? statusChangeNeedsOwnerOverride(order, newStatus) : false;
+    if (isOverride) {
       const confirmed = window.confirm(
-        "⚠️ Manual PAID override\n\n" +
-        "This marks the order as paid WITHOUT payment gateway verification.\n\n" +
+        `⚠️ Manual ${newStatus} override\n\n` +
+        "This order has no verified payment. This changes it WITHOUT payment gateway verification.\n\n" +
         "Only use this if you have personally verified the payment through other means.\n\n" +
         "Continue?"
       );
@@ -57,14 +61,14 @@ export default function AdminOrderDetailPage() {
     }
 
     setUpdating(true);
-    const res = await fetch(`/api/admin/orders/${orderNumber}`, {
+    const res = await adminFetch(`/api/admin/orders/${orderNumber}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         status: newStatus,
         deliveryNote: note,
         failureReason: newStatus === "FAILED" ? reason : undefined,
-        ...(newStatus === "PAID" ? { confirmManualPaid: true } : {}),
+        ...(isOverride ? { confirmManualPaid: true } : {}),
       }),
     });
 
@@ -79,7 +83,7 @@ export default function AdminOrderDetailPage() {
 
   async function refreshFromGateway() {
     setUpdating(true);
-    const res = await fetch(`/api/admin/orders/${orderNumber}/refresh`, { method: "POST" });
+    const res = await adminFetch(`/api/admin/orders/${orderNumber}/refresh`, { method: "POST" });
     if (res.ok) {
       const data = await res.json();
       alert(`Gateway says: ${data.remote?.status ?? "unknown"}${data.updated ? " — order updated" : ""}`);
@@ -93,7 +97,7 @@ export default function AdminOrderDetailPage() {
 
   async function refreshTopupStatus() {
     setUpdating(true);
-    const res = await fetch(`/api/admin/orders/${orderNumber}/topup-status`, { method: "POST" });
+    const res = await adminFetch(`/api/admin/orders/${orderNumber}/topup-status`, { method: "POST" });
     if (res.ok) {
       const data = await res.json();
       const st = data?.order?.topupStatus ?? data?.result?.status ?? "unknown";
@@ -119,13 +123,23 @@ export default function AdminOrderDetailPage() {
       if (!ok) return;
     }
 
+    const force = order?.status === "FAILED" || order?.status === "DELIVERED" || order?.status === "PENDING";
+    const isOverride = order ? fulfillNeedsOwnerOverride(order, force) : false;
+    if (isOverride && order?.status === "FAILED") {
+      const ok = window.confirm(
+        `Order #${orderNumber} has no verified payment or was already delivered.\n\nCall the supplier API anyway? (owner override)`
+      );
+      if (!ok) return;
+    }
+
     setUpdating(true);
     try {
-      const res = await fetch(`/api/admin/orders/${orderNumber}/fulfill`, {
+      const res = await adminFetch(`/api/admin/orders/${orderNumber}/fulfill`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          force: order?.status === "FAILED" || order?.status === "DELIVERED" || order?.status === "PENDING",
+          force,
+          ...(isOverride ? { confirmManualPaid: true } : {}),
         }),
       });
       const data = await res.json().catch(() => null);

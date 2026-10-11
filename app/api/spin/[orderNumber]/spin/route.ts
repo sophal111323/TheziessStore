@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getClientIp } from "@/lib/getIp";
 import crypto from "crypto";
 import { publicRateLimit } from "@/lib/apiSecurity";
+import { verifyOrderToken } from "@/lib/orderToken";
+import { logSecurityEvent } from "@/lib/secureLogger";
+import { logError } from "@/lib/errorLogger";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +46,19 @@ export async function POST(
     const { orderNumber } = await params;
     if (!orderNumber) {
       return NextResponse.json({ error: "Order number is required" }, { status: 400 });
+    }
+
+    // ── Token validation (FIND-001 fix) ────────────────────────────────────
+    const token = req.nextUrl.searchParams.get("token");
+    const isTokenValid = verifyOrderToken(orderNumber, token);
+    
+    if (!isTokenValid) {
+      logSecurityEvent({
+        event: "spin_action_unauthorized",
+        detail: `Attempted spin action without valid token: ${orderNumber}`,
+        ip: getClientIp(req),
+      });
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
     // Rate limit spin attempts per IP
@@ -239,7 +255,7 @@ export async function POST(
       },
     });
   } catch (err: any) {
-    console.error("Error executing spin:", err);
+    logError("Error executing spin", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

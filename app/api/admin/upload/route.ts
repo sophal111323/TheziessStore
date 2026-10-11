@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 import { withAdminAuth } from "@/lib/withAdminAuth";
+import { logError } from "@/lib/errorLogger";
 import { applyRateLimit } from "@/lib/rateLimit";
 import { logSecurityEvent } from "@/lib/secureLogger";
 import { prisma } from "@/lib/prisma";
@@ -177,7 +178,7 @@ export const POST = withAdminAuth(
         type: mimeType,
       });
     } catch (err) {
-      console.error("[upload] error:", err);
+      logError("[upload] error", err);
       return NextResponse.json({ error: "Upload failed: " + (err instanceof Error ? err.message : "unknown error") }, { status: 500 });
     }
   },

@@ -17,7 +17,7 @@ export const GET = withAdminAuth(async () => {
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json(list);
-});
+}, { permission: "banlist.read" });
 
 export const POST = withAdminAuth(async (req) => {
   const body = await req.json().catch(() => ({}));
@@ -46,4 +46,4 @@ export const POST = withAdminAuth(async (req) => {
     }
     throw err;
   }
-});
+}, { permission: "banlist.write" });

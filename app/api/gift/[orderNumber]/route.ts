@@ -3,11 +3,13 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getOrCreateGiftBoxSlots } from "@/lib/giftBox";
+import { verifyOrderToken } from "@/lib/orderToken";
+import { logSecurityEvent } from "@/lib/secureLogger";
 
 const PAID_STATES = new Set(["PAID", "PROCESSING", "DELIVERED"]);
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ orderNumber: string }> }
 ) {
   try {
@@ -17,6 +19,19 @@ export async function GET(
     }
 
     const cleanOrderNumber = orderNumber.toUpperCase().trim();
+
+    // ── Token validation (FIND-001 fix) ──────────────────────────────────
+    const token = req.nextUrl.searchParams.get("token");
+    const isTokenValid = verifyOrderToken(cleanOrderNumber, token);
+    
+    if (!isTokenValid) {
+      logSecurityEvent({
+        event: "gift_lookup_unauthorized",
+        detail: `Attempted gift lookup without valid token: ${cleanOrderNumber}`,
+        ip: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown",
+      });
+      return NextResponse.json({ error: "រកមិនឃើញការកុម្ម៉ង់នេះទេ (Order not found)" }, { status: 404 });
+    }
 
     // Check system settings
     const settings = await prisma.settings.findUnique({ where: { id: 1 } });

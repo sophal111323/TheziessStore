@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { getClientIp } from "@/lib/getIp";
 import { checkRateLimitDb, checkRateLimitMemory } from "@/lib/rateLimit";
 import { logSecurityEvent } from "@/lib/secureLogger";
+import { logError } from "@/lib/errorLogger";
 import {
   authenticateAffiliate,
   registerAffiliate,
@@ -12,7 +13,12 @@ import {
   getAffiliateSettings,
   getAllAffiliates,
 } from "@/lib/affiliate/store";
-import { CREATOR_COOKIE_NAME, getCurrentCreator } from "@/lib/affiliate/session";
+import {
+  CREATOR_COOKIE_NAME,
+  getCurrentCreator,
+  signCreatorToken,
+  toSafeAffiliate,
+} from "@/lib/affiliate/session";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +33,7 @@ export async function GET() {
 
   return NextResponse.json({
     authenticated: true,
-    creator,
+    creator: toSafeAffiliate(creator),
     stats,
     notifications,
   });
@@ -139,10 +145,10 @@ export async function POST(req: NextRequest) {
 
       const res = NextResponse.json({
         success: true,
-        creator: affiliate,
+        creator: toSafeAffiliate(affiliate),
       });
 
-      res.cookies.set(CREATOR_COOKIE_NAME, affiliate.id, {
+      res.cookies.set(CREATOR_COOKIE_NAME, signCreatorToken(affiliate.id), {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
@@ -245,10 +251,10 @@ export async function POST(req: NextRequest) {
 
       const res = NextResponse.json({
         success: true,
-        creator: result.affiliate,
+        creator: toSafeAffiliate(result.affiliate),
       });
 
-      res.cookies.set(CREATOR_COOKIE_NAME, result.affiliate.id, {
+      res.cookies.set(CREATOR_COOKIE_NAME, signCreatorToken(result.affiliate.id), {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
@@ -276,7 +282,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || "Server error" }, { status: 500 });
+  } catch (err: unknown) {
+    // Generic message: never expose internal errors (e.g. missing JWT secret).
+    logError("Promote auth error", err);
+    return NextResponse.json({ success: false, error: "Server error" }, { status: 500 });
   }
 }

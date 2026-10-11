@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Sparkles, ArrowRight, Gift, ShieldCheck, Zap, Trophy } from "lucide-react";
+import { getStoredOrderToken, withOrderToken } from "@/lib/orderAccess";
 
 export default function SpinIndexClient() {
   const router = useRouter();
@@ -18,7 +19,9 @@ export default function SpinIndexClient() {
       return;
     }
     setError(null);
-    router.push(`/spin/${encodeURIComponent(trimmed)}`);
+    // Carry a saved order token if this browser has one; otherwise the spin
+    // page asks for the Player UID.
+    router.push(withOrderToken(`/spin/${encodeURIComponent(trimmed)}`, getStoredOrderToken(trimmed)));
   };
 
   return (

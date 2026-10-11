@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logError } from "@/lib/errorLogger";
 import { z } from "zod";
 import crypto from "crypto";
 
@@ -211,7 +212,7 @@ export async function POST(req: NextRequest) {
 
     return res;
   } catch (err) {
-    console.error("Admin key verification error:", err);
+    logError("Admin key verification error", err);
     return adminApiErrorResponse(err);
   }
 }

@@ -1,11 +1,13 @@
 // app/admin/security/page.tsx
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { requireAdminAction, requireAdminPage } from "@/lib/adminPageAuth";
 
 export const dynamic = "force-dynamic";
 
 async function blockIp(formData: FormData) {
   "use server";
+  await requireAdminAction("banlist.write");
 
   const ip = String(formData.get("ip") || "").trim();
   const reason = String(formData.get("reason") || "Blocked from security dashboard");
@@ -32,6 +34,7 @@ async function blockIp(formData: FormData) {
 
 async function unblockIp(formData: FormData) {
   "use server";
+  await requireAdminAction("banlist.write");
 
   const ip = String(formData.get("ip") || "").trim();
   if (!ip) return;
@@ -47,6 +50,8 @@ async function unblockIp(formData: FormData) {
 }
 
 export default async function SecurityPage() {
+  await requireAdminPage("banlist.read");
+
   const logs = await prisma.requestLog.findMany({
     orderBy: { createdAt: "desc" },
     take: 100,
