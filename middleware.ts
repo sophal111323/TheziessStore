@@ -405,10 +405,8 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
   function rewriteResponse(path: string, init?: { status?: number }, internalAdmin = false): NextResponse {
     const url = req.nextUrl.clone();
     url.pathname = path;
-    // Preserve current protocol so HTTPS/Vercel reverse proxies do not fail
-    if (req.nextUrl.protocol) {
-      url.protocol = req.nextUrl.protocol;
-    }
+    // Behind reverse proxy (Nginx), internal Next.js rewrite fetches must use http to localhost
+    url.protocol = "http:";
     const headers = new Headers(requestHeaders);
     if (internalAdmin) {
       headers.set(INTERNAL_REWRITE_HEADER, INTERNAL_REWRITE_TOKEN);
