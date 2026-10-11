@@ -19,6 +19,7 @@ export type SupportedGameSlug =
   | "free-fire"
   | "ff-global"
   | "freefire"
+  | "freefire-indo"
   | "pubg-mobile"
   | "pubgm"
   | "blood-strike"
@@ -26,6 +27,9 @@ export type SupportedGameSlug =
   | "honor-of-king"
   | "honor-of-kings"
   | "hok"
+  | "magic-chess"
+  | "knives-out"
+  | "farlight84"
   | "ro-blox"
   | "roblox";
 
@@ -49,21 +53,26 @@ export const GAME_LOOKUP_CONFIG: Record<string, GameLookupConfig> = {
     gameTitle: "Mobile Legends: Bang Bang",
   },
 
-  // Garena Free Fire — no server/zone id needed
+  // Garena Free Fire — primary cluster bd/sg for Cambodia/SEA
   "free-fire": {
-    bay2GameCode: "freefire_sgmy",
+    bay2GameCode: "freefire_bd",
     needsServer: false,
     gameTitle: "Garena Free Fire",
   },
   "ff-global": {
-    bay2GameCode: "freefire_sgmy",
+    bay2GameCode: "freefire_bd",
     needsServer: false,
     gameTitle: "Garena Free Fire",
   },
   "freefire": {
-    bay2GameCode: "freefire_sgmy",
+    bay2GameCode: "freefire_bd",
     needsServer: false,
     gameTitle: "Garena Free Fire",
+  },
+  "freefire-indo": {
+    bay2GameCode: "freefire_id",
+    needsServer: false,
+    gameTitle: "Free Fire Indonesia",
   },
 
   // PUBG Mobile — no server/zone id needed
@@ -105,6 +114,27 @@ export const GAME_LOOKUP_CONFIG: Record<string, GameLookupConfig> = {
     bay2GameCode: "hok",
     needsServer: false,
     gameTitle: "Honor of Kings",
+  },
+
+  // Magic Chess Go Go
+  "magic-chess": {
+    bay2GameCode: "magic_chest_gogo",
+    needsServer: true,
+    gameTitle: "Magic Chess Go Go",
+  },
+
+  // Knives Out
+  "knives-out": {
+    bay2GameCode: "knivesout",
+    needsServer: true,
+    gameTitle: "Knives Out",
+  },
+
+  // Farlight 84
+  "farlight84": {
+    bay2GameCode: "farlight84",
+    needsServer: false,
+    gameTitle: "Farlight 84",
   },
 
   // Roblox — preserved separately using official Roblox API
@@ -221,11 +251,96 @@ async function lookupRoblox(uid: string): Promise<GameLookupResult> {
 }
 
 /**
+ * Resolves ordered list of Bay2Game candidate codes to query, including regional fallbacks.
+ */
+function getCandidateCodes(gameSlug: string, explicitCode?: string): string[] {
+  const codes: string[] = [];
+
+  if (explicitCode) {
+    codes.push(explicitCode);
+  }
+
+  const cfg = getGameLookupConfig(gameSlug);
+  if (cfg?.bay2GameCode && !codes.includes(cfg.bay2GameCode)) {
+    codes.push(cfg.bay2GameCode);
+  }
+
+  // Free Fire regional fallback chain: bd (fastest for KH/SG/BD) -> sgmy -> global
+  const isFreeFire =
+    gameSlug === "free-fire" ||
+    gameSlug === "ff-global" ||
+    gameSlug === "freefire" ||
+    codes.some((c) => c.startsWith("freefire"));
+
+  if (isFreeFire) {
+    const ffFallbacks = ["freefire_bd", "freefire_sgmy", "freefire_global"];
+    for (const code of ffFallbacks) {
+      if (!codes.includes(code)) {
+        codes.push(code);
+      }
+    }
+  }
+
+  return codes;
+}
+
+/**
+ * Single upstream call to Bay2Game API with timeout
+ */
+async function queryBay2GameSingle(
+  gameCode: string,
+  uid: string,
+  serverId?: string,
+  timeoutMs = 6_000
+): Promise<{ success: boolean; data?: Bay2GameCheckIdResponse | null; error?: string }> {
+  const url = new URL(`${BAY2GAME_CHECKID_BASE}/check_id`);
+  url.searchParams.set("game", gameCode);
+  url.searchParams.set("userid", uid);
+  if (serverId) {
+    url.searchParams.set("serverid", serverId);
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "DYTOPUP/1.0",
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      return { success: false, error: `HTTP ${res.status}` };
+    }
+
+    const data = (await res.json().catch(() => null)) as Bay2GameCheckIdResponse | null;
+    return { success: true, data };
+  } catch (err: unknown) {
+    clearTimeout(timer);
+    const isTimeout =
+      err instanceof Error && (err.name === "AbortError" || err.message.includes("aborted"));
+    return {
+      success: false,
+      error: isTimeout ? "Timeout" : err instanceof Error ? err.message : "Network error",
+    };
+  }
+}
+
+/**
  * Validates a Player ID and returns nickname, region, and game title using Bay2Game ID Checker API.
+ * Includes intelligent regional fallback for games like Free Fire.
  *
  * @param gameSlug Internal game slug (e.g., "mobile-legends", "free-fire", "pubg-mobile")
  * @param uid Player User ID
  * @param serverId Optional Server/Zone ID (required for games like Mobile Legends)
+ * @param overrideGameCode Optional explicit game code override
  */
 export async function lookupBay2GameNickname(
   gameSlug: string,
@@ -245,9 +360,9 @@ export async function lookupBay2GameNickname(
     return lookupRoblox(cleanUid);
   }
 
-  const effectiveCode = explicitCode || cfg?.bay2GameCode;
+  const candidateCodes = getCandidateCodes(cleanSlug, explicitCode);
 
-  if (!effectiveCode) {
+  if (candidateCodes.length === 0) {
     return {
       success: false,
       username: null,
@@ -264,45 +379,34 @@ export async function lookupBay2GameNickname(
     };
   }
 
-  try {
-    const url = new URL(`${BAY2GAME_CHECKID_BASE}/check_id`);
-    url.searchParams.set("game", effectiveCode);
-    url.searchParams.set("userid", cleanUid);
-    if (cleanServerId) {
-      url.searchParams.set("serverid", cleanServerId);
+  const deadline = Date.now() + 10_000;
+  let lastErrorMessage = "Player not found — check your ID";
+
+  for (let i = 0; i < candidateCodes.length; i++) {
+    const code = candidateCodes[i];
+    const timeLeft = deadline - Date.now();
+    if (timeLeft < 1_500 && i > 0) {
+      break;
     }
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10_000);
+    const attemptTimeout = Math.min(6_000, Math.max(2_000, timeLeft));
+    const result = await queryBay2GameSingle(
+      code,
+      cleanUid,
+      cleanServerId || undefined,
+      attemptTimeout
+    );
 
-    const res = await fetch(url.toString(), {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "DYTOPUP/1.0",
-      },
-      cache: "no-store",
-      signal: controller.signal,
-    });
-
-    clearTimeout(timer);
-
-    if (!res.ok) {
-      return {
-        success: false,
-        username: null,
-        error: "Unable to validate player ID. Please try again.",
-      };
+    if (!result.success) {
+      if (result.error === "Timeout") {
+        lastErrorMessage = "ID check timed out. Please try again.";
+      }
+      continue;
     }
 
-    const data = (await res.json().catch(() => null)) as Bay2GameCheckIdResponse | null;
-
+    const data = result.data;
     if (!data || typeof data !== "object") {
-      return {
-        success: false,
-        username: null,
-        error: "Unable to validate player ID. Please try again.",
-      };
+      continue;
     }
 
     // Success response verification
@@ -313,13 +417,10 @@ export async function lookupBay2GameNickname(
     ) {
       const username = data.username.trim();
 
-      // If upstream returns empty or echoes the UID back
+      // If upstream echoes the UID back instead of a real nickname
       if (username.toLowerCase() === cleanUid.toLowerCase()) {
-        return {
-          success: false,
-          username: null,
-          error: "Player not found — check your ID",
-        };
+        lastErrorMessage = "Player not found — check your ID";
+        continue;
       }
 
       return {
@@ -327,40 +428,31 @@ export async function lookupBay2GameNickname(
         username,
         region: typeof data.region === "string" && data.region.trim() ? data.region.trim() : null,
         game:
-          typeof data.game_title === "string" && data.game_title.trim() && data.game_title !== "null"
+          cfg?.gameTitle ||
+          (typeof data.game_title === "string" &&
+          data.game_title.trim() &&
+          data.game_title !== "null"
             ? data.game_title.trim()
-            : cfg?.gameTitle || effectiveCode,
+            : code),
       };
     }
 
     // Process error response messages
     const rawMessage = typeof data.message === "string" ? data.message.toLowerCase() : "";
-    let errorMessage = "Player not found — check your ID";
-
     if (rawMessage.includes("not support region")) {
-      errorMessage = "Not supported in this region";
+      lastErrorMessage = "Not supported in this region";
     } else if (rawMessage.includes("invalid game code") || rawMessage.includes("game is inactive")) {
-      errorMessage = "Unsupported game";
+      lastErrorMessage = "Unsupported game";
     } else if (rawMessage.includes("user not found") || rawMessage.includes("invalid")) {
-      errorMessage = "Player not found — check your ID";
+      lastErrorMessage = "Player not found — check your ID";
     }
-
-    return {
-      success: false,
-      username: null,
-      error: errorMessage,
-    };
-  } catch (err: unknown) {
-    const isTimeout =
-      err instanceof Error && (err.name === "AbortError" || err.message.includes("aborted"));
-    return {
-      success: false,
-      username: null,
-      error: isTimeout
-        ? "ID check timed out. Please try again."
-        : "Unable to validate player ID. Please try again.",
-    };
   }
+
+  return {
+    success: false,
+    username: null,
+    error: lastErrorMessage,
+  };
 }
 
 /**
