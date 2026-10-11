@@ -75,14 +75,20 @@ export function parseJlaStatusResponse(data: unknown, queriedId: string): JlaSta
     str(root.currency || inner.currency || inner.payment_currency).toUpperCase() || undefined;
 
   // Our tran_id (= orderNumber) is echoed at the top level. status.tran_id is
-  // Payway's id in JLA's documented responses; if it equals what we queried
-  // it is our own id echoed back instead.
+  // Payway's ephemeral inquiry request trace ID in status responses (or our own id echoed
+  // back). Payway payment transaction ID is only present if root.payway_tran_id
+  // or inner.payway_tran_id is returned, or if status.tran_id is not an inquiry trace ID.
   const statusTranId = str(status.tran_id);
+  const rqTime = str(inner["rq-time"] || root["rq-time"]);
+  const isRqTimeTraceId = Boolean(rqTime && statusTranId.startsWith(rqTime));
   const query = str(queriedId);
   const orderNumber =
     str(root.tran_id) || (statusTranId && statusTranId === query ? statusTranId : "") || undefined;
   const paywayTranId =
-    str(root.payway_tran_id) || (statusTranId && statusTranId !== query ? statusTranId : "") || undefined;
+    str(root.payway_tran_id) ||
+    str(inner.payway_tran_id) ||
+    (!isRqTimeTraceId && statusTranId && statusTranId !== query ? statusTranId : "") ||
+    undefined;
 
   return {
     result: {

@@ -69,26 +69,24 @@ export async function syncAndConfirmOrderPayment(
     };
   }
 
-  // Check if expired
-  if (
-    !opts.ignoreExpiry &&
-    order.paymentExpiresAt &&
-    order.paymentExpiresAt.getTime() < Date.now()
-  ) {
-    return {
-      paid: false,
-      orderNumber: normalized,
-      status: "EXPIRED",
-      error: "Payment expired",
-    };
-  }
-
   const remote = await fetchPaymentStatus(
     order.paymentRef,
     order.paymentProvider,
     order.orderNumber
   );
   if (!remote) {
+    if (
+      !opts.ignoreExpiry &&
+      order.paymentExpiresAt &&
+      order.paymentExpiresAt.getTime() < Date.now()
+    ) {
+      return {
+        paid: false,
+        orderNumber: normalized,
+        status: "EXPIRED",
+        error: "Payment expired",
+      };
+    }
     return {
       paid: false,
       orderNumber: normalized,
@@ -97,6 +95,18 @@ export async function syncAndConfirmOrderPayment(
   }
 
   if (!isRemotePaid(remote)) {
+    if (
+      !opts.ignoreExpiry &&
+      order.paymentExpiresAt &&
+      order.paymentExpiresAt.getTime() < Date.now()
+    ) {
+      return {
+        paid: false,
+        orderNumber: normalized,
+        status: "EXPIRED",
+        error: "Payment expired",
+      };
+    }
     return {
       paid: false,
       orderNumber: normalized,

@@ -202,12 +202,16 @@ export function buildRemoteSnapshotForValidation(
     paymentRef: string | null;
     paymentProvider?: string | null;
     currency?: string | null;
+    amountUsd?: number | null;
   },
   remote: PaymentStatusResult
 ): RemotePaymentSnapshot {
   const provider = String(order.paymentProvider ?? "").trim().toLowerCase();
   const base = {
-    amount: remote.amount,
+    amount:
+      remote.amount !== undefined && remote.amount !== null && remote.amount !== ""
+        ? remote.amount
+        : order.amountUsd,
     currency: remote.currency,
     status: remote.status,
     paid: remote.paid,
@@ -217,10 +221,14 @@ export function buildRemoteSnapshotForValidation(
     const remoteOrderNumber = String(remote.orderNumber ?? "").trim();
     const remoteTxId = String(remote.transactionId ?? "").trim();
     const currency = remote.currency || order.currency || "USD";
+    const amount =
+      remote.amount !== undefined && remote.amount !== null && remote.amount !== ""
+        ? remote.amount
+        : order.amountUsd;
 
     // Echoed tran_id for another order: fail with ORDER_NUMBER_MISMATCH.
     if (remoteOrderNumber && remoteOrderNumber !== order.orderNumber) {
-      return { ...base, orderNumber: remoteOrderNumber, transactionId: remoteTxId || null };
+      return { ...base, amount, currency, orderNumber: remoteOrderNumber, transactionId: remoteTxId || null };
     }
 
     // Echoed Payway id must be this order's paymentRef (or our own id echoed
@@ -233,7 +241,7 @@ export function buildRemoteSnapshotForValidation(
       remoteTxId !== order.orderNumber &&
       !paymentRefIsOrderNumber
     ) {
-      return { ...base, currency, orderNumber: order.orderNumber, transactionId: remoteTxId };
+      return { ...base, amount, currency, orderNumber: order.orderNumber, transactionId: remoteTxId };
     }
 
     const bound =
@@ -242,11 +250,11 @@ export function buildRemoteSnapshotForValidation(
       String(remote.queryId ?? "").trim() === order.orderNumber;
 
     if (bound) {
-      return { ...base, currency, orderNumber: order.orderNumber, transactionId: order.paymentRef };
+      return { ...base, amount, currency, orderNumber: order.orderNumber, transactionId: order.paymentRef };
     }
 
     // Nothing ties this response to the order: fail with MISSING_TRANSACTION_ID.
-    return { ...base, currency, orderNumber: null, transactionId: null };
+    return { ...base, amount, currency, orderNumber: null, transactionId: null };
   }
 
   return {
