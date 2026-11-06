@@ -1,0 +1,192 @@
+import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
+import { getSupplier } from "@/lib/topup";
+import { notifyTelegram, escapeHtml } from "@/lib/telegram";
+import { updateSpinOrderTelegramAlert } from "@/lib/telegram-order-notification";
+import { publicRateLimit } from "@/lib/apiSecurity";
+import { verifyOrderToken } from "@/lib/orderToken";
+import { logSecurityEvent } from "@/lib/secureLogger";
+import { getClientIp } from "@/lib/getIp";
+
+export const dynamic = "force-dynamic";
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ orderNumber: string }> }
+) {
+  try {
+    const { orderNumber } = await params;
+    if (!orderNumber) {
+      return NextResponse.json({ error: "Order number is required" }, { status: 400 });
+    }
+
+    // ── Token validation (FIND-001 fix) ────────────────────────────────────
+    const token = req.nextUrl.searchParams.get("token");
+    const isTokenValid = verifyOrderToken(orderNumber, token);
+    
+    if (!isTokenValid) {
+      logSecurityEvent({
+        event: "spin_claim_unauthorized",
+        detail: `Attempted spin claim without valid token: ${orderNumber}`,
+        ip: getClientIp(req),
+      });
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    const limited = publicRateLimit(req, `claim:${orderNumber}`, {
+      limit: 10,
+      windowMs: 60_000,
+    });
+    if (limited) return limited;
+
+    const tx = await prisma.randomSpinTransaction.findUnique({
+      where: { orderNumber },
+      include: {
+        order: {
+          include: {
+            game: true,
+          },
+        },
+        package: true,
+      },
+    });
+
+    if (!tx) {
+      return NextResponse.json({ error: "Spin transaction not found" }, { status: 404 });
+    }
+
+    // 1. Prevent double-claiming rewards & expired state
+    if (tx.status === "COMPLETED") {
+      return NextResponse.json({
+        ok: true,
+        alreadyClaimed: true,
+        expired: true,
+        message: "Reward has already been claimed and this spin is expired",
+        rewardLabel: tx.winningRewardLabel,
+        rewardAmount: tx.winningRewardAmount,
+        claimedAt: tx.claimedAt,
+      });
+    }
+
+    if (tx.status !== "SPUN" && tx.status !== "FAILED") {
+      return NextResponse.json(
+        { error: "Please spin the wheel before claiming your reward" },
+        { status: 400 }
+      );
+    }
+
+    // Refunded / cancelled / unpaid orders cannot claim a reward.
+    if (!["PAID", "PROCESSING", "DELIVERED"].includes(tx.order.status)) {
+      return NextResponse.json(
+        { error: "Order is not paid" },
+        { status: 402 }
+      );
+    }
+
+    // Atomic lock: Only one concurrent request can transition SPUN / FAILED -> CLAIMING
+    const locked = await prisma.randomSpinTransaction.updateMany({
+      where: { id: tx.id, status: { in: ["SPUN", "FAILED"] } },
+      data: { status: "CLAIMING" },
+    });
+
+    if (locked.count !== 1) {
+      return NextResponse.json(
+        { error: "Reward is already being processed or has been claimed" },
+        { status: 409 }
+      );
+    }
+
+    if (!tx.winningSlotId || tx.winningRewardAmount === null) {
+      await prisma.randomSpinTransaction.update({
+        where: { id: tx.id },
+        data: { status: "SPUN" },
+      });
+      return NextResponse.json(
+        { error: "No winning reward recorded for this spin" },
+        { status: 400 }
+      );
+    }
+
+    const order = tx.order;
+    const supplierName = tx.winningSupplier || "bay2game";
+    const productCode = tx.winningSupplierCode;
+
+    let fulfillmentRef = `SPIN-${order.orderNumber}`;
+    let fulfillmentStatus = "COMPLETED";
+    let deliveryNote = `Lucky Spin Won: ${tx.winningRewardLabel}`;
+
+    // 2. Deliver reward via upstream supplier API if supplierCode is configured
+    if (productCode && supplierName !== "manual") {
+      try {
+        const supplier = getSupplier(supplierName);
+        const topupResult = await supplier.createOrder({
+          orderReference: `${order.orderNumber}-SPIN`,
+          productCode,
+          playerId: order.playerUid,
+          serverId: order.serverId || undefined,
+        });
+
+        if (topupResult.success) {
+          fulfillmentRef = topupResult.transactionId || fulfillmentRef;
+          deliveryNote += ` (Delivered via ${supplier.displayName} Ref: ${fulfillmentRef})`;
+        } else {
+          console.warn(`Upstream topup error for spin ${order.orderNumber}:`, topupResult.error);
+          fulfillmentStatus = "PENDING_DELIVERY";
+          deliveryNote += ` (Upstream ${supplier.displayName} pending: ${topupResult.error || "Unknown error"})`;
+        }
+      } catch (err: any) {
+        console.error("Upstream supplier exception during claim:", err);
+        fulfillmentStatus = "PENDING_DELIVERY";
+        deliveryNote += ` (Supplier error: ${err?.message || "Connection failed"})`;
+      }
+    } else if (supplierName === "manual") {
+      fulfillmentStatus = "MANUAL_DELIVERY_REQUIRED";
+      deliveryNote += ` (Manual dispatch required by Admin)`;
+    }
+
+    // 3. Update RandomSpinTransaction to COMPLETED
+    const claimedAt = new Date();
+    await prisma.randomSpinTransaction.update({
+      where: { id: tx.id },
+      data: {
+        status: "COMPLETED",
+        claimedAt,
+        fulfillmentRef,
+        fulfillmentStatus,
+        deliveryError: null,
+      },
+    });
+
+    // 4. Update parent Order to DELIVERED
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: "DELIVERED",
+        deliveredAt: claimedAt,
+        deliveryNote,
+        topupProviderRef: fulfillmentRef,
+        topupStatus: "success",
+      },
+    });
+
+    // 5. Telegram notification: Edit the existing quote alert to Success ✅
+    await updateSpinOrderTelegramAlert(order.orderNumber, "COMPLETED", {
+      at: claimedAt,
+    }).catch((err) => {
+      console.warn("[spin-claim] Failed to update telegram spin alert:", err);
+    });
+
+    return NextResponse.json({
+      ok: true,
+      status: "COMPLETED",
+      rewardLabel: tx.winningRewardLabel,
+      rewardAmount: tx.winningRewardAmount,
+      claimedAt,
+      fulfillmentRef,
+    });
+  } catch (err: any) {
+    console.error("Error claiming spin reward:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+

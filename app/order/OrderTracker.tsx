@@ -1,0 +1,764 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import {
+  Search,
+  Package,
+  CheckCircle2,
+  XCircle,
+  Truck,
+  CreditCard,
+  Send,
+  Copy,
+  Check,
+  ExternalLink,
+  Gift,
+} from "lucide-react";
+import OrderAccessForm from "@/components/OrderAccessForm";
+import { getOrderToken, getStoredOrderToken, withOrderToken } from "@/lib/orderAccess";
+
+interface OrderInfo {
+  orderNumber: string;
+  status: string;
+  gameName: string;
+  productName: string;
+  playerUidMasked: string | null;
+  serverIdMasked?: string | null;
+  amountUsd: number;
+  paymentMethod: string;
+  createdAt: string;
+  paidAt: string | null;
+  deliveredAt: string | null;
+  redeemCode?: string | null;
+}
+
+const TIMELINE_STEPS = [
+  { key: "PENDING", label: "Order Created", Icon: Package },
+  { key: "PAID", label: "Payment Received", Icon: CreditCard },
+  { key: "DELIVERED", label: "Delivered", Icon: Truck },
+];
+
+const STATUS_ORDER: Record<string, number> = {
+  PENDING: 0,
+  PAID: 1,
+  PROCESSING: 1,
+  DELIVERED: 2,
+  FAILED: -1,
+  REFUNDED: -1,
+  CANCELLED: -1,
+};
+
+const STATUS_META: Record<
+  string,
+  { label: string; color: string; desc: string }
+> = {
+  PENDING: {
+    label: "រង់ចាំការទូទាត់",
+    color: "text-yellow-600 border-yellow-300 bg-yellow-100",
+    desc: "កំពុងរង់ចាំការទូទាត់របស់អ្នក",
+  },
+  PAID: {
+    label: "ទទួលបានការទូទាត់",
+    color: "text-blue-600 border-blue-300 bg-blue-100",
+    desc: "កំពុងដំណើរការ Top-Up",
+  },
+  PROCESSING: {
+    label: "កំពុងដំណើរការ",
+    color: "text-blue-600 border-blue-300 bg-blue-100",
+    desc: "ដឹកជញ្ជូន Credits ទៅគណនីរបស់អ្នក",
+  },
+  DELIVERED: {
+    label: "Delivered",
+    color: "text-green-600 border-green-400/40 bg-green-400/10",
+    desc: "Credits sent to your account!",
+  },
+  FAILED: {
+    label: "Failed",
+    color: "text-red-500 border-red-400/40 bg-red-400/10",
+    desc: "Something went wrong — contact support",
+  },
+  REFUNDED: {
+    label: "Refunded",
+    color: "text-pink-500 border-pink-200 bg-white",
+    desc: "Order refunded",
+  },
+  CANCELLED: {
+    label: "Cancelled",
+    color: "text-pink-500 border-pink-200 bg-white",
+    desc: "Order was cancelled",
+  },
+};
+
+const DEFAULT_STATUS_META = {
+  label: "Unknown",
+  color: "text-pink-500 border-pink-200 bg-white",
+  desc: "Unknown order status",
+};
+
+const TERMINAL_STATUSES = new Set([
+  "DELIVERED",
+  "FAILED",
+  "REFUNDED",
+  "CANCELLED",
+]);
+
+function normalizeStatus(status?: string | null) {
+  return String(status || "").trim().toUpperCase();
+}
+
+function cleanOrderNumber(value: string) {
+  return value.trim().toUpperCase();
+}
+
+class OrderLookupError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+  }
+}
+
+/** Current page URL without the private order token, safe to share publicly. */
+function shareableUrl(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("token");
+    return url.toString();
+  } catch {
+    return window.location.origin;
+  }
+}
+
+export default function OrderTracker() {
+  const [orderNumber, setOrderNumber] = useState("");
+  const [order, setOrder] = useState<OrderInfo | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copiedOrder, setCopiedOrder] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+  /** Order number awaiting Player UID verification (no valid token known). */
+  const [accessOrderNumber, setAccessOrderNumber] = useState<string | null>(null);
+
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoLoadedRef = useRef(false);
+  const knownTokenRef = useRef<{ orderNumber: string; token: string } | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
+  const fetchOrder = useCallback(async (orderNum: string, orderToken: string) => {
+    const clean = cleanOrderNumber(orderNum);
+
+    const res = await fetch(
+      withOrderToken(`/api/orders/status?orderNumber=${encodeURIComponent(clean)}`, orderToken),
+      { cache: "no-store" }
+    );
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new OrderLookupError(data?.error || "Order not found", res.status);
+    }
+
+    const data: OrderInfo = await res.json();
+    return data;
+  }, []);
+
+  const syncPayment = useCallback(async (_orderNum: string) => {
+    // Public order page is read-only. Payment status is changed by backend webhook/verification only.
+  }, []);
+
+  const startPolling = useCallback(
+    (orderNum: string, orderToken: string) => {
+      stopPolling();
+
+      pollRef.current = setInterval(async () => {
+        try {
+          await syncPayment(orderNum);
+
+          const data = await fetchOrder(orderNum, orderToken);
+          const status = normalizeStatus(data.status);
+
+          setOrder(data);
+
+          if (TERMINAL_STATUSES.has(status)) {
+            stopPolling();
+          }
+        } catch {
+          // Silent polling error
+        }
+      }, 10000);
+    },
+    [fetchOrder, stopPolling, syncPayment]
+  );
+
+
+  const loadOrderByNumber = useCallback(
+    async (
+      rawOrderNumber: string,
+      options?: { silent?: boolean; token?: string | null }
+    ) => {
+      const clean = cleanOrderNumber(rawOrderNumber);
+      if (!clean) return;
+
+      // Explicit token (URL / just recovered) wins, then the token already in use
+      // for this order, then localStorage. The URL ?token= is only trusted for the
+      // order number in the URL (handled by the initial-load effect).
+      const known = knownTokenRef.current;
+      const orderToken =
+        options?.token ||
+        (known && known.orderNumber === clean ? known.token : null) ||
+        getStoredOrderToken(clean);
+
+      if (!options?.silent) {
+        setLoading(true);
+        setError(null);
+        setOrder(null);
+        setAccessOrderNumber(null);
+      }
+
+      if (!orderToken) {
+        // No token known for this order: ask for the Player UID first.
+        stopPolling();
+        setToken(null);
+        setAccessOrderNumber(clean);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        await syncPayment(clean);
+
+        const data = await fetchOrder(clean, orderToken);
+        const status = normalizeStatus(data.status);
+
+        setOrder(data);
+        setOrderNumber(data.orderNumber);
+        setToken(orderToken);
+        knownTokenRef.current = { orderNumber: clean, token: orderToken };
+
+        if (!TERMINAL_STATUSES.has(status)) {
+          startPolling(data.orderNumber, orderToken);
+        } else {
+          stopPolling();
+        }
+      } catch (err) {
+        if (!options?.silent) {
+          if (err instanceof OrderLookupError && err.status === 404) {
+            // Stale or wrong token: offer Player UID recovery.
+            setToken(null);
+            knownTokenRef.current = null;
+            setAccessOrderNumber(clean);
+          } else {
+            setError(err instanceof Error ? err.message : "Order not found");
+          }
+        }
+      } finally {
+        if (!options?.silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [fetchOrder, startPolling, syncPayment, stopPolling]
+  );
+
+  useEffect(() => {
+    return () => stopPolling();
+  }, [stopPolling]);
+
+  useEffect(() => {
+    if (autoLoadedRef.current) return;
+    autoLoadedRef.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const initialOrderNumber =
+      params.get("number") ||
+      params.get("orderNumber") ||
+      params.get("order") ||
+      params.get("q");
+
+    if (!initialOrderNumber) return;
+
+    const clean = cleanOrderNumber(initialOrderNumber);
+    setOrderNumber(clean);
+    // getOrderToken() reads and persists ?token= from the URL.
+    void loadOrderByNumber(clean, { token: getOrderToken(clean) });
+  }, [loadOrderByNumber]);
+
+  async function lookup(e: React.FormEvent) {
+    e.preventDefault();
+    await loadOrderByNumber(orderNumber);
+  }
+
+  async function copyOrderNumber() {
+    if (!order?.orderNumber) return;
+
+    try {
+      await navigator.clipboard.writeText(order.orderNumber);
+    } catch {
+      const input = document.createElement("input");
+      input.value = order.orderNumber;
+      input.setAttribute("readonly", "true");
+      input.style.position = "absolute";
+      input.style.left = "-9999px";
+
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+    }
+
+    setCopiedOrder(true);
+    window.setTimeout(() => setCopiedOrder(false), 1800);
+  }
+
+  const [copiedRedeem, setCopiedRedeem] = useState(false);
+
+  async function copyRedeemCode(code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch {
+      const input = document.createElement("input");
+      input.value = code;
+      input.setAttribute("readonly", "true");
+      input.style.position = "absolute";
+      input.style.left = "-9999px";
+
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+    }
+
+    setCopiedRedeem(true);
+    window.setTimeout(() => setCopiedRedeem(false), 2000);
+  }
+
+  const orderStatus = order ? normalizeStatus(order.status) : "";
+  const meta = order
+    ? STATUS_META[orderStatus] ?? DEFAULT_STATUS_META
+    : null;
+
+  const currentStep = order ? STATUS_ORDER[orderStatus] ?? -1 : -1;
+  const isFailed = order ? currentStep === -1 : false;
+  const isPolling = order ? !TERMINAL_STATUSES.has(orderStatus) : false;
+
+  return (
+    <>
+      <main className="mx-auto max-w-2xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+        <div className="mb-8 text-center sm:mb-10">
+          <h1 className="font-display mb-2 text-3xl font-bold sm:text-4xl">
+            តាមដានការបញ្ជាទិញ
+          </h1>
+
+          <p className="text-sm text-pink-500 sm:text-base">
+            បញ្ចូលលេខបញ្ជាទិញ
+          </p>
+        </div>
+
+        <form onSubmit={lookup} className="card mb-8 p-5 sm:p-6">
+          <label className="label">លេខបញ្ជាទិញ</label>
+
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={orderNumber}
+              onChange={(e) => setOrderNumber(e.target.value.toUpperCase())}
+              placeholder="RT-XXXXXXXXXX"
+              className="input font-mono text-lg uppercase"
+              required
+            />
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary shrink-0"
+            >
+              {loading ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" />
+              ) : (
+                <>
+                  <Search className="h-4 w-4" strokeWidth={2.5} />
+                  ស្វែងរក
+                </>
+              )}
+            </button>
+          </div>
+
+          {error && (
+            <p className="mt-3 flex items-center gap-2 text-sm text-red-500">
+              <XCircle className="h-4 w-4 shrink-0" strokeWidth={2} />
+              {error}
+            </p>
+          )}
+        </form>
+
+        {accessOrderNumber && !order && (
+          <OrderAccessForm
+            key={accessOrderNumber}
+            orderNumber={accessOrderNumber}
+            className="card mb-8 p-5 sm:p-6"
+            onToken={(recovered) =>
+              void loadOrderByNumber(accessOrderNumber, { token: recovered })
+            }
+          />
+        )}
+
+        {order && meta && (
+          <div className="card fade-up overflow-hidden">
+            <div className="border-b border-pink-200 p-5 sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="mb-1 text-[10px] uppercase tracking-widest text-pink-500">
+                    Order
+                  </p>
+
+                  <p className="break-all font-mono text-lg font-bold sm:text-xl">
+                    {order.orderNumber}
+                  </p>
+                </div>
+
+                <div
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${meta.color}`}
+                >
+                  {meta.label}
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={copyOrderNumber}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-pink-200 bg-white px-4 py-3 text-sm font-bold text-pink-600 transition hover:bg-pink-50 active:scale-[0.99]"
+                >
+                  {copiedOrder ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                  {copiedOrder ? "Copied" : "Copy Order"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    void loadOrderByNumber(order.orderNumber, { silent: true })
+                  }
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-pink-100 px-4 py-3 text-sm font-bold text-pink-700 transition hover:bg-pink-200 active:scale-[0.99]"
+                >
+                  <Search className="h-4 w-4" />
+                  Refresh
+                </button>
+              </div>
+
+              {isPolling && (
+                <div className="mt-3 flex items-center gap-2 text-xs text-pink-500">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-green-400" />
+                  </span>
+                  Auto-updating every 10 seconds
+                </div>
+              )}
+            </div>
+
+            {/* 🎟️ VIP Redeem Code Box */}
+            {order.redeemCode && (
+              <div className="border-b border-purple-200 bg-gradient-to-b from-purple-50 via-white to-purple-50/70 p-5 sm:p-6 animate-scale-in">
+                <div className="flex items-center justify-between gap-2 mb-2.5">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black tracking-wide shadow-md shadow-purple-500/25">
+                    <span>🎟️</span> REDEEM CODE
+                  </div>
+                  <span className="text-[11px] font-bold text-purple-700 bg-purple-100/90 border border-purple-200 px-2.5 py-0.5 rounded-full">
+                    រួចរាល់សម្រាប់ប្រើប្រាស់
+                  </span>
+                </div>
+
+                <p className="text-xs text-purple-900/80 mb-2.5 font-medium">
+                  លេខកូដ Redeem របស់អ្នក៖
+                </p>
+
+                {/* Code display with copy button */}
+                <div className="flex items-center justify-between gap-2 bg-white p-3.5 rounded-2xl border-2 border-purple-200 shadow-sm focus-within:border-purple-500 transition-colors">
+                  <span className="font-mono text-base sm:text-xl font-black text-purple-950 tracking-wider break-all select-all">
+                    {order.redeemCode}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => copyRedeemCode(order.redeemCode!)}
+                    className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-3.5 py-2 text-xs font-black shadow-md shadow-purple-500/25 transition active:scale-95 cursor-pointer"
+                  >
+                    {copiedRedeem ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-purple-200" />
+                        <span>បានចម្លង!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5 text-white" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Full-width 1-Click copy button */}
+                <button
+                  type="button"
+                  onClick={() => copyRedeemCode(order.redeemCode!)}
+                  className="mt-3.5 w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 hover:from-purple-700 hover:via-violet-700 hover:to-indigo-700 text-white py-3.5 px-4 text-sm font-black shadow-lg shadow-purple-500/25 transition active:scale-[0.98] cursor-pointer"
+                >
+                  {copiedRedeem ? (
+                    <>
+                      <Check className="h-4 w-4 text-purple-200" />
+                      <span>✓ បានចម្លងលេខកូដរួចរាល់ (Copied!)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4 text-white" />
+                      <span>ចម្លងលេខកូដ (Copy Redeem Code)</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Instructions */}
+                <div className="mt-3.5 pt-3.5 border-t border-purple-200/80 text-xs text-purple-950 space-y-2">
+                  <div className="font-bold flex items-center justify-between gap-1 flex-wrap">
+                    <span>📖 របៀប Redeem លើ Roblox:</span>
+                    <a
+                      href="https://t.me/theziessstore/26"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-white hover:text-white font-extrabold inline-flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 px-3 py-1 rounded-full shadow-sm shadow-purple-500/20 transition-all text-[11px]"
+                    >
+                      <span>🎥 វីដេអូរបៀបប្រើប្រាស់</span> <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                  <ol className="list-decimal list-inside text-[11px] text-purple-900/90 space-y-1">
+                    <li>ចុចប៊ូតុង &quot;Copy&quot; ខាងលើដើម្បីចម្លងលេខកូដ</li>
+                    <li>
+                      ចូលមើលវីដេអូរបៀបប្រើប្រាស់លើ Telegram៖{" "}
+                      <a
+                        href="https://t.me/theziessstore/26"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline font-bold text-purple-700 hover:text-purple-900"
+                      >
+                        t.me/theziessstore/26
+                      </a>
+                    </li>
+                    <li>
+                      ចូលទៅកាន់{" "}
+                      <a
+                        href="https://www.roblox.com/redeem"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline font-bold text-purple-700 hover:text-purple-900"
+                      >
+                        roblox.com/redeem
+                      </a>{" "}
+                      រួចបិទភ្ជាប់ (Paste) លេខកូដដើម្បីទទួលបាន Robux ភ្លាមៗ
+                    </li>
+                  </ol>
+                </div>
+              </div>
+            )}
+
+            {!isFailed && (
+              <div className="border-b border-pink-200 px-5 py-6 sm:px-6">
+                <div className="flex items-center justify-between">
+                  {TIMELINE_STEPS.map((step, i) => {
+                    const isReached = currentStep >= i;
+                    const isCurrent = currentStep === i;
+
+                    return (
+                      <div key={step.key} className="flex flex-1 items-center">
+                        <div className="flex flex-col items-center gap-2">
+                          <div
+                            className={`relative flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-700 sm:h-12 sm:w-12 ${
+                              isReached
+                                ? "border-green-400 bg-green-400/20 text-green-600"
+                                : "border-pink-200 bg-white text-pink-500"
+                            }`}
+                          >
+                            {isReached ? (
+                              <CheckCircle2
+                                className="h-5 w-5 sm:h-6 sm:w-6"
+                                strokeWidth={2.5}
+                              />
+                            ) : (
+                              <step.Icon
+                                className="h-5 w-5 sm:h-6 sm:w-6"
+                                strokeWidth={2}
+                              />
+                            )}
+
+                            {isCurrent && (
+                              <span className="absolute inset-0 animate-ping rounded-full border-2 border-green-400 opacity-30" />
+                            )}
+                          </div>
+
+                          <span
+                            className={`text-center text-[10px] font-medium sm:text-xs ${
+                              isReached ? "text-green-600" : "text-pink-500"
+                            }`}
+                          >
+                            {step.label}
+                          </span>
+                        </div>
+
+                        {i < TIMELINE_STEPS.length - 1 && (
+                          <div className="mx-2 flex-1 sm:mx-3">
+                            <div className="bg-fox-border relative h-1 overflow-hidden rounded-full">
+                              <div
+                                className={`absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-green-400 to-green-500 transition-all duration-1000 ease-out ${
+                                  currentStep > i ? "w-full" : "w-0"
+                                }`}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {isFailed && (
+              <div className="border-b border-pink-200 px-5 py-5 sm:px-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-red-400/60 bg-red-400/10 text-red-500">
+                    <XCircle className="h-5 w-5" strokeWidth={2.5} />
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-red-500">{meta.label}</p>
+                    <p className="text-sm text-pink-500">{meta.desc}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3 p-5 text-sm sm:p-6">
+              <div className="flex justify-between gap-4">
+                <span className="text-pink-500">Game</span>
+                <span className="text-right font-medium">{order.gameName}</span>
+              </div>
+
+              <div className="flex justify-between gap-4">
+                <span className="text-pink-500">កញ្ចប់</span>
+                <span className="text-right font-medium">
+                  {order.productName}
+                </span>
+              </div>
+
+              <div className="flex justify-between gap-4">
+                <span className="text-pink-500">Player ID</span>
+                <span className="break-all text-right font-mono">
+                  {order.playerUidMasked || "Private"}
+                </span>
+              </div>
+
+              <div className="flex justify-between gap-4">
+                <span className="text-pink-500">ការទូទាត់</span>
+                <span className="text-right font-medium">
+                  {String(order.paymentMethod || "KHQR").replace("_", " ")}
+                </span>
+              </div>
+
+              <div className="flex justify-between gap-4">
+                <span className="text-pink-500">តម្លៃ</span>
+                <span className="font-bold text-pink-600">
+                  ${Number(order.amountUsd).toFixed(2)}
+                </span>
+              </div>
+
+              <div className="space-y-3 border-t border-pink-200 pt-3">
+                <div className="flex justify-between gap-4 text-xs">
+                  <span className="text-pink-500">បានបង្កើត</span>
+                  <span className="text-right">
+                    {new Date(order.createdAt).toLocaleString()}
+                  </span>
+                </div>
+
+                {order.paidAt && (
+                  <div className="flex justify-between gap-4 text-xs">
+                    <span className="text-pink-500">បានទូទាត់</span>
+                    <span className="text-right">
+                      {new Date(order.paidAt).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
+                {order.deliveredAt && (
+                  <div className="flex justify-between gap-4 text-xs">
+                    <span className="text-pink-500">Delivered</span>
+                    <span className="text-right text-green-600">
+                      {new Date(order.deliveredAt).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {["PAID", "PROCESSING", "DELIVERED"].includes(orderStatus) && (
+              <div className="mx-5 mb-5 rounded-2xl border-2 border-purple-300 bg-gradient-to-r from-purple-900/10 via-purple-600/10 to-pink-600/10 p-4 sm:mx-6 sm:mb-6 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md shadow-purple-500/5">
+                <div className="flex items-center gap-3 text-center sm:text-left">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-purple-600 to-fuchsia-600 text-white shadow-md shadow-purple-500/20">
+                    <Gift className="h-6 w-6 text-yellow-300 animate-bounce" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-purple-950">កាដូសំណាងរង់ចាំអ្នក! (Mystery Gift)</p>
+                    <p className="text-xs text-purple-700">អ្នកមានសិទ្ធិចាប់កាដូសំណាង 1 លើកក្នុងចំណោម 9 ប្រអប់</p>
+                  </div>
+                </div>
+                <Link
+                  href={withOrderToken(`/gift/${order.orderNumber}`, token)}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-2.5 text-xs font-black text-white shadow-md shadow-purple-500/25 hover:from-purple-500 hover:to-indigo-500 active:scale-95 transition-all"
+                >
+                  <span>បើកកាដូ (Open Gift)</span>
+                  <span>🎁</span>
+                </Link>
+              </div>
+            )}
+
+            {orderStatus === "FAILED" && (
+              <div className="mx-5 mb-5 rounded-lg border border-red-300 bg-red-100 p-4 text-sm text-red-500 sm:mx-6 sm:mb-6">
+                មានអ្វីមិនប្រក្រតី! សូមទាក់ទងទៅ{" "}
+                <strong>@Theziess</strong> តាម Telegram ជាមួយលេខបញ្ជាទិញ។
+              </div>
+            )}
+
+            {orderStatus === "DELIVERED" && (
+              <div className="mx-5 mb-5 space-y-3 sm:mx-6 sm:mb-6">
+                <div className="flex items-center gap-2 rounded-lg border border-green-300 bg-green-100 p-4 text-sm text-green-600">
+                  <CheckCircle2 className="h-5 w-5 shrink-0" strokeWidth={2} />
+                  Diamond បានដឹកជញ្ជូនជោគជ័យ!
+                </div>
+
+                <a
+                  href={`https://t.me/share/url?url=${encodeURIComponent(
+                    shareableUrl()
+                  )}&text=${encodeURIComponent(
+                    `⚡ Just topped up ${order.productName} for ${order.gameName} on TheziessStore! Fast & easy 🔥`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#229ED9]/40 bg-[#229ED9]/10 py-3 text-sm font-medium text-[#229ED9] transition-colors hover:bg-[#229ED9]/20"
+                >
+                  <Send className="h-4 w-4" strokeWidth={2} />
+                  ចែករំលែកទៅ Telegram
+                </a>
+              </div>
+            )}
+
+          </div>
+        )}
+      </main>
+    </>
+  );
+}

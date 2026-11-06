@@ -1,0 +1,540 @@
+"use client";
+
+import { adminFetch } from "@/lib/adminFetch";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+
+export default function AdminGamesPage() {
+  const [games, setGames] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    const res = await adminFetch("/api/admin/games");
+    setGames(await res.json());
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  async function toggleZoneId(game: any) {
+    await adminFetch(`/api/admin/games/${game.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hasZoneId: !game.hasZoneId }),
+    });
+    await load();
+  }
+
+  async function toggleActive(game: any) {
+    await adminFetch(`/api/admin/games/${game.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !game.active }),
+    });
+    await load();
+  }
+
+  async function toggleFeatured(game: any) {
+    await adminFetch(`/api/admin/games/${game.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ featured: !game.featured }),
+    });
+    await load();
+  }
+
+  async function deleteGame(game: any) {
+    if (!confirm(`Delete "${game.name}" and all its products/orders? This cannot be undone.`)) return;
+    await adminFetch(`/api/admin/games/${game.id}`, { method: "DELETE" });
+    await load();
+  }
+
+  async function reorder(id: string, direction: "up" | "down") {
+    await adminFetch("/api/admin/games/reorder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, direction }),
+    });
+    await load();
+  }
+
+  return (
+    <div className="p-8">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="font-display text-3xl font-bold">Games</h1>
+          <p className="text-fox-muted">Manage the games you sell top-ups for.</p>
+        </div>
+        <button onClick={() => setCreating(true)} className="btn-primary">+ Add Game</button>
+      </div>
+
+      {(creating || editing) && (
+        <GameForm
+          initial={editing}
+          onCancel={() => {
+            setCreating(false);
+            setEditing(null);
+          }}
+          onSaved={async () => {
+            setCreating(false);
+            setEditing(null);
+            await load();
+          }}
+        />
+      )}
+
+      <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-fox-surface text-fox-muted text-xs uppercase tracking-wider">
+              <tr>
+                <th className="text-left px-5 py-3">Game</th>
+                <th className="text-left px-5 py-3">Slug</th>
+                <th className="text-left px-5 py-3">Publisher</th>
+                <th className="text-right px-5 py-3">Products</th>
+                <th className="text-right px-5 py-3">Orders</th>
+                <th className="text-center px-5 py-3">Zone ID</th>
+                <th className="text-center px-5 py-3">Featured</th>
+                <th className="text-center px-5 py-3">Active</th>
+                <th className="text-right px-5 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-fox-border">
+              {loading ? (
+                <tr><td colSpan={9} className="px-5 py-12 text-center text-fox-muted">Loading...</td></tr>
+              ) : games.length === 0 ? (
+                <tr><td colSpan={9} className="px-5 py-16 text-center">
+                    <div className="text-4xl mb-3">🎮</div>
+                    <p className="text-fox-muted mb-1">No games yet</p>
+                    <p className="text-xs text-fox-muted/60 mb-3">Add your first game to start selling top-ups.</p>
+                    <button onClick={() => setCreating(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-fox-primary px-4 py-2 text-sm font-semibold text-black hover:bg-fox-primary/90 transition-colors">+ Add Game</button>
+                </td></tr>
+              ) : (
+                games.map((g, idx) => (
+                  <tr key={g.id} className="hover:bg-fox-surface/50">
+                    <td className="px-5 py-3 font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-0.5">
+                          <button
+                            onClick={() => reorder(g.id, "up")}
+                            disabled={idx === 0}
+                            className="text-xs text-fox-muted hover:text-fox-primary disabled:opacity-20"
+                            title="Move up"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            onClick={() => reorder(g.id, "down")}
+                            disabled={idx === games.length - 1}
+                            className="text-xs text-fox-muted hover:text-fox-primary disabled:opacity-20"
+                            title="Move down"
+                          >
+                            ▼
+                          </button>
+                        </div>
+                        <span>{g.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="font-mono text-xs text-fox-muted">{g.slug}</div>
+                      {(g.checkIdGameCode || g.topupGameCode) && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {g.checkIdGameCode && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-500/15 text-blue-400 border border-blue-500/30" title="Check ID API Game Code">
+                              ID: {g.checkIdGameCode}
+                            </span>
+                          )}
+                          {g.topupGameCode && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" title="Topup API Game Code">
+                              Topup: {g.topupGameCode}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-fox-muted">{g.publisher}</td>
+                    <td className="px-5 py-3 text-right font-mono">{g._count.products}</td>
+                    <td className="px-5 py-3 text-right font-mono">{g._count.orders}</td>
+                    <td className="px-5 py-3 text-center">
+                      <button
+                        onClick={() => toggleZoneId(g)}
+                        title={g.hasZoneId ? "Zone ID: Open (ត្រូវការ Zone ID)" : "Zone ID: Close (មិនត្រូវការ)"}
+                        className="inline-flex items-center gap-1.5 focus:outline-none"
+                      >
+                        <span className={`inline-block h-5 w-9 rounded-full relative transition-colors ${g.hasZoneId ? "bg-purple-600" : "bg-fox-border"}`}>
+                          <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${g.hasZoneId ? "translate-x-4" : "translate-x-0.5"}`} />
+                        </span>
+                        <span className={`text-[11px] font-semibold ${g.hasZoneId ? "text-purple-400" : "text-fox-muted"}`}>
+                          {g.hasZoneId ? "Open" : "Close"}
+                        </span>
+                      </button>
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      <button onClick={() => toggleFeatured(g)} className={g.featured ? "text-fox-accent" : "text-fox-muted"}>
+                        {g.featured ? "★" : "☆"}
+                      </button>
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      <button onClick={() => toggleActive(g)}>
+                        <span className={`inline-block h-5 w-9 rounded-full relative transition-colors ${g.active ? "bg-green-500" : "bg-fox-border"}`}>
+                          <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${g.active ? "translate-x-4" : "translate-x-0.5"}`} />
+                        </span>
+                      </button>
+                    </td>
+                    <td className="px-5 py-3 text-right space-x-2">
+                      <Link href={`/admin/products?gameId=${g.id}`} className="text-fox-primary text-xs hover:underline">Products</Link>
+                      <button onClick={() => setEditing(g)} className="text-fox-accent text-xs hover:underline">Edit</button>
+                      <button onClick={() => deleteGame(g)} className="text-red-400 text-xs hover:underline">Delete</button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GameForm({ initial, onCancel, onSaved }: { initial: any; onCancel: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({
+    slug: initial?.slug || "",
+    name: initial?.name || "",
+    publisher: initial?.publisher || "",
+    description: initial?.description || "",
+    imageUrl: initial?.imageUrl || "",
+    bannerUrl: initial?.bannerUrl || "",
+    currencyName: initial?.currencyName || "",
+    uidLabel: initial?.uidLabel || "Player ID",
+    uidExample: initial?.uidExample || "",
+    requiresServer: initial?.requiresServer || false,
+    hasZoneId: initial?.hasZoneId || false,
+    servers: (() => { try { return (JSON.parse(initial?.servers || "[]") as string[]).join(", "); } catch { return ""; } })(),
+    featured: initial?.featured || false,
+    active: initial?.active ?? true,
+    sortOrder: initial?.sortOrder || 0,
+    checkIdGameCode: initial?.checkIdGameCode || "",
+    topupGameCode: initial?.topupGameCode || "",
+    processingTitle: initial?.processingTitle || "",
+    processingDesc: initial?.processingDesc || "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    const payload = {
+      ...form,
+      hasZoneId: Boolean(form.hasZoneId),
+      servers: JSON.stringify(form.servers.split(",").map((s: string) => s.trim()).filter(Boolean)),
+      bannerUrl: form.bannerUrl || undefined,
+      description: form.description || undefined,
+      uidExample: form.uidExample || undefined,
+      checkIdGameCode: form.checkIdGameCode.trim() || undefined,
+      topupGameCode: form.topupGameCode.trim() || undefined,
+      processingTitle: form.processingTitle.trim() || undefined,
+      processingDesc: form.processingDesc.trim() || undefined,
+    };
+    const url = initial ? `/api/admin/games/${initial.id}` : "/api/admin/games";
+    const method = initial ? "PATCH" : "POST";
+    const res = await adminFetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error || "Failed to save");
+      setSaving(false);
+      return;
+    }
+    onSaved();
+  }
+
+  return (
+    <form onSubmit={save} className="card p-6 mb-6">
+      <h3 className="font-semibold text-lg mb-4">{initial ? "Edit Game" : "Add New Game"}</h3>
+
+      <div className="grid md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label className="label">Name</label>
+          <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+        </div>
+        <div>
+          <label className="label">Slug (URL-safe)</label>
+          <input
+            className="input font-mono"
+            value={form.slug}
+            onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })}
+            disabled={!!initial}
+            required
+          />
+        </div>
+        <div>
+          <label className="label">Publisher</label>
+          <input className="input" value={form.publisher} onChange={(e) => setForm({ ...form, publisher: e.target.value })} required />
+        </div>
+        <div>
+          <label className="label">Currency Name (e.g. Diamonds)</label>
+          <input className="input" value={form.currencyName} onChange={(e) => setForm({ ...form, currencyName: e.target.value })} required />
+        </div>
+        <div>
+          <label className="label">Image (cover)</label>
+          <ImageField
+            value={form.imageUrl}
+            onChange={(v) => setForm({ ...form, imageUrl: v })}
+            required
+          />
+        </div>
+        <div>
+          <label className="label">Banner (optional, wide)</label>
+          <ImageField
+            value={form.bannerUrl}
+            onChange={(v) => setForm({ ...form, bannerUrl: v })}
+          />
+        </div>
+        <div>
+          <label className="label">UID Label</label>
+          <input className="input" value={form.uidLabel} onChange={(e) => setForm({ ...form, uidLabel: e.target.value })} />
+        </div>
+        <div>
+          <label className="label">UID Example</label>
+          <input className="input" value={form.uidExample} onChange={(e) => setForm({ ...form, uidExample: e.target.value })} />
+        </div>
+        <div className="md:col-span-2">
+          <label className="label">Description</label>
+          <input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+        </div>
+
+        <div className="md:col-span-2 p-4 rounded-xl bg-fox-surface/80 border border-fox-border space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <span className="text-sm font-semibold text-fox-text">🔌 API Integration Codes</span>
+            <span className="text-xs text-fox-muted">Auto-check player ID & automated top-up</span>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="label flex items-center justify-between">
+                <span>Code Game for Check ID (Player Lookup)</span>
+                <span className="text-[10px] text-blue-400 font-mono font-medium">checkIdGameCode</span>
+              </label>
+              <input
+                className="input font-mono text-sm"
+                placeholder="e.g. freefire_sgmy, mlbb, pubgm, hok, bloodstrike"
+                value={form.checkIdGameCode}
+                onChange={(e) => setForm({ ...form, checkIdGameCode: e.target.value })}
+              />
+              <p className="mt-1 text-[11px] text-fox-muted">
+                API code to check & display player in-game username automatically.
+              </p>
+            </div>
+
+            <div>
+              <label className="label flex items-center justify-between">
+                <span>Code Game for Topup (Supplier API)</span>
+                <span className="text-[10px] text-emerald-400 font-mono font-medium">topupGameCode</span>
+              </label>
+              <input
+                className="input font-mono text-sm"
+                placeholder="e.g. freefire_sg, pubgm, mlbb_exclusive"
+                value={form.topupGameCode}
+                onChange={(e) => setForm({ ...form, topupGameCode: e.target.value })}
+              />
+              <p className="mt-1 text-[11px] text-fox-muted">
+                API code for supplier product catalog & automated top-up delivery.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Custom Processing Notice Section */}
+        <div className="md:col-span-2 p-4 rounded-xl bg-pink-500/10 border border-pink-500/20 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <span className="text-sm font-semibold text-pink-300">💬 Custom Processing Notice (កន្លែងកំណត់សារ &quot;កំពុងទាញយកកូដ...&quot;)</span>
+            <span className="text-xs text-fox-muted">កំណត់សារដែលត្រូវបង្ហាញលើ KHQR Modal ពេលអតិថិជនទូទាត់រួចរាល់</span>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="label flex items-center justify-between">
+                <span>Processing Title (ចំណងជើងពេលកំពុងដំណើរការ)</span>
+                <span className="text-[10px] text-pink-400 font-mono">processingTitle</span>
+              </label>
+              <input
+                className="input text-sm"
+                placeholder="e.g. កំពុងទាញយកលេខកូដ Redeem Code... ឬ កំពុងបញ្ចូលពេជ្រជូនលោកអ្នក..."
+                value={form.processingTitle}
+                onChange={(e) => setForm({ ...form, processingTitle: e.target.value })}
+              />
+              <p className="mt-1 text-[11px] text-fox-muted">
+                បើទទេ ប្រព័ន្ធនឹងបង្ហាញតាមប្រភេទហ្គេម (Top-up ឬ Redeem Code) ដោយស្វ័យប្រវត្តិ។
+              </p>
+            </div>
+
+            <div>
+              <label className="label flex items-center justify-between">
+                <span>Processing Subtitle / Description (ការពន្យល់បន្ថែម)</span>
+                <span className="text-[10px] text-pink-400 font-mono">processingDesc</span>
+              </label>
+              <input
+                className="input text-sm"
+                placeholder="e.g. ប្រព័ន្ធកំពុងដំណើរការទាញយកកូដជូនលោកអ្នក សូមរង់ចាំបន្តិច..."
+                value={form.processingDesc}
+                onChange={(e) => setForm({ ...form, processingDesc: e.target.value })}
+              />
+              <p className="mt-1 text-[11px] text-fox-muted">
+                អត្ថបទពិពណ៌នាខាងក្រោម (ឧទាហរណ៍៖ ប្រព័ន្ធកំពុងដំណើរការបញ្ចូលជូនលោកអ្នក សូមរង់ចាំបន្តិច...)
+              </p>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label className="label">Servers (comma-separated, leave blank if not needed)</label>
+          <input className="input" value={form.servers} onChange={(e) => setForm({ ...form, servers: e.target.value })} placeholder="America, Europe, Asia" />
+        </div>
+        <div>
+          <label className="label">Sort Order</label>
+          <input className="input" type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} />
+        </div>
+      </div>
+
+      {/* Zone ID Toggle Section */}
+      <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-purple-200">Zone ID Requirement (User ID + Zone ID)</span>
+            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${form.hasZoneId ? "bg-purple-500/25 text-purple-300 border-purple-500/40" : "bg-fox-surface text-fox-muted border-fox-border"}`}>
+              {form.hasZoneId ? "Open (ត្រូវការ Zone ID)" : "Close (មិនត្រូវការ)"}
+            </span>
+          </div>
+          <p className="text-xs text-purple-300/80 mt-1">
+            បើកជម្រើសនេះសម្រាប់ហ្គេមដែលត្រូវការបញ្ចូលទាំង User ID និង Zone ID ដូចជា <b>Mobile Legends</b> ឬ <b>Magic Chess Go Go</b>។
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setForm({ ...form, hasZoneId: !form.hasZoneId })}
+          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${form.hasZoneId ? "bg-purple-600" : "bg-fox-border"}`}
+          title={form.hasZoneId ? "Click to Close" : "Click to Open"}
+        >
+          <span className={`inline-block h-5 w-5 rounded-full bg-white shadow-lg transform transition duration-200 ease-in-out ${form.hasZoneId ? "translate-x-5" : "translate-x-0"}`} />
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-6 mb-6">
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" checked={form.hasZoneId} onChange={(e) => setForm({ ...form, hasZoneId: e.target.checked })} />
+          <span className="font-medium text-purple-300">Requires Zone ID</span>
+        </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" checked={form.requiresServer} onChange={(e) => setForm({ ...form, requiresServer: e.target.checked })} />
+          Requires server selection
+        </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" checked={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.checked })} />
+          Featured
+        </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
+          Active
+        </label>
+      </div>
+
+      {error && <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300 mb-4">{error}</div>}
+
+      <div className="flex gap-3">
+        <button type="submit" disabled={saving} className="btn-primary">
+          {saving ? "Saving..." : initial ? "Save Changes" : "Create Game"}
+        </button>
+        <button type="button" onClick={onCancel} className="btn-ghost">Cancel</button>
+      </div>
+    </form>
+  );
+}
+
+function ImageField({
+  value,
+  onChange,
+  required,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function handleFile(file: File) {
+    setErr(null);
+    if (file.size > 5 * 1024 * 1024) {
+      setErr("Max 5MB.");
+      return;
+    }
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await adminFetch("/api/admin/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      onChange(data.url);
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-3">
+        {value ? (
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-fox-border bg-fox-bg">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={value} alt="" className="h-full w-full object-cover" />
+          </div>
+        ) : (
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-dashed border-fox-border bg-fox-bg text-xs text-fox-muted">
+            No image
+          </div>
+        )}
+        <label className="btn-ghost cursor-pointer text-sm">
+          {uploading ? "Uploading..." : value ? "Replace" : "Upload"}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+            className="hidden"
+            disabled={uploading}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+              e.target.value = "";
+            }}
+          />
+        </label>
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="text-xs text-red-400 hover:underline"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      <input
+        className="input font-mono text-xs"
+        placeholder="or paste an image URL"
+        value={value}
+        required={required}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {err && <div className="text-xs text-red-400">{err}</div>}
+    </div>
+  );
+}

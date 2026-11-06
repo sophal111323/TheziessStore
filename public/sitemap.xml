@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Homepage -->
+  <url>
+    <loc>https://theziessstore.store/</loc>
+    <lastmod>2026-09-15T00:00:00+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- Game Top Up Pages -->
+  <url>
+    <loc>https://theziessstore.store/games/free-fire</loc>
+    <lastmod>2026-09-15T00:00:00+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://theziessstore.store/games/mobile-legends</loc>
+    <lastmod>2026-09-15T00:00:00+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://theziessstore.store/games/pubg-mobile</loc>
+    <lastmod>2026-09-15T00:00:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Mystery Box / Lucky Wheel Spin Page -->
+  <url>
+    <loc>https://theziessstore.store/spin</loc>
+    <lastmod>2026-09-15T00:00:00+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Information & Help Pages -->
+  <url>
+    <loc>https://theziessstore.store/faq</loc>
+    <lastmod>2026-09-15T00:00:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://theziessstore.store/blog</loc>
+    <lastmod>2026-09-15T00:00:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://theziessstore.store/Terms-of-service</loc>
+    <lastmod>2026-09-15T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://theziessstore.store/privacy-policy</loc>
+    <lastmod>2026-09-15T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+</urlset>
