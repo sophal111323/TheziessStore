@@ -18,6 +18,7 @@ export default function AdminGamesPage() {
   }
   useEffect(() => { load(); }, []);
 
+<<<<<<< HEAD
   async function toggleZoneId(game: any) {
     await adminFetch(`/api/admin/games/${game.id}`, {
       method: "PATCH",
@@ -27,6 +28,8 @@ export default function AdminGamesPage() {
     await load();
   }
 
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   async function toggleActive(game: any) {
     await adminFetch(`/api/admin/games/${game.id}`, {
       method: "PATCH",
@@ -95,7 +98,10 @@ export default function AdminGamesPage() {
                 <th className="text-left px-5 py-3">Publisher</th>
                 <th className="text-right px-5 py-3">Products</th>
                 <th className="text-right px-5 py-3">Orders</th>
+<<<<<<< HEAD
                 <th className="text-center px-5 py-3">Zone ID</th>
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                 <th className="text-center px-5 py-3">Featured</th>
                 <th className="text-center px-5 py-3">Active</th>
                 <th className="text-right px-5 py-3">Actions</th>
@@ -103,9 +109,15 @@ export default function AdminGamesPage() {
             </thead>
             <tbody className="divide-y divide-fox-border">
               {loading ? (
+<<<<<<< HEAD
                 <tr><td colSpan={9} className="px-5 py-12 text-center text-fox-muted">Loading...</td></tr>
               ) : games.length === 0 ? (
                 <tr><td colSpan={9} className="px-5 py-16 text-center">
+=======
+                <tr><td colSpan={8} className="px-5 py-12 text-center text-fox-muted">Loading...</td></tr>
+              ) : games.length === 0 ? (
+                <tr><td colSpan={8} className="px-5 py-16 text-center">
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                     <div className="text-4xl mb-3">🎮</div>
                     <p className="text-fox-muted mb-1">No games yet</p>
                     <p className="text-xs text-fox-muted/60 mb-3">Add your first game to start selling top-ups.</p>
@@ -158,6 +170,7 @@ export default function AdminGamesPage() {
                     <td className="px-5 py-3 text-right font-mono">{g._count.products}</td>
                     <td className="px-5 py-3 text-right font-mono">{g._count.orders}</td>
                     <td className="px-5 py-3 text-center">
+<<<<<<< HEAD
                       <button
                         onClick={() => toggleZoneId(g)}
                         title={g.hasZoneId ? "Zone ID: Open (ត្រូវការ Zone ID)" : "Zone ID: Close (មិនត្រូវការ)"}
@@ -172,6 +185,8 @@ export default function AdminGamesPage() {
                       </button>
                     </td>
                     <td className="px-5 py-3 text-center">
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                       <button onClick={() => toggleFeatured(g)} className={g.featured ? "text-fox-accent" : "text-fox-muted"}>
                         {g.featured ? "★" : "☆"}
                       </button>
@@ -211,15 +226,21 @@ function GameForm({ initial, onCancel, onSaved }: { initial: any; onCancel: () =
     uidLabel: initial?.uidLabel || "Player ID",
     uidExample: initial?.uidExample || "",
     requiresServer: initial?.requiresServer || false,
+<<<<<<< HEAD
     hasZoneId: initial?.hasZoneId || false,
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
     servers: (() => { try { return (JSON.parse(initial?.servers || "[]") as string[]).join(", "); } catch { return ""; } })(),
     featured: initial?.featured || false,
     active: initial?.active ?? true,
     sortOrder: initial?.sortOrder || 0,
     checkIdGameCode: initial?.checkIdGameCode || "",
     topupGameCode: initial?.topupGameCode || "",
+<<<<<<< HEAD
     processingTitle: initial?.processingTitle || "",
     processingDesc: initial?.processingDesc || "",
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -230,15 +251,21 @@ function GameForm({ initial, onCancel, onSaved }: { initial: any; onCancel: () =
     setError(null);
     const payload = {
       ...form,
+<<<<<<< HEAD
       hasZoneId: Boolean(form.hasZoneId),
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
       servers: JSON.stringify(form.servers.split(",").map((s: string) => s.trim()).filter(Boolean)),
       bannerUrl: form.bannerUrl || undefined,
       description: form.description || undefined,
       uidExample: form.uidExample || undefined,
       checkIdGameCode: form.checkIdGameCode.trim() || undefined,
       topupGameCode: form.topupGameCode.trim() || undefined,
+<<<<<<< HEAD
       processingTitle: form.processingTitle.trim() || undefined,
       processingDesc: form.processingDesc.trim() || undefined,
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
     };
     const url = initial ? `/api/admin/games/${initial.id}` : "/api/admin/games";
     const method = initial ? "PATCH" : "POST";
@@ -351,6 +378,7 @@ function GameForm({ initial, onCancel, onSaved }: { initial: any; onCancel: () =
             </div>
           </div>
         </div>
+<<<<<<< HEAD
 
         {/* Custom Processing Notice Section */}
         <div className="md:col-span-2 p-4 rounded-xl bg-pink-500/10 border border-pink-500/20 space-y-3">
@@ -393,6 +421,8 @@ function GameForm({ initial, onCancel, onSaved }: { initial: any; onCancel: () =
             </div>
           </div>
         </div>
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
         <div>
           <label className="label">Servers (comma-separated, leave blank if not needed)</label>
           <input className="input" value={form.servers} onChange={(e) => setForm({ ...form, servers: e.target.value })} placeholder="America, Europe, Asia" />
@@ -403,6 +433,7 @@ function GameForm({ initial, onCancel, onSaved }: { initial: any; onCancel: () =
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* Zone ID Toggle Section */}
       <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <div>
@@ -440,6 +471,18 @@ function GameForm({ initial, onCancel, onSaved }: { initial: any; onCancel: () =
           Featured
         </label>
         <label className="flex items-center gap-2 text-sm cursor-pointer">
+=======
+      <div className="flex gap-6 mb-6">
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={form.requiresServer} onChange={(e) => setForm({ ...form, requiresServer: e.target.checked })} />
+          Requires server selection
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.checked })} />
+          Featured
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
           <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
           Active
         </label>

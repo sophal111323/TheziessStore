@@ -33,8 +33,11 @@ type OrderPayment = {
   deliveryNote?: string | null;
   gameSlug?: string | null;
   gameName?: string | null;
+<<<<<<< HEAD
   processingTitle?: string | null;
   processingDesc?: string | null;
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   isRandomSpin?: boolean;
   expiresAt?: string | null;
   paymentExpiresAt?: string | null;
@@ -121,6 +124,7 @@ export default function KHQRBottomSheet({
   const expireValue =
     currentOrder.expiresAt ?? currentOrder.paymentExpiresAt ?? null;
 
+<<<<<<< HEAD
   // Fallback: 3 minutes (180s) from opening if expiresAt is not provided
   const [fallbackExpireMs, setFallbackExpireMs] = useState(() => Date.now() + 180 * 1000);
 
@@ -140,6 +144,14 @@ export default function KHQRBottomSheet({
   const mins = String(Math.floor(remainingSeconds / 60)).padStart(2, "0");
   const secs = String(remainingSeconds % 60).padStart(2, "0");
   const isLow = remainingSeconds <= 60;
+=======
+  const expiresMs = useMemo(() => {
+    if (!expireValue) return null;
+
+    const value = new Date(expireValue).getTime();
+    return Number.isNaN(value) ? null : value;
+  }, [expireValue]);
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 
   const expired =
     currentOrder.isExpired === true ||
@@ -419,7 +431,10 @@ export default function KHQRBottomSheet({
       }
 
       replaceOrder(data);
+<<<<<<< HEAD
       setFallbackExpireMs(Date.now() + 180 * 1000);
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
       setNow(Date.now());
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to create new KHQR");
@@ -490,6 +505,18 @@ export default function KHQRBottomSheet({
                   <ExternalLink className="h-4 w-4" />
                 </a>
 
+<<<<<<< HEAD
+=======
+                <a
+                  href={withOrderToken(`/gift/${encodeURIComponent(currentOrder.orderNumber)}`, orderToken)}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-3.5 text-sm font-black text-white shadow-lg shadow-purple-300 hover:scale-[1.01] active:scale-[0.98] transition-all"
+                >
+                  <Gift className="h-4 w-4 text-yellow-300 animate-bounce" />
+                  <span>🎁 បើកកាដូសំណាង (Pick Gift)</span>
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                 <button
                   type="button"
                   onClick={copyOrderNumber}
@@ -618,6 +645,7 @@ export default function KHQRBottomSheet({
                 <div className="mt-4 rounded-2xl border border-pink-200 bg-pink-50/70 p-4 text-center">
                   <div className="flex items-center justify-center gap-2 text-pink-700 text-sm font-bold">
                     <Loader2 className="h-4 w-4 animate-spin text-pink-600" />
+<<<<<<< HEAD
                     <span>
                       {currentOrder.processingTitle ||
                         (currentOrder.gameSlug && (currentOrder.gameSlug.includes("roblox") || currentOrder.gameSlug.includes("voucher"))
@@ -630,6 +658,12 @@ export default function KHQRBottomSheet({
                       (currentOrder.gameSlug && (currentOrder.gameSlug.includes("roblox") || currentOrder.gameSlug.includes("voucher"))
                         ? "ប្រព័ន្ធកំពុងដំណើរការទាញយកកូដជូនលោកអ្នក សូមរង់ចាំបន្តិច..."
                         : "ប្រព័ន្ធកំពុងដំណើរការបញ្ចូលជូនលោកអ្នក សូមរង់ចាំបន្តិច...")}
+=======
+                    <span>កំពុងទាញយកលេខកូដ Redeem Code...</span>
+                  </div>
+                  <p className="text-xs text-pink-600/80 mt-1">
+                    ប្រព័ន្ធកំពុងដំណើរការទាញយកកូដជូនលោកអ្នក សូមរង់ចាំបន្តិច...
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                   </p>
                 </div>
               ) : null}
@@ -644,7 +678,23 @@ export default function KHQRBottomSheet({
                 </p>
               </div>
 
+<<<<<<< HEAD
               <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+=======
+              {/* 🎁 Pick Mystery Gift Button */}
+              <div className="mt-4">
+                <a
+                  href={withOrderToken(`/gift/${encodeURIComponent(currentOrder.orderNumber)}`, orderToken)}
+                  className="w-full inline-flex items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 px-6 py-3.5 text-base font-black text-white shadow-xl shadow-purple-500/30 hover:shadow-purple-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all border border-purple-300/40 animate-pulse"
+                >
+                  <Gift className="h-6 w-6 text-yellow-300 animate-bounce" />
+                  <span>🎁 បើកកាដូសំណាង (Pick Gift)</span>
+                  <ExternalLink className="h-4 w-4 text-purple-200" />
+                </a>
+              </div>
+
+              <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                 <button
                   type="button"
                   onClick={copyOrderNumber}
@@ -753,6 +803,7 @@ export default function KHQRBottomSheet({
           </div>
         ) : (
           <div key="active" className="animate-slide-up px-7 py-6">
+<<<<<<< HEAD
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-gray-500">TheziessStore</p>
@@ -782,6 +833,18 @@ export default function KHQRBottomSheet({
                   {mins}:{secs}
                 </span>
               </div>
+=======
+            <p className="text-sm font-medium text-gray-500">TheziessStore</p>
+
+            <div className="mt-2 flex items-end gap-2">
+              <span className="text-4xl font-black text-gray-900">
+                {Number(currentOrder.amountUsd).toFixed(2)}
+              </span>
+
+              <span className="pb-1 text-sm font-semibold text-gray-600">
+                USD
+              </span>
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
             </div>
 
             <div className="my-5 border-t-2 border-dashed border-gray-300" />
@@ -803,6 +866,7 @@ export default function KHQRBottomSheet({
                 Scan to Pay
               </p>
 
+<<<<<<< HEAD
               {/* Countdown badge under Scan to Pay */}
               <div
                 className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-bold transition-all ${
@@ -824,6 +888,12 @@ export default function KHQRBottomSheet({
                 <a
                   href={currentOrder.deeplink || currentOrder.paymentUrl || "#"}
                   className="mt-3 inline-flex items-center justify-center gap-2 rounded-xl bg-[#004e6e] hover:bg-[#003d57] text-white px-4 py-2.5 font-bold text-xs shadow-md transition-all active:scale-[0.98] w-full max-w-[220px]"
+=======
+              {(currentOrder.deeplink || (currentOrder.paymentUrl && currentOrder.paymentUrl.startsWith("abamobilebank://"))) && (
+                <a
+                  href={currentOrder.deeplink || currentOrder.paymentUrl || "#"}
+                  className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-[#004e6e] hover:bg-[#003d57] text-white px-4 py-2.5 font-bold text-xs shadow-md transition-all active:scale-[0.98] w-full max-w-[220px]"
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                 >
                   <span>📱 Open ABA Mobile</span>
                 </a>
@@ -833,14 +903,22 @@ export default function KHQRBottomSheet({
                 type="button"
                 onClick={downloadKHQRCard}
                 disabled={!currentOrder.qrString}
+<<<<<<< HEAD
                 className="mt-1 inline-flex items-center gap-2 rounded-xl px-4 py-2 font-bold text-cyan-500 disabled:opacity-40"
+=======
+                className="inline-flex items-center gap-2 rounded-xl px-4 py-2 font-bold text-cyan-500 disabled:opacity-40"
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
               >
                 <Download className="h-5 w-5" />
                 Download KHQR
               </button>
 
               <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+<<<<<<< HEAD
                 <Loader2 className="h-4 w-4 animate-spin text-red-500" />
+=======
+                <Loader2 className="h-4 w-4 animate-spin" />
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                 កំពុងរង់ចាំការទូទាត់...
               </div>
             </div>

@@ -305,7 +305,11 @@ export default function AdminPromoterDetailPage({ params }: { params: Promise<{ 
           <div className="flex items-start sm:items-center gap-4">
             <div className="relative h-16 w-16 rounded-2xl bg-black/40 border border-white/10 p-2 shadow-inner flex items-center justify-center shrink-0">
               <Image
+<<<<<<< HEAD
                 src="/theziessstore-new-logo.png"
+=======
+                src="/theziessstore-logo-transparent.png"
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                 alt="Theziess Store Logo"
                 width={50}
                 height={50}

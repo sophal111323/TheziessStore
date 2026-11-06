@@ -32,7 +32,10 @@ const gameSchema = z.object({
   uidLabel: z.string().default("Player ID"),
   uidExample: z.string().optional(),
   requiresServer: z.boolean().default(false),
+<<<<<<< HEAD
   hasZoneId: z.boolean().default(false),
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   servers: z.string().default("[]"),
   categoryOrder: z.string().default("[]"),
   featured: z.boolean().default(false),
@@ -42,8 +45,11 @@ const gameSchema = z.object({
   seoDescription: z.string().optional().nullable(),
   checkIdGameCode: z.string().max(100).optional().nullable(),
   topupGameCode: z.string().max(100).optional().nullable(),
+<<<<<<< HEAD
   processingTitle: z.string().max(200).optional().nullable(),
   processingDesc: z.string().max(500).optional().nullable(),
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 });
 
 // Explicit admin allowlist. Game has no secret columns; listing fields
@@ -60,7 +66,10 @@ const ADMIN_GAME_SELECT = {
   uidLabel: true,
   uidExample: true,
   requiresServer: true,
+<<<<<<< HEAD
   hasZoneId: true,
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   servers: true,
   categoryOrder: true,
   featured: true,
@@ -70,8 +79,11 @@ const ADMIN_GAME_SELECT = {
   seoDescription: true,
   checkIdGameCode: true,
   topupGameCode: true,
+<<<<<<< HEAD
   processingTitle: true,
   processingDesc: true,
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   createdAt: true,
   updatedAt: true,
   _count: { select: { products: true, orders: true } },

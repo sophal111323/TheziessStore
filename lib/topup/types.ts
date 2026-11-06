@@ -4,7 +4,11 @@
 // lib/topup/providers/* — the rest of the app calls the generic API in
 // lib/topup/index.ts only.
 
+<<<<<<< HEAD
 export type TopupSupplierType = "bay2game" | "khmer_topup" | "frozenyuki" | "soratopup" | "jla";
+=======
+export type TopupSupplierType = "bay2game" | "khmer_topup" | "frozenyuki" | "soratopup";
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 
 export interface TopUpRequest {
   /** Unique reference — we always use the internal order number. */

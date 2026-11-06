@@ -407,7 +407,11 @@ export default function PrivacyPolicyPage() {
                 <div className="flex items-center gap-4">
                   <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.5rem] border border-pink-100 bg-white p-2 shadow-lg shadow-pink-200/50">
                     <Image
+<<<<<<< HEAD
                       src="/theziessstore-new-logo.png"
+=======
+                      src="/theziessstore-logo.png"
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                       alt="TheziessStore"
                       width={80}
                       height={80}

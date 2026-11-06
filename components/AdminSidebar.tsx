@@ -83,9 +83,15 @@ export default function AdminSidebar({
       >
         <div className="flex items-center gap-3 rounded-2xl bg-white/55 p-3 shadow-sm shadow-pink-200/60 ring-1 ring-pink-200/80 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-pink-200/70">
           <Image
+<<<<<<< HEAD
             src="/theziessstore-new-logo.png"
             alt="TheziessStore Logo"
             width={42}
+=======
+            src="/theziessstore-logo-transparent.png"
+            alt="TheziessStore Logo"
+            width={56}
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
             height={32}
             className="h-8 w-auto object-contain drop-shadow"
             priority

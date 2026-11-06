@@ -44,11 +44,19 @@ export default async function Footer() {
             <div className="flex items-center gap-2.5 mb-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
+<<<<<<< HEAD
                 src={settings.logoUrl || "/theziessstore-new-logo.png"}
                 alt="TheziessStore Logo"
                 width={42}
                 height={32}
                 className="h-8 w-auto object-contain drop-shadow-sm"
+=======
+                src={settings.logoUrl || "/theziessstore-logo.png"}
+                alt="TheziessStore Logo"
+                width={56}
+                height={40}
+                className="h-9 w-auto object-contain drop-shadow-sm"
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
               />
               <span className="font-display text-lg font-extrabold text-pink-800">
                 Theziess<span className="text-pink-500">Store</span>
@@ -154,6 +162,7 @@ export default async function Footer() {
         {/* Bottom Section matching user reference screenshot */}
         <div className="mt-8 pt-5 border-t-2 border-pink-100 flex flex-col items-center gap-2 text-center">
           <p className="text-xs font-bold text-pink-600 tracking-wider">ទូទាត់តាមរយៈ</p>
+<<<<<<< HEAD
           <div className="flex items-center justify-center my-0.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -164,6 +173,11 @@ export default async function Footer() {
               className="h-8 sm:h-9 w-auto object-contain drop-shadow-sm transition-transform duration-200 hover:scale-105"
             />
           </div>
+=======
+          <span className="flex h-8 w-14 items-center justify-center rounded-lg bg-red-600 text-xs font-black tracking-wider text-white shadow-sm shadow-red-200">
+            KHQR
+          </span>
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
           <a
             href="https://t.me/thephal"
             target="_blank"

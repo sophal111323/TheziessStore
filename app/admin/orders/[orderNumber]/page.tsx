@@ -101,7 +101,11 @@ export default function AdminOrderDetailPage() {
     if (res.ok) {
       const data = await res.json();
       const st = data?.order?.topupStatus ?? data?.result?.status ?? "unknown";
+<<<<<<< HEAD
       alert(`${order?.topupProvider || "Supplier"} says: ${st}${data?.ok ? " — order updated" : ""}`);
+=======
+      alert(`Bay2Game says: ${st}${data?.ok ? " — order updated" : ""}`);
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
       await load();
     } else {
       const d = await res.json().catch(() => null);
@@ -287,10 +291,13 @@ export default function AdminOrderDetailPage() {
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
                     FrozenYuki
                   </span>
+<<<<<<< HEAD
                 ) : order.topupProvider === "jla" || order.topupProvider === "jlastore" ? (
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                     JLA Store
                   </span>
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                 ) : order.topupProvider ? (
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                     {order.topupProvider}

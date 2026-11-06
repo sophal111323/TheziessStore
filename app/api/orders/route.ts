@@ -216,11 +216,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+<<<<<<< HEAD
     if ((game.requiresServer || (game as any).hasZoneId) && !data.serverId) {
       return NextResponse.json(
         { error: (game as any).hasZoneId ? "Zone ID is required for this game" : "Server is required for this game" },
         { status: 400 }
       );
+=======
+    if (game.requiresServer && !data.serverId) {
+      return NextResponse.json({ error: "Server is required for this game" }, { status: 400 });
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
     }
 
     let product = null;

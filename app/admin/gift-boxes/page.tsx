@@ -100,7 +100,10 @@ const PROVIDER_OPTIONS = [
   { id: "bay2game", label: "Bay2Game", icon: "⚡", codePlaceholder: "e.g. 50 (Bay2Game Code)" },
   { id: "khmer_topup", label: "Khmer TopUp", icon: "🇰🇭", codePlaceholder: "e.g. 102 (Package ID)" },
   { id: "frozenyuki", label: "FrozenYuki", icon: "❄️", codePlaceholder: "e.g. ff:100 (Code)" },
+<<<<<<< HEAD
   { id: "jla", label: "JLA Store", icon: "💎", codePlaceholder: "e.g. 602 (Item ID)" },
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   { id: "manual", label: "Manual (បញ្ចូលដៃ)", icon: "👤", codePlaceholder: "Optional Note" },
 ];
 

@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ﻿"use client";
+=======
+"use client";
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
@@ -85,7 +89,11 @@ export default function CreatorDashboardPage() {
             <div className="flex items-center gap-3.5">
               <div className="p-2 rounded-2xl bg-white/10 border border-white/20 shadow-md shrink-0">
                 <Image
+<<<<<<< HEAD
                   src="/theziessstore-new-logo.png"
+=======
+                  src="/theziessstore-logo-transparent.png"
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                   alt="TheziessStore Logo"
                   width={42}
                   height={42}
@@ -329,4 +337,7 @@ export default function CreatorDashboardPage() {
   );
 }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e

@@ -391,10 +391,13 @@ export default function AdminProductsPage() {
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
                             FrozenYuki
                           </span>
+<<<<<<< HEAD
                         ) : p.supplier === "jla" || p.supplier === "jlastore" ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                             JLA Store
                           </span>
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                         ) : (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                             Bay2Game
@@ -561,7 +564,10 @@ function ProductForm({ games, products = [], defaultGameId, initial, onCancel, o
 
   const isKhmerTopup = form.supplier === "khmer_topup";
   const isFrozenYuki = form.supplier === "frozenyuki" || form.supplier === "soratopup";
+<<<<<<< HEAD
   const isJla = form.supplier === "jla" || form.supplier === "jlastore";
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 
   return (
     <form onSubmit={save} className="card p-6 mb-6">
@@ -765,7 +771,10 @@ function ProductForm({ games, products = [], defaultGameId, initial, onCancel, o
             <option value="bay2game">Bay2Game</option>
             <option value="khmer_topup">Khmer TopUp</option>
             <option value="frozenyuki">FrozenYuki / SoraTopup</option>
+<<<<<<< HEAD
             <option value="jla">JLA Store</option>
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
           </select>
         </div>
 
@@ -776,8 +785,11 @@ function ProductForm({ games, products = [], defaultGameId, initial, onCancel, o
               ? "Khmer TopUp Package ID"
               : isFrozenYuki
               ? "FrozenYuki Package Code (e.g. 100 or ff:100)"
+<<<<<<< HEAD
               : isJla
               ? "JLA Item ID (item_id integer)"
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
               : "Bay2Game Product Code"}{" "}
             — required for auto delivery
           </label>
@@ -788,8 +800,11 @@ function ProductForm({ games, products = [], defaultGameId, initial, onCancel, o
                 ? "e.g. 268"
                 : isFrozenYuki
                 ? "e.g. 100 or ff:100 or ml:86"
+<<<<<<< HEAD
                 : isJla
                 ? "e.g. 602 (integer item_id from JLA)"
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                 : "e.g. FF_100_DIA, FF_WEEKLY_PASS"
             }
             value={form.supplierCode}
@@ -802,8 +817,11 @@ function ProductForm({ games, products = [], defaultGameId, initial, onCancel, o
                 ? "Package ID"
                 : isFrozenYuki
                 ? "Package Code"
+<<<<<<< HEAD
                 : isJla
                 ? "Item ID"
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                 : "Product Code"}
               , top-up will NOT be sent automatically after payment.
             </p>
@@ -813,8 +831,11 @@ function ProductForm({ games, products = [], defaultGameId, initial, onCancel, o
                 ? "This numeric package_id will be sent to the Khmer TopUp API upon order completion."
                 : isFrozenYuki
                 ? "This package code will be sent to FrozenYuki / SoraTopup API upon order completion."
+<<<<<<< HEAD
                 : isJla
                 ? "This integer item_id will be sent to JLA Store API upon order completion."
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                 : "This product_code will be sent to the Bay2Game API upon order completion."}
             </p>
           )}

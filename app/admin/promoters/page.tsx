@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ﻿"use client";
+=======
+"use client";
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 
 import { adminFetch } from "@/lib/adminFetch";
 import { useEffect, useState } from "react";
@@ -281,7 +285,11 @@ export default function AdminPromotersPage() {
           <div className="flex items-center gap-4">
             <div className="relative h-16 w-16 rounded-2xl bg-black/40 border border-white/10 p-2 shadow-inner flex items-center justify-center shrink-0">
               <Image
+<<<<<<< HEAD
                 src="/theziessstore-new-logo.png"
+=======
+                src="/theziessstore-logo-transparent.png"
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                 alt="Theziess Store Logo"
                 width={52}
                 height={52}
@@ -1056,4 +1064,7 @@ export default function AdminPromotersPage() {
     </div>
   );
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e

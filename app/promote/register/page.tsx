@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ﻿"use client";
+=======
+"use client";
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
@@ -109,7 +113,11 @@ export default function CreatorRegisterPage() {
           <Link href="/" className="inline-block mb-3 group">
             <div className="relative inline-flex items-center justify-center p-3 rounded-3xl bg-gradient-to-br from-white/15 to-white/5 border border-white/20 shadow-2xl backdrop-blur-xl group-hover:scale-105 transition-transform duration-300">
               <Image
+<<<<<<< HEAD
                 src="/theziessstore-new-logo.png"
+=======
+                src="/theziessstore-logo-transparent.png"
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                 alt="TheziessStore Logo"
                 width={90}
                 height={55}
@@ -383,4 +391,7 @@ export default function CreatorRegisterPage() {
   );
 }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e

@@ -2,7 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupplier } from "@/lib/topup";
 import { notifyTelegram, escapeHtml } from "@/lib/telegram";
+<<<<<<< HEAD
 import { updateSpinOrderTelegramAlert } from "@/lib/telegram-order-notification";
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 import { publicRateLimit } from "@/lib/apiSecurity";
 import { verifyOrderToken } from "@/lib/orderToken";
 import { logSecurityEvent } from "@/lib/secureLogger";
@@ -169,12 +172,29 @@ export async function POST(
       },
     });
 
+<<<<<<< HEAD
     // 5. Telegram notification: Edit the existing quote alert to Success ✅
     await updateSpinOrderTelegramAlert(order.orderNumber, "COMPLETED", {
       at: claimedAt,
     }).catch((err) => {
       console.warn("[spin-claim] Failed to update telegram spin alert:", err);
     });
+=======
+    // 5. Telegram notification
+    const baseUrl = process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "";
+    const adminLink = baseUrl ? `\n<a href="${baseUrl}/admin/lucky-wheel">View in Admin</a>` : "";
+
+    await notifyTelegram(
+      `🎉 <b>Lucky Spin Reward Claimed!</b>\n` +
+        `<b>#${escapeHtml(order.orderNumber)}</b>\n` +
+        `Game: ${escapeHtml(order.game.name)}\n` +
+        `Package: ${escapeHtml(tx.package.name)}\n` +
+        `UID: <code>${escapeHtml(order.playerUid)}</code>\n` +
+        `Won: <b>${escapeHtml(tx.winningRewardLabel || "Diamond Reward")}</b>\n` +
+        `Status: ✅ <b>COMPLETED</b>\n` +
+        `Ref: <code>${escapeHtml(fulfillmentRef)}</code>${adminLink}`
+    );
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 
     return NextResponse.json({
       ok: true,

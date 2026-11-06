@@ -30,7 +30,10 @@ model Game {
   uidLabel       String          @default("Player ID")
   uidExample     String?
   requiresServer Boolean         @default(false)
+<<<<<<< HEAD
   hasZoneId      Boolean         @default(false)
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   servers        String          @default("[]")
   categoryOrder  String          @default("[]")
   featured       Boolean         @default(false)
@@ -40,8 +43,11 @@ model Game {
   seoDescription String?
   checkIdGameCode String?
   topupGameCode   String?
+<<<<<<< HEAD
   processingTitle String?
   processingDesc  String?
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   products       Product[]
   orders         Order[]
   randomPackages RandomPackage[]

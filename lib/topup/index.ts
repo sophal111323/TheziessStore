@@ -36,12 +36,15 @@ import {
   normalizeFrozenYukiStatus,
 } from "./providers/frozenyuki";
 
+<<<<<<< HEAD
 import {
   jlaSupplier,
   JlaSupplier,
   normalizeJlaStatus,
 } from "./providers/jla";
 
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 export type {
   TopupSupplier,
   TopupSupplierType,
@@ -58,12 +61,18 @@ export {
   KhmerTopupSupplier,
   frozenyukiSupplier,
   FrozenYukiSupplier,
+<<<<<<< HEAD
   jlaSupplier,
   JlaSupplier,
   normalizeBay2GameStatus,
   normalizeKhmerTopupStatus,
   normalizeFrozenYukiStatus,
   normalizeJlaStatus,
+=======
+  normalizeBay2GameStatus,
+  normalizeKhmerTopupStatus,
+  normalizeFrozenYukiStatus,
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 };
 
 const suppliers: Record<string, TopupSupplier> = {
@@ -71,8 +80,11 @@ const suppliers: Record<string, TopupSupplier> = {
   khmer_topup: khmerTopupSupplier,
   frozenyuki: frozenyukiSupplier,
   soratopup: frozenyukiSupplier,
+<<<<<<< HEAD
   jla: jlaSupplier,
   jlastore: jlaSupplier,
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 };
 
 /**

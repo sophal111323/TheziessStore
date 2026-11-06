@@ -10,6 +10,7 @@ import { saveOrderToken, withOrderToken } from "@/lib/orderAccess";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 
 // Games that support automatic nickname lookup via /api/lookup-uid
+<<<<<<< HEAD
 const LOOKUP_SLUGS = new Set([
   "mobile-legends",
   "free-fire",
@@ -35,6 +36,11 @@ const ZONE_ID_SLUGS = new Set([
   "magic-chess-gogo",
   "mcgg",
 ]);
+=======
+const LOOKUP_SLUGS = new Set(["mobile-legends", "free-fire", "honor-of-king", "honor-of-kings", "pubg-mobile", "pubgm", "pubgm-lite", "blood-strike", "magic-chess", "magic-chess-go", "mcgg", "ro-blox"]);
+// MLBB & similar games that use a separate "Zone ID" instead of a server dropdown
+const ZONE_ID_SLUGS = new Set(["mobile-legends", "magic-chess", "magic-chess-go", "mcgg"]);
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 
 const DISMISS_KEY = "topup_bar_dismissed";
 
@@ -60,7 +66,10 @@ interface Game {
   uidLabel: string;
   uidExample: string | null;
   requiresServer: boolean;
+<<<<<<< HEAD
   hasZoneId?: boolean;
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   servers: string[];
   categoryOrder?: string[];
   checkIdGameCode?: string | null;
@@ -71,7 +80,11 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
   const [selected, setSelected] = useState<string | null>(null);
   const [uid, setUid] = useState("");
   const [serverId, setServerId] = useState(
+<<<<<<< HEAD
     (Boolean(game.hasZoneId) || ZONE_ID_SLUGS.has(game.slug)) ? "" : (game.servers[0] ?? "")
+=======
+    ZONE_ID_SLUGS.has(game.slug) ? "" : (game.servers[0] ?? "")
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   );
   const [paymentPopup, setPaymentPopup] = useState<any | null>(null);
   const [method, setMethod] = useState<"TOLASAINT">("TOLASAINT");
@@ -188,7 +201,11 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
     (game.currencyName && game.currencyName.toLowerCase().includes("voucher"));
 
   const supportsLookup = !isVoucherGame && (LOOKUP_SLUGS.has(game.slug) || Boolean(game.checkIdGameCode));
+<<<<<<< HEAD
   const useZoneField = !isVoucherGame && (Boolean(game.hasZoneId) || ZONE_ID_SLUGS.has(game.slug));
+=======
+  const useZoneField = !isVoucherGame && ZONE_ID_SLUGS.has(game.slug);
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 
   type NicknameStatus = "idle" | "checking" | "verified" | "not_found";
   const [nicknameStatus, setNicknameStatus] = useState<NicknameStatus>("idle");
@@ -586,10 +603,14 @@ export default function TopUpForm({ game, products }: { game: Game; products: Pr
                         type="text"
                         inputMode="numeric"
                         value={serverId}
+<<<<<<< HEAD
                         onChange={(e) => {
                           setServerId(e.target.value);
                           resetLookup();
                         }}
+=======
+                        onChange={(e) => setServerId(e.target.value)}
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                         onBlur={() => {
                           if (isValidUid(uid)) {
                             savePlayerToStorage(uid, serverId);

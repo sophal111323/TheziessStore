@@ -122,6 +122,7 @@ export const GAME_LOOKUP_CONFIG: Record<string, GameLookupConfig> = {
     needsServer: true,
     gameTitle: "Magic Chess Go Go",
   },
+<<<<<<< HEAD
   "magic-chess-go-go": {
     bay2GameCode: "magic_chest_gogo",
     needsServer: true,
@@ -142,6 +143,8 @@ export const GAME_LOOKUP_CONFIG: Record<string, GameLookupConfig> = {
     needsServer: true,
     gameTitle: "Magic Chess Go Go",
   },
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 
   // Knives Out
   "knives-out": {

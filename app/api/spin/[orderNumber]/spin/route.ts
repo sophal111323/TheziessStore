@@ -6,7 +6,10 @@ import { publicRateLimit } from "@/lib/apiSecurity";
 import { verifyOrderToken } from "@/lib/orderToken";
 import { logSecurityEvent } from "@/lib/secureLogger";
 import { logError } from "@/lib/errorLogger";
+<<<<<<< HEAD
 import { updateSpinOrderTelegramAlert } from "@/lib/telegram-order-notification";
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 
 export const dynamic = "force-dynamic";
 
@@ -200,12 +203,15 @@ export async function POST(
       },
     });
 
+<<<<<<< HEAD
     if (updated.count > 0) {
       updateSpinOrderTelegramAlert(order.orderNumber, "SPUN").catch((err) => {
         console.warn("[spin] Failed to update telegram spin alert:", err);
       });
     }
 
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
     if (updated.count === 0) {
       // Concurrently spun; return the won slot
       const existing = await prisma.randomSpinTransaction.findUnique({ where: { orderId: order.id } });

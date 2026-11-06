@@ -28,7 +28,10 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { normalizeFrozenYukiStatus } from "@/lib/topup/providers/frozenyuki";
 import { notifyTelegram, escapeHtml } from "@/lib/telegram";
+<<<<<<< HEAD
 import { updateOrderDeliveryTelegramAlert } from "@/lib/telegram-order-notification";
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 import { getClientIp } from "@/lib/getIp";
 import { isIpAllowedByEnv } from "@/lib/ipAllowlist";
 import { logSecurityEvent } from "@/lib/secureLogger";
@@ -197,9 +200,27 @@ export async function POST(req: NextRequest) {
       });
       await consumeOrderCouponAtomically(order.id);
 
+<<<<<<< HEAD
       await updateOrderDeliveryTelegramAlert(order.orderNumber, "DELIVERED", {
         at: new Date(),
       }).catch(() => {});
+=======
+      const baseUrl =
+        process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "";
+      const link = baseUrl
+        ? `\n<a href="${baseUrl}/admin/orders/${order.orderNumber}">Open in admin</a>`
+        : "";
+
+      await notifyTelegram(
+        `✅ <b>Topup DELIVERED (FrozenYuki)</b>\n` +
+          `#${escapeHtml(order.orderNumber)}\n` +
+          `${escapeHtml(order.game?.name || "Game")} – ${escapeHtml(
+            order.product?.name || "Package"
+          )}\n` +
+          `UID: <code>${escapeHtml(order.playerUid)}</code>\n` +
+          `Ref: <code>${escapeHtml(providerRef)}</code>${link}`
+      ).catch(() => {});
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
     }
   } else if (normStatus === "failed") {
     await prisma.order.update({
@@ -211,10 +232,20 @@ export async function POST(req: NextRequest) {
       },
     });
 
+<<<<<<< HEAD
     await updateOrderDeliveryTelegramAlert(order.orderNumber, "FAILED", {
       error: payload.msg || payload.error || "Delivery failed",
       at: new Date(),
     }).catch(() => {});
+=======
+    await notifyTelegram(
+      `⚠️ <b>Topup FAILED (FrozenYuki Webhook)</b>\n` +
+        `#${escapeHtml(order.orderNumber)}\n` +
+        `UID: <code>${escapeHtml(order.playerUid)}</code>\n` +
+        `Ref: <code>${escapeHtml(providerRef)}</code>\n` +
+        `Error: ${escapeHtml(payload.msg || payload.error || "Delivery failed")}`
+    ).catch(() => {});
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   } else {
     // In progress / processing
     await prisma.order.update({

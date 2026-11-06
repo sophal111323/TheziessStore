@@ -77,7 +77,11 @@ export async function GET(
   let order = await prisma.order.findUnique({
     where: { orderNumber: normalizedOrderNumber },
     include: {
+<<<<<<< HEAD
       game:    { select: { name: true, slug: true, processingTitle: true, processingDesc: true } },
+=======
+      game:    { select: { name: true, slug: true } },
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
       product: { select: { name: true } },
     },
   });
@@ -106,7 +110,11 @@ export async function GET(
           const fresh = await prisma.order.findUnique({
             where: { orderNumber: normalizedOrderNumber },
             include: {
+<<<<<<< HEAD
               game: { select: { name: true, slug: true, processingTitle: true, processingDesc: true } },
+=======
+              game: { select: { name: true, slug: true } },
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
               product: { select: { name: true } },
             },
           });
@@ -148,7 +156,11 @@ export async function GET(
             where: { id: order.id },
             data: { status: "PAID", paidAt: new Date() },
             include: {
+<<<<<<< HEAD
               game: { select: { name: true, slug: true, processingTitle: true, processingDesc: true } },
+=======
+              game: { select: { name: true, slug: true } },
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
               product: { select: { name: true } },
             },
           });
@@ -206,8 +218,11 @@ export async function GET(
     randomPackageId:   order.randomPackageId ?? null,
     gameName:          order.game.name,
     gameSlug:          order.game.slug,
+<<<<<<< HEAD
     processingTitle:   (order.game as any).processingTitle ?? null,
     processingDesc:    (order.game as any).processingDesc ?? null,
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
     productName:       order.product.name,
     qrString,
     deeplink,

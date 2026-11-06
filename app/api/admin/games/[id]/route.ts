@@ -31,7 +31,10 @@ const updateSchema = z.object({
   uidLabel: z.string().optional(),
   uidExample: z.string().optional().nullable(),
   requiresServer: z.boolean().optional(),
+<<<<<<< HEAD
   hasZoneId: z.boolean().optional(),
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   servers: z.string().optional(),
   categoryOrder: z.string().optional(),
   featured: z.boolean().optional(),
@@ -41,8 +44,11 @@ const updateSchema = z.object({
   seoDescription: z.string().optional().nullable(),
   checkIdGameCode: z.string().max(100).optional().nullable(),
   topupGameCode: z.string().max(100).optional().nullable(),
+<<<<<<< HEAD
   processingTitle: z.string().max(200).optional().nullable(),
   processingDesc: z.string().max(500).optional().nullable(),
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 });
 
 export const GET = withAdminAuth(

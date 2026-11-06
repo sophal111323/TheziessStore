@@ -118,7 +118,10 @@ const PROVIDER_OPTIONS = [
   { id: "bay2game", label: "Bay2Game", icon: "⚡", codePlaceholder: "e.g. 50 (Bay2Game Code)" },
   { id: "khmer_topup", label: "Khmer TopUp", icon: "🇰🇭", codePlaceholder: "e.g. 102 (Package ID)" },
   { id: "frozenyuki", label: "FrozenYuki", icon: "❄️", codePlaceholder: "e.g. ff:100 (Code)" },
+<<<<<<< HEAD
   { id: "jla", label: "JLA Store", icon: "💎", codePlaceholder: "e.g. 602 (Item ID)" },
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   { id: "manual", label: "Manual", icon: "👤", codePlaceholder: "Optional Note (Manual Delivery)" },
 ];
 
@@ -872,7 +875,11 @@ export default function AdminLuckyWheelPage() {
                           <span className="text-gray-800">{s.label}</span>
                           <span className="text-gray-500 text-[10px]">({s.probability}%)</span>
                           <span className="text-[10px] text-gray-500 font-mono ml-0.5" title={`Provider: ${s.supplier || "bay2game"}`}>
+<<<<<<< HEAD
                             {s.supplier === "khmer_topup" ? "🇰🇭" : s.supplier === "frozenyuki" ? "❄️" : s.supplier === "jla" ? "💎" : s.supplier === "manual" ? "👤" : "⚡"}
+=======
+                            {s.supplier === "khmer_topup" ? "🇰🇭" : s.supplier === "frozenyuki" ? "❄️" : s.supplier === "manual" ? "👤" : "⚡"}
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                           </span>
                         </div>
                       ))}

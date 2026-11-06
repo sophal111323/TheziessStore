@@ -16,7 +16,10 @@ import { notifyTelegram, escapeHtml } from "@/lib/telegram";
 import { extractRedeemCode, extractRedeemCodeFromResponse } from "@/lib/redeem";
 import { consumeOrderCouponAtomically, releaseOrCancelCouponUsage } from "@/lib/coupon";
 import { fulfillNeedsOwnerOverride } from "@/lib/manualOrderOverride";
+<<<<<<< HEAD
 import { updateOrderDeliveryTelegramAlert } from "@/lib/telegram-order-notification";
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 
 export interface FulfillmentResult {
   success: boolean;
@@ -260,10 +263,26 @@ export async function fulfillPaidOrder(
       await consumeOrderCouponAtomically(order.id);
 
       if (!options?.silentTelegram) {
+<<<<<<< HEAD
         await updateOrderDeliveryTelegramAlert(order.orderNumber, "DELIVERED", {
           redeemCode: extractedRedeem,
           at: new Date(),
         });
+=======
+        const redeemMsg = extractedRedeem
+          ? `\n🎟️ <b>Redeem Code:</b> <code>${escapeHtml(extractedRedeem)}</code>`
+          : "";
+        await notifyTelegram(
+          manualReviewMessage(
+            `✅ <b>Auto topup DELIVERED (${escapeHtml(supplier.displayName)})</b>`,
+            order.orderNumber,
+            order.game.name,
+            order.product.name,
+            order.playerUid,
+            `${escapeHtml(supplier.displayName)} ref: <code>${escapeHtml(transactionRef)}</code>${redeemMsg}`
+          )
+        );
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
       }
 
       return {
@@ -357,10 +376,23 @@ export async function fulfillPaidOrder(
   });
 
   if (!options?.silentTelegram) {
+<<<<<<< HEAD
     await updateOrderDeliveryTelegramAlert(order.orderNumber, "FAILED", {
       error: topupResult.error ?? "unknown",
       at: new Date(),
     });
+=======
+    await notifyTelegram(
+      manualReviewMessage(
+        `⚠️ <b>Auto topup FAILED (${escapeHtml(supplier.displayName)}) — process manually</b>`,
+        order.orderNumber,
+        order.game.name,
+        order.product.name,
+        order.playerUid,
+        `Error: ${escapeHtml(topupResult.error ?? "unknown")}`
+      )
+    );
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   }
 
   return {
@@ -432,10 +464,36 @@ export async function refreshTopupStatus(orderNumber: string): Promise<Fulfillme
 
     if (updated.count === 1) {
       await consumeOrderCouponAtomically(order.id);
+<<<<<<< HEAD
       await updateOrderDeliveryTelegramAlert(order.orderNumber, "DELIVERED", {
         redeemCode: extractedCode,
         at: new Date(),
       });
+=======
+      const baseUrl = process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "";
+      const link = baseUrl
+        ? `\n<a href="${baseUrl}/admin/orders/${order.orderNumber}">Open in admin</a>`
+        : "";
+
+      const nicknameLine = order.playerNickname
+        ? `🎮 Nickname: ${escapeHtml(order.playerNickname)}\n`
+        : "";
+      const serverLine = order.serverId ? ` (${escapeHtml(order.serverId)})` : "";
+      const redeemLine = extractedCode
+        ? `🎟️ <b>Redeem Code:</b> <code>${escapeHtml(extractedCode)}</code>\n`
+        : "";
+
+      await notifyTelegram(
+        `✅ <b>Topup DELIVERED (${escapeHtml(supplier.displayName)})</b>\n` +
+          `<b>#${escapeHtml(order.orderNumber)}</b>\n` +
+          `${escapeHtml(order.game.name)} – ${escapeHtml(order.product.name)}\n` +
+          `UID: <code>${escapeHtml(order.playerUid)}</code>${serverLine}\n` +
+          `${nicknameLine}` +
+          `${redeemLine}` +
+          `Ref: <code>${escapeHtml(remote.transactionId ?? reference)}</code>\n` +
+          `Amount: $${order.amountUsd.toFixed(2)}${link}`
+      );
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
     }
 
     return { success: true, transactionId: remote.transactionId, status: "success" };
@@ -453,10 +511,27 @@ export async function refreshTopupStatus(orderNumber: string): Promise<Fulfillme
       },
     });
 
+<<<<<<< HEAD
     await updateOrderDeliveryTelegramAlert(order.orderNumber, "FAILED", {
       error: remote.error || `${supplier.displayName} reported FAILED.`,
       at: new Date(),
     });
+=======
+    const baseUrl = process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "";
+    const link = baseUrl
+      ? `\n<a href="${baseUrl}/admin/orders/${order.orderNumber}">Open in admin</a>`
+      : "";
+    const serverLine = order.serverId ? ` (${escapeHtml(order.serverId)})` : "";
+
+    await notifyTelegram(
+      `⚠️ <b>Topup FAILED (${escapeHtml(supplier.displayName)}) — process manually</b>\n` +
+        `<b>#${escapeHtml(order.orderNumber)}</b>\n` +
+        `${escapeHtml(order.game.name)} – ${escapeHtml(order.product.name)}\n` +
+        `UID: <code>${escapeHtml(order.playerUid)}</code>${serverLine}\n` +
+        `Ref: <code>${escapeHtml(remote.transactionId ?? reference)}</code>\n` +
+        `Error: ${escapeHtml(remote.error || `${supplier.displayName} reported FAILED.`)}${link}`
+    );
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 
     return { success: false, status: "failed", error: `${supplier.displayName} reported failed` };
   }

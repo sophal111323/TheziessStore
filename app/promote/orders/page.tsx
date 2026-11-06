@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ﻿"use client";
+=======
+"use client";
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
@@ -41,7 +45,11 @@ export default function CreatorOrdersPage() {
         <div className="flex items-center gap-3.5">
           <div className="h-12 w-12 rounded-2xl bg-black/40 border border-purple-500/30 p-2 shadow-inner flex items-center justify-center shrink-0">
             <Image
+<<<<<<< HEAD
               src="/theziessstore-new-logo.png"
+=======
+              src="/theziessstore-logo-transparent.png"
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
               alt="Theziess Store Logo"
               width={38}
               height={38}
@@ -167,4 +175,7 @@ export default function CreatorOrdersPage() {
   );
 }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e

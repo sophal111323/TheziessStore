@@ -29,7 +29,11 @@ export const MARKETING_ASSETS: MarketingAsset[] = [
     id: "mkt-logo",
     title: "TheziessStore Official Logo",
     category: "logo",
+<<<<<<< HEAD
     imageUrl: "/theziessstore-new-logo.png",
+=======
+    imageUrl: "/theziessstore-logo.png",
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
     captionKh: `🎮 TheziessStore — វេបសាយ Top Up ហ្គេមឈានមុខគេនៅកម្ពុជា!\n👉 {LINK}`,
     captionEn: `🎮 TheziessStore — #1 Game Top Up in Cambodia!\n👉 {LINK}`,
   },

@@ -112,7 +112,11 @@ export default function CreatorShell({ children }: { children: ReactNode }) {
         <div className="p-5 border-b border-purple-800/30 flex items-center gap-3">
           <Link href="/promote/dashboard" className="flex items-center gap-2.5 group">
             <Image
+<<<<<<< HEAD
               src="/theziessstore-new-logo.png"
+=======
+              src="/theziessstore-logo-transparent.png"
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
               alt="TheziessStore Logo"
               width={42}
               height={42}
@@ -209,7 +213,11 @@ export default function CreatorShell({ children }: { children: ReactNode }) {
             {/* Mobile Logo Branding */}
             <Link href="/promote/dashboard" className="flex items-center gap-2 md:hidden group">
               <Image
+<<<<<<< HEAD
                 src="/theziessstore-new-logo.png"
+=======
+                src="/theziessstore-logo-transparent.png"
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                 alt="TheziessStore Logo"
                 width={36}
                 height={36}

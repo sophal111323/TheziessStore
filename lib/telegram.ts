@@ -127,17 +127,24 @@ export async function setTelegramMenuButton(url?: string): Promise<boolean> {
 
 /**
  * Send a Telegram notification to the store admin using the token + chat id stored in Settings
+<<<<<<< HEAD
  * (falls back to env vars). Safe to call from any server code — returns success status and message ID.
  */
 export async function notifyTelegramWithResult(
   text: string,
   replyMarkup?: { inline_keyboard: TelegramInlineKeyboardButton[][] }
 ): Promise<{ success: boolean; messageId?: number; chatId?: string | number }> {
+=======
+ * (falls back to env vars). Safe to call from any server code — never throws.
+ */
+export async function notifyTelegram(text: string): Promise<boolean> {
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
   try {
     const settings = await prisma.settings
       .findUnique({ where: { id: 1 } })
       .catch(() => null);
 
+<<<<<<< HEAD
     const token = (settings?.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN || "").trim();
     const chatId = (settings?.telegramChatId || process.env.TELEGRAM_CHAT_ID || "").trim();
 
@@ -155,18 +162,36 @@ export async function notifyTelegramWithResult(
     if (replyMarkup) {
       payload.reply_markup = replyMarkup;
     }
+=======
+    const token = settings?.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN || "";
+    const chatId = settings?.telegramChatId || process.env.TELEGRAM_CHAT_ID || "";
+
+    if (!token || !chatId) return false;
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+<<<<<<< HEAD
       body: JSON.stringify(payload),
       cache: "no-store",
       signal: AbortSignal.timeout(8000),
+=======
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
     });
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.warn("[telegram] send failed:", res.status, body.slice(0, 200));
+<<<<<<< HEAD
       return { success: false };
     }
 
@@ -236,10 +261,18 @@ export async function editTelegramMessage(
     return true;
   } catch (err) {
     console.warn("[telegram] edit error:", err);
+=======
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn("[telegram] error:", err);
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
     return false;
   }
 }
 
+<<<<<<< HEAD
 /**
  * Send a Telegram notification to the store admin using the token + chat id stored in Settings
  * (falls back to env vars). Safe to call from any server code — never throws.
@@ -249,6 +282,8 @@ export async function notifyTelegram(text: string): Promise<boolean> {
   return result.success;
 }
 
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

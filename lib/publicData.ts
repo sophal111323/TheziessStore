@@ -69,7 +69,11 @@ export const getPublicSettings = unstable_cache(
         paymentsEnabled: settings?.paymentsEnabled ?? true,
         promosEnabled: settings?.promosEnabled ?? true,
       },
+<<<<<<< HEAD
       logoUrl: settings?.logoUrl || "/theziessstore-new-logo.png",
+=======
+      logoUrl: settings?.logoUrl || "/theziessstore-logo.png",
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
       logoText: settings?.logoText || "TheziessStore",
       logoTagline: settings?.logoTagline || "Instant · Secure · 24/7",
       updatedAt: settings?.updatedAt ?? null,
@@ -179,7 +183,10 @@ const getCachedPublicGameBySlug = unstable_cache(
         uidLabel: true,
         uidExample: true,
         requiresServer: true,
+<<<<<<< HEAD
         hasZoneId: true,
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
         servers: true,
         categoryOrder: true,
         active: true,

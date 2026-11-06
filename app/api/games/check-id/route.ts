@@ -138,6 +138,7 @@ export async function POST(req: NextRequest) {
   if (!checkIdCode && !cfg?.useRoblox) {
     const game = await prisma.game.findUnique({
       where: { slug },
+<<<<<<< HEAD
       select: { checkIdGameCode: true, requiresServer: true, hasZoneId: true },
     });
     if (game?.checkIdGameCode) {
@@ -145,6 +146,13 @@ export async function POST(req: NextRequest) {
     }
     if (game?.hasZoneId || game?.requiresServer) {
       needsServer = true;
+=======
+      select: { checkIdGameCode: true, requiresServer: true },
+    });
+    if (game?.checkIdGameCode) {
+      checkIdCode = game.checkIdGameCode;
+      needsServer = game.requiresServer;
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
     }
   }
 

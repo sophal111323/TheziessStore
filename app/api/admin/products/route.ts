@@ -22,7 +22,11 @@ const productSchema = z
     inStock: z.boolean().optional().default(true),
     sortOrder: z.number().int().optional().default(0),
     supplier: z
+<<<<<<< HEAD
       .enum(["bay2game", "khmer_topup", "frozenyuki", "soratopup", "jla"])
+=======
+      .enum(["bay2game", "khmer_topup", "frozenyuki", "soratopup"])
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
       .default("bay2game"),
     supplierCode: z.string().optional().nullable(),
     supplierProductCode: z.string().optional().nullable(),

@@ -662,6 +662,16 @@ export default function CheckoutClient() {
                         <span>បង្វិលកងសំណាងឥឡូវនេះ (Spin Now)</span>
                       </Link>
                       <Link
+<<<<<<< HEAD
+=======
+                        href={withOrderToken(`/gift/${order.orderNumber}`, token)}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 text-base font-bold text-white shadow-xl shadow-purple-200 hover:shadow-purple-300 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                      >
+                        <Gift className="w-5 h-5 text-yellow-300 animate-bounce" />
+                        <span>បើកកាដូ (Open Gift)</span>
+                      </Link>
+                      <Link
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                         href={withOrderToken(`/order?number=${order.orderNumber}`, token)}
                         className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                       >
@@ -802,6 +812,7 @@ export default function CheckoutClient() {
                       <div className="mx-auto max-w-sm my-3 rounded-xl border border-pink-200 bg-pink-50/70 p-3.5 text-center">
                         <div className="flex items-center justify-center gap-2 text-pink-700 text-xs font-bold">
                           <Loader2 className="h-3.5 w-3.5 animate-spin text-pink-600" />
+<<<<<<< HEAD
                           <span>
                             {(order as any).processingTitle ||
                               (order.gameSlug && (order.gameSlug.includes("roblox") || order.gameSlug.includes("voucher"))
@@ -817,6 +828,24 @@ export default function CheckoutClient() {
                       </div>
                     )}
 
+=======
+                          <span>កំពុងទាញយកលេខកូដ Redeem Code...</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 🎁 Open Mystery Gift Button */}
+                    <div className="my-5">
+                      <Link
+                        href={withOrderToken(`/gift/${order.orderNumber}`, token)}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 px-8 py-4 text-base font-black text-white shadow-xl shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all border border-purple-300/40 animate-pulse"
+                      >
+                        <Gift className="h-6 w-6 text-yellow-300 animate-bounce" />
+                        <span>🎁 បើកកាដូសំណាង (Open Gift)</span>
+                      </Link>
+                    </div>
+
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                     <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
                       <Link href="/" className="inline-flex items-center justify-center rounded-xl border border-pink-400 px-6 py-3 text-sm font-semibold text-pink-600 hover:bg-pink-50 transition-colors">
                         Back to Home

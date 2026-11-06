@@ -418,6 +418,7 @@ export default function AdminLoginPage() {
       <section className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl flex-col items-center justify-center">
         <Link
           href="/"
+<<<<<<< HEAD
           className="admin-login-logo group relative mb-3 flex justify-center sm:mb-4"
           aria-label="Go to homepage"
         >
@@ -428,6 +429,18 @@ export default function AdminLoginPage() {
             width={130}
             height={170}
             className="relative h-auto w-[95px] max-w-[38vw] drop-shadow-[0_12px_24px_rgba(147,51,234,0.22)] transition-transform duration-500 group-hover:-translate-y-1 group-hover:scale-[1.035] sm:w-[125px]"
+=======
+          className="admin-login-logo group relative mb-4 flex justify-center sm:mb-5"
+          aria-label="Go to homepage"
+        >
+          <span className="absolute inset-x-8 bottom-1 h-8 rounded-full bg-[#9333ea]/25 blur-2xl transition-transform duration-500 group-hover:scale-125" />
+          <Image
+            src="/logo.png"
+            alt="DyTopup Logo"
+            width={260}
+            height={260}
+            className="relative h-auto w-[170px] max-w-[58vw] drop-shadow-[0_18px_32px_rgba(147,51,234,0.25)] transition-transform duration-500 group-hover:-translate-y-1 group-hover:scale-[1.035] sm:w-[220px]"
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
             priority
           />
         </Link>

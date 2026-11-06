@@ -121,12 +121,21 @@ export default function Header() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/" className="group flex items-center gap-2.5">
             <Image
+<<<<<<< HEAD
               src="/theziessstore-new-logo.png"
               alt="TheziessStore Logo"
               width={42}
               height={32}
               style={{ width: "auto", height: "auto" }}
               className="h-7 sm:h-8 w-auto object-contain drop-shadow-sm transition-transform duration-300 group-hover:scale-105"
+=======
+              src="/theziessstore-logo-transparent.png"
+              alt="TheziessStore Logo"
+              width={56}
+              height={32}
+              style={{ width: "auto", height: "auto" }}
+              className="h-8 w-auto object-contain drop-shadow-sm transition-transform duration-300 group-hover:scale-105"
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
               priority
             />
             <div className="flex flex-col leading-none">
@@ -237,12 +246,21 @@ export default function Header() {
             <div className="flex items-center justify-between gap-2.5">
               <Link href="/" onClick={() => setMobileOpen(false)} className="flex min-w-0 items-center gap-2.5">
                 <Image
+<<<<<<< HEAD
                   src="/theziessstore-new-logo.png"
                   alt="TheziessStore Logo"
                   width={42}
                   height={32}
                   style={{ width: "auto", height: "auto" }}
                   className="h-7 w-auto object-contain drop-shadow-sm"
+=======
+                  src="/theziessstore-logo-transparent.png"
+                  alt="TheziessStore Logo"
+                  width={56}
+                  height={32}
+                  style={{ width: "auto", height: "auto" }}
+                  className="h-8 w-auto object-contain drop-shadow-sm"
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
                   priority
                 />
                 <span className="min-w-0">

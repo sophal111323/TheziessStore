@@ -55,7 +55,11 @@ function buildPublicSettings(settings: PublicSettingsRecord) {
     supportTelegram: settings?.supportTelegram ?? "@Theziess",
     supportTikTok: settings?.supportTikTok ?? "@theziess",
     supportEmail: settings?.supportEmail ?? null,
+<<<<<<< HEAD
     logoUrl: settings?.logoUrl ?? "/theziessstore-new-logo.png",
+=======
+    logoUrl: settings?.logoUrl ?? "/theziessstore-logo.png",
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
     logoText: settings?.logoText ?? "TheziessStore",
     logoTagline: settings?.logoTagline ?? "Instant · Secure · 24/7",
     appConfig: {

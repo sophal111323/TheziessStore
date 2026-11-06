@@ -3,7 +3,10 @@ export const dynamic = "force-dynamic";
 
 import { writeAuditForAdmin } from "@/lib/audit";
 import { notifyTelegram, escapeHtml } from "@/lib/telegram";
+<<<<<<< HEAD
 import { updateOrderDeliveryTelegramAlert } from "@/lib/telegram-order-notification";
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
 import { createAdminNotification } from "@/lib/adminNotifications";
 import { revalidateAdminChange } from "@/lib/adminRevalidate";
 import { logSecurityEvent } from "@/lib/secureLogger";
@@ -164,6 +167,7 @@ export const PATCH = withAdminAuth(
 
       if (nextStatus === "DELIVERED") {
         await consumeOrderCouponAtomically(order.id);
+<<<<<<< HEAD
         await updateOrderDeliveryTelegramAlert(order.orderNumber, "DELIVERED", {
           at: new Date(),
         }).catch(() => {});
@@ -177,6 +181,16 @@ export const PATCH = withAdminAuth(
 
       if (isManualPaid) {
         const prefix = `⚠️ <b>MANUAL ${escapeHtml(nextStatus)} (admin override, from ${escapeHtml(order.status)})</b>`;
+=======
+      } else if (nextStatus === "FAILED" || nextStatus === "CANCELLED") {
+        await releaseOrCancelCouponUsage(order.id, nextStatus as any);
+      }
+
+      if (nextStatus === "DELIVERED" || nextStatus === "PAID" || isManualPaid) {
+        const prefix = isManualPaid
+          ? `⚠️ <b>MANUAL ${escapeHtml(nextStatus)} (admin override, from ${escapeHtml(order.status)})</b>`
+          : `✅ <b>Order ${escapeHtml(nextStatus)}</b>`;
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
         await notifyTelegram(
           `${prefix}\n` +
             `#${escapeHtml(order.orderNumber)} — $${order.amountUsd.toFixed(2)}\n` +

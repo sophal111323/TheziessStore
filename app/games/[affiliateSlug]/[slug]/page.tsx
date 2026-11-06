@@ -92,7 +92,10 @@ export default async function AffiliateGamesPage({
             uidLabel: game.uidLabel,
             uidExample: game.uidExample,
             requiresServer: game.requiresServer,
+<<<<<<< HEAD
             hasZoneId: (game as any).hasZoneId ?? false,
+=======
+>>>>>>> e4e79c9a59c44a25992e6a6c6d23d99ee403298e
             servers: (() => {
               try {
                 return JSON.parse(game.servers || "[]");
